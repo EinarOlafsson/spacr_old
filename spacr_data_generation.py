@@ -19,8 +19,10 @@ import time
 import torch
 import json
 import traceback
+
 print('Torch available:', torch.cuda.is_available())
 print('CUDA version:',torch.version.cuda)
+
 import string
 import shutil
 import random
@@ -887,9 +889,6 @@ btrack_config = {
     }
 }
 
-#morphological_props = ['label', 'area', 'area_filled', 'area_bbox', 'convex_area', 'major_axis_length', 'minor_axis_length', 
-#                           'eccentricity', 'solidity', 'extent', 'perimeter', 'euler_number', 'equivalent_diameter_area', 'feret_diameter_max']
-
 def track_objects_over_time(masks, step_size=1, config=None):
     # Initialize btrack
     masks = np.stack(masks, axis=0)
@@ -1000,9 +999,6 @@ def plot_masks(batch, masks, flows, cmap='inferno', figuresize=20, nr=1, file_ty
         flows = [flows]
     else:
         flows = flows[0]
-    #if len(flows[0].shape) == 3:  # assuming that if one flow needs to be transposed, all do
-    #    flows = [f.transpose(2,0,1) for f in flows]
-
     if file_type == 'png':
         flows = [f[0] for f in flows]  # assuming this is what you want to do when file_type is 'png'
     font = figuresize/2
@@ -1043,19 +1039,6 @@ def filter_cp_masks(masks, flows, refine_masks, filter_size, minimum_size, maxim
             print(f'Number of objects before filtration: {num_objects}')
             #plot_mask_and_flow(mask, flow, figuresize)
             plot_masks(batch=image, masks=mask, flows=flow, cmap='inferno', figuresize=figuresize, nr=1, file_type='.npz', print_object_number=True)
-        #if refine_masks:
-            #flow = flow.transpose(2,0,1)  # Change flow shape from (H, W, 2) to (2, H, W)
-            #mask = dynamics.remove_bad_flow_masks(mask, flow, threshold=0.4, use_gpu=True)
-            #flow = flow.transpose(1,2,0)
-            #p, inds = dynamics.follow_flows(flow, mask, use_gpu=True)
-            #mask = dynamics.get_masks(p, iscell=False, rpad=20)
-            
-        #if plot:
-        #    print(f'After object flow filtration')
-        #    plot_mask_and_flow(mask, flow, figuresize)
-        
-        #if split_objects:
-        #    mask = split_objects_by_intensity(flow_output=mask, img=batch[idx, :, :, 1])
         
         if filter_size:
             props = measure.regionprops_table(mask, properties=['label', 'area'])  # Measure properties of labeled image regions.
@@ -3025,9 +3008,6 @@ def plot_recruitment(df, df_type, channel_of_interest, target, columns=[], figur
         axes[i].set_xticklabels(axes[i].get_xticklabels(), rotation=45)
     plt.tight_layout()
     plt.show()
-    
-    #'parasite_cell_mean_mean', 'parasite_cell_out_mean_mean', 'parasite_cell_q75_mean', 'parasite_outside_cell_mean_mean', 'parasite_outside_cell_q75_mean', 'parasite_cell_periphery_mean_mean'
-    #'parasite_nucleus_mean_mean', 'parasite_nucleus_q75_mean', 'parasite_outside_nucleus_mean_mean', 'parasite_outside_nucleus_q75_mean', 'parasite_nucleus_periphery_mean_mean', 'parasite_nucleus_out_mean_mean'
     
     columns = columns + ['parasite_cytoplasm_mean_mean', 'parasite_cytoplasm_q75_mean', 'parasite_periphery_cytoplasm_mean_mean', 'parasite_outside_cytoplasm_mean_mean', 'parasite_outside_cytoplasm_q75_mean']
     columns = columns + [f'parasite_slope_channel_{channel_of_interest}', f'parasite_cell_distance_channel_{channel_of_interest}', f'nucleus_cell_distance_channel_{channel_of_interest}']
