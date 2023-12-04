@@ -206,19 +206,7 @@ class MyDataset(Dataset):
         else:
             img = ToTensor()(img)
         return img, label, filename
-    
-    #def __getitem__(self, index):
-    #    label = self.labels[index]
-    #    if self.load_to_memory:
-    #        img = self.images[index]
-    #    else:
-    #        img = self.load_image(self.filenames[index])
-    #    if self.transform is not None:
-    #        img = self.transform(img)
-    #    else:
-    #        img = ToTensor()(img)
-    #    return img, label
-    
+
 class CombineLoaders:
     def __init__(self, train_loaders):
         self.train_loaders = train_loaders
@@ -421,13 +409,6 @@ class MyDataset(Dataset):
         if self.transform:
             img = self.transform(img)
         return img, label, filename
-    
-    #def __getitem__(self, index):
-    #    label = self.labels[index]
-    #    img = self.load_image(self.filenames[index])
-    #    if self.transform:
-    #        img = self.transform(img)
-    #    return img, label
 
 def generate_loaders(src, train_mode='erm', mode='train', image_size=228, batch_size=32, classes=['nc','pc'], num_workers=None, validation_split=0.0, max_show=2, pin_memory=False, normalize=False, verbose=False):
     plate_to_filenames = defaultdict(list)
@@ -601,8 +582,6 @@ class CustomCellClassifier(nn.Module):
             return checkpoint(self.custom_forward, x)
         else:
             return self.custom_forward(x)
-        
-
 
 #CNN and Transformer class, pick any Torch model.
 class TorchModel(nn.Module):
@@ -812,9 +791,6 @@ def evaluate_model_core(model, loader, loader_name, epoch, loss_type):
             pred = torch.where(output >= 0.5,
                                torch.Tensor([1.0]).to(device).float(),
                                torch.Tensor([0.0]).to(device).float())
-            #pred = torch.where(torch.gt(output, torch.Tensor([0.0]).to(device)),
-            #                   torch.Tensor([1.0]).to(device),
-            #                   torch.Tensor([0.0]).to(device))
             correct += pred.eq(target.view_as(pred)).sum().item()
             batch_prediction_pos_prob = torch.sigmoid(output).cpu().numpy()
             prediction_pos_probs.extend(batch_prediction_pos_prob.tolist())
@@ -1348,7 +1324,7 @@ def map_values(row, dict_, type_='col'):
 def split_data(df, group_by, object_type):
     
     df['prcfo'] = df['prcf'] + '_' + df[object_type]
-    #df = df.drop([object_type], axis=1)
+    
     # Set 'prcfo' as the index for both dataframes
     df = df.set_index(group_by, inplace=False)
     
@@ -3017,9 +2993,7 @@ def regression_analasys(dv_df,sequencing_loc, min_reads=75, min_wells=2, max_wel
 
         print(f"Columns with high VIF: {high_vif_columns}")
         x = x.drop(columns=high_vif_columns)  # dropping columns with high VIF
-        #fisher_df = pd.concat([x,y], axis=1)
-        #fisher_df = fisher_df.drop(columns=['const'])
-        #display(fisher_df)
+
         if clean_regression:
             # 1. Filter by standardized residuals
             std_resid = model.get_influence().resid_studentized_internal
@@ -3121,11 +3095,6 @@ def reg_v_plot(df):
     plt.title('Volcano Plot', fontsize=12)
     plt.xlabel('Coefficient', fontsize=12)
     plt.ylabel('-log10(P-value)', fontsize=12)
-
-    # Comment out the colorbar
-    # cbar = plt.colorbar(sc, ticks=[-1, 1])
-    # cbar.set_label('Sign of Coefficient')
-    # cbar.set_ticklabels(['-ve', '+ve'])
 
     # Add text for specified points
     for idx, row in df.iterrows():
@@ -3264,7 +3233,6 @@ def analyze_data_reg(sequencing_loc, dv_loc, agg_type = 'mean', min_cell_count=5
 
         # Display model metrics and summary
         model_metrics(model)
-        #print(model.summary())
 
         if refine_model:
             # Filter outliers
@@ -3493,36 +3461,6 @@ def analyze_data_reg(sequencing_loc, dv_loc, agg_type = 'mean', dv_col='pred', t
     
     columns_list = ['c1', 'c2', 'c3']
     plate_list = ['p1','p3','p4']
-    #['TGGT1_294200_1', 'TGGT1_258230_3', 'TGGT1_246590_1', 'TGGT1_298080_2', 'TGGT1_321800_1', 'TGGT1_232020_1', 'TGGT1_276130_1']
-    #g14_well_grnas = ['TGGT1_294200_1',
-    #                'TGGT1_258230_3',
-    #                'TGGT1_246590_1',
-    #                'TGGT1_201630B_1',
-    #                'TGGT1_212410_28',
-    #                'TGGT1_360830_30',
-    #                'TGGT1_216150_3',
-    #                'TGGT1_241710_64',
-    #                'TGGT1_269340_3',
-    #                'TGGT1_411640_44',
-    #                'TGGT1_258462_3',
-    #                'TGGT1_275850_2',
-    #                'TGGT1_227010_1',
-    #                'TGGT1_222100_2',
-    #                'TGGT1_227620_3',
-    #                'TGGT1_291630_2',
-    #                'TGGT1_269690_3',
-    #                'TGGT1_273980_3',
-    #                'TGGT1_290700_2',
-    #                'TGGT1_298080_2',
-    #                'TGGT1_321800_1',
-    #                'TGGT1_232020_1',
-    #                'TGGT1_276130_1',
-    #                'TGGT1_213050_1',
-    #                'TGGT1_234950_2',
-    #                'TGGT1_299060_2',
-    #                'TGGT1_236890_3',
-    #                'TGGT1_231960_2',
-    #                'TGGT1_280435_3']
     
     dv_df = pd.read_csv(dv_loc)#, index_col='prc')    
     
@@ -3630,7 +3568,7 @@ def analyze_data_reg(sequencing_loc, dv_loc, agg_type = 'mean', dv_col='pred', t
             'T-Value': result.tvalues,
             'p': result.pvalues
         })
-
+        
         display(results_df)
         reg_v_plot(df=results_df)
         
