@@ -21,7 +21,7 @@ import warnings
 import imageio
 from matplotlib.patches import Polygon
 import matplotlib as mpl
-%matplotlib qt
+#%matplotlib qt
 import gc
 
 def normalize_to_dtype(array, q1=2, q2=98, percentiles=None):
