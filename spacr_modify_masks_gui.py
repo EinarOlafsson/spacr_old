@@ -324,13 +324,12 @@ def modify_masks(img_src, mask_src):
             else:
                 print(f"No corresponding mask found for {file}")
                 
-def modify_masks(img_src, mask_src):
-    global save_clicked, current_file_index, file_list
-    file_list = [f for f in os.listdir(img_src) if f.lower().endswith('.tif')]
-    current_file_index = 0
-
-    if file_list:
-        load_next_image(img_src, mask_src)
+#def modify_masks(img_src, mask_src):
+#    global save_clicked, current_file_index, file_list
+#    file_list = [f for f in os.listdir(img_src) if f.lower().endswith('.tif')]
+#    current_file_index = 0
+#    if file_list:
+#        load_next_image(img_src, mask_src)
 
 def initialize_file_list(img_src):
     global file_list
