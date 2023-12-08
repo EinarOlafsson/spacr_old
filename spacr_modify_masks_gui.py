@@ -333,7 +333,7 @@ def load_next_image(img_src, mask_src):
         mask_path = os.path.join(mask_src, file)
         
         if os.path.exists(mask_path):
-            medify_mask(image_path, mask_path, itol=1000, mpixels=1000, min_size_for_removal=100)
+            medify_mask(image_path, mask_path, itol=1000, mpixels=1000, min_size_for_removal=100, img_src=img_src, mask_src=mask_src)
         else:
             print(f"No corresponding mask found for {file}")
             current_file_index += 1
