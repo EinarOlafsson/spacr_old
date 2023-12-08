@@ -171,10 +171,11 @@ def fill_holes(event):
     overlay.set_data(mask)
     overlay.set_cmap(random_cmap)
     fig.canvas.draw()
-    
-def save_mask(event, mask_path):
-    global mask, current_file_index, img_src, mask_src
-    #global mask, save_clicked
+
+#Function to save the modified mask
+def save_mask(event, mask_path, img_src, mask_src):
+    global mask, current_file_index
+
     # Create the 'new_masks' folder if it doesn't exist
     new_masks_folder = os.path.join(os.path.dirname(mask_path), 'new_masks')
     os.makedirs(new_masks_folder, exist_ok=True)
@@ -186,10 +187,10 @@ def save_mask(event, mask_path):
     # Save the mask
     imageio.imwrite(new_file_path, mask)
     print(f'Mask saved to {new_file_path}')
-    save_clicked = True
+    
     current_file_index += 1
     plt.close()  # Close current figure
-    load_next_image(img_src, mask_src)  # Load next image
+    load_next_image(img_src, mask_src)
 
 # Function to convert RGB to Matplotlib color format
 def rgb_to_mpl_color(r, g, b):
@@ -268,7 +269,7 @@ def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal):
     ax_save = plt.axes([0.8, 0.35, 0.15, 0.075])
     btn_save = Button(ax_save, 'Save Mask', color=button_color_2)
     #btn_save.on_clicked(save_mask)
-    btn_save.on_clicked(lambda event: save_mask(event, mask_path))
+    btn_save.on_clicked(lambda event: save_mask(event, mask_path, img_src, mask_src))
     btn_save.label.set_fontsize(10)
     btn_save.label.set_weight('bold')
     btn_save.label.set_color('white')
@@ -330,8 +331,15 @@ def modify_masks(img_src, mask_src):
     if file_list:
         load_next_image(img_src, mask_src)
 
+def initialize_file_list(img_src):
+    global file_list
+    file_list = [f for f in os.listdir(img_src) if f.lower().endswith('.tif')]
+    return file_list
+
 def load_next_image(img_src, mask_src):
     global current_file_index, file_list
+    file_list = initialize_file_list(img_src)  # Update the file list
+
     if current_file_index < len(file_list):
         file = file_list[current_file_index]
         image_path = os.path.join(img_src, file)
