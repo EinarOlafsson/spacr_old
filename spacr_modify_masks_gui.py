@@ -210,7 +210,7 @@ def hover(event):
 
 
 def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal):
-    global image, mask, overlay, fig, random_cmap
+    global image, mask, overlay, fig, random_cmap, img_src, mask_src
     global slider_itol, slider_mpixels, slider_min_size, slider_radius, check_magic_wand
     global btn_remove, btn_relabel, btn_fill_holes, btn_save, ax  # Add 'ax' here
 
