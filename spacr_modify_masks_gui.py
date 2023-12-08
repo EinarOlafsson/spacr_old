@@ -198,8 +198,8 @@ def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     global slider_itol, slider_mpixels, slider_min_size, slider_radius, check_magic_wand
     global btn_remove, btn_relabel, btn_fill_holes, btn_save, ax
 
+    # Modified save_mask_wrapper function
     def save_mask_wrapper(event):
-        nonlocal img_src, mask_src
         save_mask(event, mask_path, img_src, mask_src)
 
     # Assign values to global variables
@@ -294,9 +294,9 @@ def modify_masks(img_src, mask_src):
         if ext.lower() == '.tif':
             image_path = os.path.join(img_src, file)
             mask_path = os.path.join(mask_src, file)
-
             if os.path.exists(mask_path):
                 save_clicked = False
+                
                 medify_mask(image_path, mask_path, itol=1000, mpixels=1000, min_size_for_removal=100, img_src=img_src, mask_src=mask_src)
                 
                 # Update the GUI and wait for the save button to be clicked
