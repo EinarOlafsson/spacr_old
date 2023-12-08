@@ -1,5 +1,5 @@
 # spacr
-Spatial phenotype analysis of crisp screens (spacr). A collection of functions for generating measurtement and classefication data from microscopy images from high content imaging screens.
+Spatial phenotype analysis of crisp screens (spacr). A collection of functions for generating measurement and classification data from microscopy images from high content imaging screens.
 
 Features:
 
