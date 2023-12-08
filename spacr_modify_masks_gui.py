@@ -213,8 +213,9 @@ def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal):
     global image, mask, overlay, fig, random_cmap
     global slider_itol, slider_mpixels, slider_min_size, slider_radius, check_magic_wand
     global btn_remove, btn_relabel, btn_fill_holes, btn_save, ax  # Add 'ax' here
-    #global mask_path
-    #mask_path = os.path.join(mask_src, file)
+
+    def save_mask_wrapper(event):
+        save_mask(event, mask_path, img_src, mask_src)
 
     # Assign values to global variables
     intensity_tolerance = itol
@@ -270,7 +271,7 @@ def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal):
     # Add a button for saving the mask
     ax_save = plt.axes([0.8, 0.35, 0.15, 0.075])
     btn_save = Button(ax_save, 'Save Mask', color=button_color_2)
-    btn_save.on_clicked(lambda event, img_src=img_src, mask_src=mask_src: save_mask(event, mask_path, img_src, mask_src))
+    btn_save.on_clicked(save_mask_wrapper)
     btn_save.label.set_fontsize(10)
     btn_save.label.set_weight('bold')
     btn_save.label.set_color('white')
@@ -312,8 +313,8 @@ def modify_masks(img_src, mask_src):
 
             if os.path.exists(mask_path):
                 save_clicked = False
-                medify_mask(image_path, mask_path, itol=1000, mpixels=1000, min_size_for_removal=100, img_src, mask_src)
-
+                medify_mask(image_path, mask_path, itol=1000, mpixels=1000, min_size_for_removal=100, img_src=img_src, mask_src=mask_src)
+                
                 # Update the GUI and wait for the save button to be clicked
                 while not save_clicked:
                     plt.pause(0.1)  # Allow GUI to process events
