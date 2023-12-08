@@ -3,6 +3,8 @@
 #import matplotlib.pyplot as plt
 #global save_clicked
 #save_clicked = False
+import matplotlib.pyplot as plt
+
 
 import os
 import time
@@ -11,7 +13,6 @@ import imageio.v2 as imageio
 from skimage import morphology
 from collections import deque
 from skimage.exposure import rescale_intensity
-import matplotlib.pyplot as plt
 from scipy.ndimage import binary_dilation
 from skimage.morphology import disk
 import matplotlib as mpl
