@@ -297,7 +297,7 @@ def modify_masks(img_src, mask_src):
             if os.path.exists(mask_path):
                 save_clicked = False
                 
-                medify_mask(image_path, mask_path, itol=1000, mpixels=1000, min_size_for_removal=100, img_src=img_src, mask_src=mask_src)
+                medify_mask(image_path, mask_path, itol=1000, mpixels=1000, min_size_for_removal=100, img_src=img_src, mask_src=mask_src)                
                 
                 # Update the GUI and wait for the save button to be clicked
                 while not save_clicked:
