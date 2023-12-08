@@ -101,21 +101,7 @@ def magic_wand(image, mask, seed_point, intensity_tolerance=100, max_pixels=1000
                         to_check.append((nx, ny))
 
     return mask
-
-# Function to modify mask
-#def modify_mask(mask, position):
-#    y, x = position
-#    if mask[y, x] == 0:
-#        non_zero_coords = np.argwhere(mask)
-#        distances = np.sum((non_zero_coords - np.array(position))**2, axis=1)
-#        closest_pixel = non_zero_coords[np.argmin(distances)]
-#        mask_value = mask[closest_pixel[0], closest_pixel[1]]
-#    else:
-#        mask_value = mask[y, x]
-
-#    mask[y, x] = mask_value
-#    return mask
-
+    
 # Mouse click event handler
 def on_click(event):
     global mask, slider_itol, slider_mpixels, slider_radius, check_magic_wand
@@ -208,7 +194,7 @@ def hover(event):
             plt.gca().set_title(f"Intensity: {intensity_val}, Mask: {mask_val}")
 
 def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal):
-    global image, mask, overlay, fig, random_cmap, img_src, mask_src
+    global image, mask, overlay, fig, random_cmap
     global slider_itol, slider_mpixels, slider_min_size, slider_radius, check_magic_wand
     global btn_remove, btn_relabel, btn_fill_holes, btn_save, ax
 
@@ -302,7 +288,7 @@ def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal):
     plt.show()
 
 def modify_masks(img_src, mask_src):
-    global save_clicked, current_file_index, file_list, img_src, mask_src
+    global save_clicked, current_file_index, file_list
     for file in os.listdir(img_src):
         ext = os.path.splitext(file)[1]
         if ext.lower() == '.tif':
