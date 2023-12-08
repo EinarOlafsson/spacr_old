@@ -286,31 +286,7 @@ def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     slider_radius = Slider(ax_radius, 'Radius', 0, 10, valinit=1)
 
     plt.show()
-
-def modify_masks(img_src, mask_src):
-    
-    global save_clicked, current_file_index, file_list
-    current_file_index = 0
-    for file in os.listdir(img_src):
-        ext = os.path.splitext(file)[1]
-        if ext.lower() == '.tif':
-            image_path = os.path.join(img_src, file)
-            mask_path = os.path.join(mask_src, file)
-            if os.path.exists(mask_path):
-                save_clicked = False
-                
-                medify_mask(image_path, mask_path, itol=1000, mpixels=1000, min_size_for_removal=100, img_src=img_src, mask_src=mask_src)                
-                
-                # Update the GUI and wait for the save button to be clicked
-                while not save_clicked:
-                    plt.pause(0.1)  # Allow GUI to process events
-                
-                # Close the figure and proceed to next image
-                plt.close()
-                save_clicked = False
-            else:
-                print(f"No corresponding mask found for {file}")
-                
+          
 def modify_masks(img_src, mask_src):
     global save_clicked, current_file_index, file_list
     file_list = [f for f in os.listdir(img_src) if f.lower().endswith('.tif')]
