@@ -193,7 +193,7 @@ def hover(event):
             mask_val = mask[y, x]
             plt.gca().set_title(f"Intensity: {intensity_val}, Mask: {mask_val}")
 
-def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal):
+def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_src, mask_src):
     global image, mask, overlay, fig, random_cmap
     global slider_itol, slider_mpixels, slider_min_size, slider_radius, check_magic_wand
     global btn_remove, btn_relabel, btn_fill_holes, btn_save, ax
