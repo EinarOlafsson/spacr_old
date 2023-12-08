@@ -268,7 +268,6 @@ def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal):
     # Add a button for saving the mask
     ax_save = plt.axes([0.8, 0.35, 0.15, 0.075])
     btn_save = Button(ax_save, 'Save Mask', color=button_color_2)
-    #btn_save.on_clicked(save_mask)
     btn_save.on_clicked(lambda event: save_mask(event, mask_path, img_src, mask_src))
     btn_save.label.set_fontsize(10)
     btn_save.label.set_weight('bold')
