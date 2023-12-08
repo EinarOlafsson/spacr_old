@@ -1,7 +1,11 @@
-%matplotlib qt
+## Run in notebook
+#%matplotlib qt
+#import matplotlib.pyplot as plt
+#global save_clicked
+#save_clicked = False
+
 import os
 import time
-import matplotlib.pyplot as plt
 import numpy as np
 import imageio.v2 as imageio
 from skimage import morphology
@@ -10,15 +14,10 @@ from skimage.exposure import rescale_intensity
 from scipy.ndimage import binary_dilation
 from skimage.morphology import disk
 import matplotlib as mpl
-from matplotlib.widgets import CheckButtons
-from matplotlib.widgets import Button
-from matplotlib.widgets import Slider
+from matplotlib.widgets import CheckButtons, Button, Slider
 import skimage.morphology as morph
 from skimage.measure import label
 from scipy.ndimage import binary_fill_holes
-global save_clicked
-save_clicked = False
-
 
 # Function to normalize the image
 def normalize_to_dtype(array, q1=2, q2=98):
