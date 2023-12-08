@@ -303,8 +303,8 @@ def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal):
     plt.show()
 
 def modify_masks(img_src, mask_src):
-     global save_clicked, current_file_index, file_list
-
+    global save_clicked, current_file_index, file_list
+    
     for file in os.listdir(img_src):
         ext = os.path.splitext(file)[1]
         if ext.lower() == '.tif':
