@@ -2138,7 +2138,7 @@ def save_settings_to_db(settings):
     settings_df.to_sql('settings', conn, if_exists='replace', index=False)  # Replace the table if it already exists
     conn.close()
 
-def measure_crop(settings=settings):
+def measure_crop(settings):
     
     save_settings_to_db(settings)
 
