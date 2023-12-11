@@ -3070,10 +3070,20 @@ def plot_recruitment(df, df_type, channel_of_interest, target, columns=[], figur
     plt.tight_layout()
     plt.show()
 
-def analyze_recruitment(src, plot=True, plot_nr=1, interactive=False, remove_background=False, target='protein of interest', cell_dim=4, nucleus_dim=5, parasite_dim=6,channel_of_interest=3, cell_metadata_ls=['Hela'], cell_loc_ls=None, parasite_metadata_ls=['rh', 'comp', 'dg8', 'TKO'], parasite_loc_ls=[['c2'], ['c3'], ['c4'], ['c5']], treatment_ls=['cm'], treatment_loc_ls=[], parasite_size_min=0, nucleus_size_min=0, cell_size_min=0, parasite_min=0, nucleus_min=0, cell_min=0, target_min=0, mask_chans=[0,1,2], plot_control=False, filter_data=False, include_multinucleated=False, include_multiinfected=False, col_names=['col','col','col'], size_quantiles=True, cells_per_well=10, include_noninfected=False, figuresize=20, backgrounds=[100,100,100,100], channel_dims=[0,1,2,3], include_border_parasites=False, save_filtered_filelist=False):
+def analyze_recruitment(src, plot=True, plot_nr=1, interactive=False, remove_background=False, target='protein of interest', cell_dim=4, nucleus_dim=5, parasite_dim=6,channel_of_interest=3, cell_metadata_ls=['Hela'], cell_loc_ls=None, parasite_metadata_ls=['rh', 'comp', 'dg8', 'TKO'], parasite_loc_ls=[['c2'], ['c3'], ['c4'], ['c5']], treatment_ls=['cm'], treatment_loc_ls=[], parasite_size_min=0, nucleus_size_min=0, cell_size_min=0, parasite_min=0, nucleus_min=0, cell_min=0, target_min=0, mask_chans=[0,1,2], plot_control=False, filter_data=False, include_multinucleated=False, include_multiinfected=False, col_names='col', size_quantiles=True, cells_per_well=10, include_noninfected=False, figuresize=20, backgrounds=100, channel_dims=[0,1,2,3], include_border_parasites=False):
     mask_dims=[cell_dim,nucleus_dim,parasite_dim]
     
-    #if save:
+    if isinstance(col_names, str):
+        col_names = [col_names, col_names, col_names]
+    if isinstance(col_names, list):
+        col_names = col_names
+
+    if isinstance(backgrounds, int):
+        backgrounds = [backgrounds, backgrounds, backgrounds, backgrounds]
+    if isinstance(backgrounds, float):
+        backgrounds = [backgrounds, backgrounds, backgrounds, backgrounds]
+    if isinstance(backgrounds, list):
+        backgrounds = backgrounds
         
     
     sns.color_palette("mako", as_cmap=True)
@@ -3197,8 +3207,8 @@ def analyze_recruitment(src, plot=True, plot_nr=1, interactive=False, remove_bac
                 ax.text(x_norm, -0.4, f'n:{n_samples}\n{min_recruitment:.2f}\n{max_recruitment:.2f}', ha='center', va='top', transform=ax.transAxes)
         plt.tight_layout()
         plt.show()
-    if save_filtered_filelist:
-        save_filtered_cells_to_csv(src, cell_dim=cell_dim, nucleus_dim=nucleus_dim, parasite_dim=parasite_dim, include_multinucleated=include_multinucleated, include_multiinfected=include_multiinfected, include_noninfected=include_noninfected, include_border_parasites=include_border_parasites, verbose=True)
+    #if save_filtered_filelist:
+    #    save_filtered_cells_to_csv(src, cell_dim=cell_dim, nucleus_dim=nucleus_dim, parasite_dim=parasite_dim, include_multinucleated=include_multinucleated, include_multiinfected=include_multiinfected, include_noninfected=include_noninfected, include_border_parasites=include_border_parasites, verbose=True)
     
     cells = df
     wells = df_well
