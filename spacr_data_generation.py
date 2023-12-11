@@ -1627,7 +1627,12 @@ def calculate_homogeneity(label, channel, distances=[2,4,8,16,32,64]):
     
     return homogeneity_df
 
-def intensity_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask, channel_arrays, sizes=[3, 6, 12, 24], periphery=True, outside=True, radial_dist=True, calculate_correlation=True, homogeneity=True, distances=[2,4,8,16,32,64], settings=settings):
+def intensity_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask, channel_arrays, settings, sizes=[3, 6, 12, 24], periphery=True, outside=True, radial_dist=True, calculate_correlation=True, homogeneity=True, distances=[2,4,8,16,32,64]):
+    
+    radial_dist=settings['radial_dist']
+    calculate_correlation=settings['calculate_correlation']
+    homogeneity=settings['homogeneity']
+    distances=settings['homogeneity_distances']
     
     intensity_props = ["label", "centroid_weighted", "centroid_weighted_local", "max_intensity", "mean_intensity", "min_intensity"]
     col_lables = ['region_label', 'mean', '5_percentile', '10_percentile', '25_percentile', '50_percentile', '75_percentile', '85_percentile', '95_percentile']
@@ -1986,7 +1991,7 @@ def measure_crop_core(index, time_ls, file, settings=settings):
 
         if settings['save_measurements']:
             cell_df, nucleus_df, parasite_df, cytoplasm_df = morphological_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask)
-            cell_intensity_df, nucleus_intensity_df, parasite_intensity_df, cytoplasm_intensity_df = intensity_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask, channel_arrays, sizes=[1, 2, 3, 4, 5], periphery=True, outside=True, radial_dist=settings['radial_dist'], calculate_correlation=settings['calculate_correlation'], homogeneity=settings['homogeneity'], distances=settings['homogeneity_distances'], settings=settings)
+            cell_intensity_df, nucleus_intensity_df, parasite_intensity_df, cytoplasm_intensity_df = intensity_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask, channel_arrays, settings, sizes=[1, 2, 3, 4, 5], periphery=True, outside=True)
             cell_merged_df = merge_and_save_to_database(cell_df, cell_intensity_df, 'cell', source_folder, file_name, settings['experiment'])
             nucleus_merged_df = merge_and_save_to_database(nucleus_df, nucleus_intensity_df, 'nucleus', source_folder, file_name, settings['experiment'])
             parasite_merged_df = merge_and_save_to_database(parasite_df, parasite_intensity_df, 'parasite', source_folder, file_name, settings['experiment'])
