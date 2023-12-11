@@ -1571,7 +1571,7 @@ def create_dataframe(radial_distributions, object_type):
     df = df.reset_index().rename(columns={'index': 'label'})
     return df
 
-def calculate_correlation_object_level(channel_image1, channel_image2, mask, thresholds=[15,85]):
+def calculate_correlation_object_level(channel_image1, channel_image2, mask, thresholds):
     corr_data = {}
     for i in np.unique(mask)[1:]:
         object_mask = (mask == i)
