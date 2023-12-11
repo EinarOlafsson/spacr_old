@@ -1627,7 +1627,8 @@ def calculate_homogeneity(label, channel, distances=[2,4,8,16,32,64]):
     
     return homogeneity_df
 
-def intensity_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask, channel_arrays, settings, sizes=[3, 6, 12, 24], periphery=True, outside=True, radial_dist=True, calculate_correlation=True, homogeneity=True, distances=[2,4,8,16,32,64]):
+def intensity_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask, channel_arrays, settings, sizes=[3, 6, 12, 24], periphery=True, outside=True):
+    #radial_dist=True, calculate_correlation=True, homogeneity=True, distances=[2,4,8,16,32,64]
     
     radial_dist=settings['radial_dist']
     calculate_correlation=settings['calculate_correlation']
