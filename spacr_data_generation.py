@@ -1899,7 +1899,7 @@ def generate_names(file_name, cell_id, cell_nuclei_ids, cell_parasite_ids, sourc
     table_name = fldr.replace("/", "_")
     return img_name, fldr, table_name
 
-def measure_crop_core(index, time_ls, file, settings=settings):
+def measure_crop_core(index, time_ls, file, settings):
     start = time.time()
     try:
         #files_to_process = len(os.listdir(settings['input_folder']))
