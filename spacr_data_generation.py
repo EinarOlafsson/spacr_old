@@ -3736,3 +3736,70 @@ def process_folder_and_append_to_db(folder, db_conn, counter):
         print("SQLite error:", e, flush=True)
     
     return counter
+
+def plot_data(csv_loc, channel_of_interest, target, category_order, figuresize=50):
+    import math
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    
+    df = pd.read_csv(csv_loc)
+
+    
+    color_list = [(55/255, 155/255, 155/255), 
+              (155/255, 55/255, 155/255), 
+              (55/255, 155/255, 255/255), 
+              (255/255, 55/255, 155/255)]
+    
+    columns = ['parasite_outside_cell_mean_mean', 'parasite_outside_cytoplasm_mean_mean', 'parasite_outside_nucleus_mean_mean', 'parasite_outside_cell_q75_mean', 'parasite_outside_cytoplasm_q75_mean', 'parasite_outside_nucleus_q75_mean', 'parasite_periphery_cell_mean_mean','parasite_periphery_cytoplasm_mean_mean' ,'parasite_periphery_nucleus_mean_mean']
+    
+    width = figuresize*2
+    columns_per_row = math.ceil(len(columns) / 2)  # Number of columns per row, rounded up
+    height = (figuresize*2)/columns_per_row
+    font = figuresize/2
+    fig, axes = plt.subplots(nrows=2, ncols=columns_per_row, figsize=(width, height * 2))  # Changed nrows to 2
+    axes = axes.flatten()  # Flatten the 2D array to 1D for easier indexing
+
+    #print(f'{columns}')
+
+    for i, col in enumerate(columns):
+
+        ax = axes[i]
+        sns.barplot(ax=ax, data=df, x='condition', y=f'{col}', hue='parasite', capsize=.1, ci='sd', dodge=False, order=category_order)
+        #ax.set_xlabel(f'Parasite {df_type}', fontsize=font)
+        ax.set_ylabel(f'{col}', fontsize=int(font*2))
+        ax.legend_.remove()
+        ax.tick_params(axis='both', which='major', labelsize=font)
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+        if i <= 5:
+            ax.set_ylim(1, None)
+
+    # If there are fewer subplots than the grid size, you may want to hide the remaining empty subplots
+    for i in range(len(columns), len(axes)):
+        axes[i].axis('off')
+
+    plt.tight_layout()
+    plt.show()
+    
+    fig, axes = plt.subplots(nrows=2, ncols=columns_per_row, figsize=(width, height * 2))  # Changed nrows to 2
+    axes = axes.flatten()  # Flatten the 2D array to 1D for easier indexing
+
+    #print(f'{columns}')
+
+    for i, col in enumerate(columns):
+
+        ax = axes[i]
+        sns.stripplot(ax=ax, data=df, x='condition', y=f'{col}', hue='parasite', dodge=False, jitter=True, order=category_order)
+        ax.set_ylabel(f'{col}', fontsize=int(font*2))
+        ax.legend_.remove()
+        ax.tick_params(axis='both', which='major', labelsize=font)
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+        if i <= 5:
+            ax.set_ylim(1, None)
+
+    # If there are fewer subplots than the grid size, you may want to hide the remaining empty subplots
+    for i in range(len(columns), len(axes)):
+        axes[i].axis('off')
+
+    plt.tight_layout()
+    plt.show()
