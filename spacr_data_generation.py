@@ -1,14 +1,3 @@
-##install spacr:
-
-#using nvidia drivers: 525.125.06 woth CUDA Version: 12.0 
-#1. conda update conda
-#2. conda create -n spacr python=3.9
-#3. conda config --add channels conda-forge
-#4. conda install cellpose pandas scikit-learn scikit-image seaborn matplotlib ipykernel mahotas xgboost moviepy ipywidgets
-#5. pip3 install torch==2.0.0+cu118 torchvision==0.15.1+cu118 torchaudio==2.0.1 --index-url https://download.pytorch.org/whl/cu118
-#7. pip3 install btrack
-
-
 import os
 import gc
 import re
