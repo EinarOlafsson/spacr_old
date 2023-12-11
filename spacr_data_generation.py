@@ -3737,7 +3737,7 @@ def process_folder_and_append_to_db(folder, db_conn, counter):
     
     return counter
 
-def plot_data(csv_loc, category_order, figuresize=50):
+def plot_data(csv_loc, category_order, figuresize=50, ymin=1):
 
     df = pd.read_csv(csv_loc)
 
@@ -3747,7 +3747,7 @@ def plot_data(csv_loc, category_order, figuresize=50):
               (255/255, 55/255, 155/255)]
     
     #columns = ['parasite_outside_cell_mean_mean', 'parasite_outside_cytoplasm_mean_mean', 'parasite_outside_nucleus_mean_mean', 'parasite_outside_cell_q75_mean', 'parasite_outside_cytoplasm_q75_mean', 'parasite_outside_nucleus_q75_mean', 'parasite_periphery_cell_mean_mean','parasite_periphery_cytoplasm_mean_mean' ,'parasite_periphery_nucleus_mean_mean']
-    columns = ['parasite_cytoplasm_mean_mean', 'parasite_cytoplasm_q75_mean', 'parasite_outside_cytoplasm_mean_mean', 'parasite_outside_cytoplasm_q75_mean','parasite_periphery_cytoplasm_mean_mean', 'parasite_periphery_cytoplasm_q75_mean']
+    columns = ['parasite_cytoplasm_mean_mean', 'parasite_cytoplasm_q75_mean', 'parasite_outside_cytoplasm_mean_mean', 'parasite_outside_cytoplasm_q75_mean','parasite_periphery_cytoplasm_mean_mean']
 
     width = figuresize*2
     columns_per_row = math.ceil(len(columns) / 2)  # Number of columns per row, rounded up
@@ -3765,7 +3765,7 @@ def plot_data(csv_loc, category_order, figuresize=50):
         ax.tick_params(axis='both', which='major', labelsize=font)
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
         if i <= 5:
-            ax.set_ylim(1, None)
+            ax.set_ylim(ymin, None)
 
     # If there are fewer subplots than the grid size, you may want to hide the remaining empty subplots
     for i in range(len(columns), len(axes)):
@@ -3794,7 +3794,7 @@ def plot_data(csv_loc, category_order, figuresize=50):
         ax.tick_params(axis='both', which='major', labelsize=font)
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
         if i <= 5:
-            ax.set_ylim(1, None)
+            ax.set_ylim(ymin, None)
 
     # If there are fewer subplots than the grid size, you may want to hide the remaining empty subplots
     for i in range(len(columns), len(axes)):
