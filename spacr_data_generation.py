@@ -3737,7 +3737,7 @@ def process_folder_and_append_to_db(folder, db_conn, counter):
     
     return counter
 
-def plot_data(csv_loc, category_order, figuresize=50, ymin=1):
+def plot_data(csv_loc, category_order, figuresize=50, y_min=1):
 
     df = pd.read_csv(csv_loc)
 
@@ -3765,7 +3765,7 @@ def plot_data(csv_loc, category_order, figuresize=50, ymin=1):
         ax.tick_params(axis='both', which='major', labelsize=font)
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
         if i <= 5:
-            ax.set_ylim(ymin, None)
+            ax.set_ylim(y_min, None)
 
     # If there are fewer subplots than the grid size, you may want to hide the remaining empty subplots
     for i in range(len(columns), len(axes)):
@@ -3794,7 +3794,7 @@ def plot_data(csv_loc, category_order, figuresize=50, ymin=1):
         ax.tick_params(axis='both', which='major', labelsize=font)
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
         if i <= 5:
-            ax.set_ylim(ymin, None)
+            ax.set_ylim(y_min, None)
 
     # If there are fewer subplots than the grid size, you may want to hide the remaining empty subplots
     for i in range(len(columns), len(axes)):
