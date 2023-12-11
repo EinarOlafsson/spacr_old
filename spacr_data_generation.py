@@ -1920,34 +1920,34 @@ def measure_crop_core(index, time_ls, file, settings):
         cell_mask = data[:, :, settings['cell_dim']].astype(data_type)
         if settings['nuclei_dim'] is not None:
             nuclei_mask = data[:, :, settings['nuclei_dim']].astype(data_type)
-            if settings['expand_nuclei']:
-                struct = generate_binary_structure(2, 2)
-                dilated_mask = np.zeros_like(nuclei_mask)
-                unique_nuclei = np.unique(nuclei_mask)
-                unique_nuclei = unique_nuclei[unique_nuclei != 0]
-                for nucleus_label in unique_nuclei:
-                    nucleus = nuclei_mask == nucleus_label
-                    for i in range(settings['expand_nuclei_by_px']):
-                        nucleus = binary_dilation(nucleus, structure=struct)
-                    dilated_mask[nucleus] = nucleus_label
-                nuclei_mask = dilated_mask
+            #if settings['expand_nuclei']:
+            #    struct = generate_binary_structure(2, 2)
+            #    dilated_mask = np.zeros_like(nuclei_mask)
+            #    unique_nuclei = np.unique(nuclei_mask)
+            #    unique_nuclei = unique_nuclei[unique_nuclei != 0]
+            #    for nucleus_label in unique_nuclei:
+            #        nucleus = nuclei_mask == nucleus_label
+            #        for i in range(settings['expand_nuclei_by_px']):
+            #            nucleus = binary_dilation(nucleus, structure=struct)
+            #        dilated_mask[nucleus] = nucleus_label
+            #    nuclei_mask = dilated_mask
             nuclei_mask, cell_mask = merge_overlapping_objects(mask1=nuclei_mask, mask2=cell_mask)
         else:
             nuclei_mask = np.zeros_like(cell_mask)
 
         if settings['parasite_dim'] is not None:
             parasite_mask = data[:, :, settings['parasite_dim']].astype(data_type)
-            if settings['expand_parasite']:
-                struct = generate_binary_structure(2, 2)
-                dilated_mask = np.zeros_like(parasite_mask)
-                unique_parasite = np.unique(parasite_mask)
-                unique_parasite = unique_nuclei[unique_parasite != 0]
-                for parasite_label in unique_parasite:
-                    parasite = parasite_mask == parasite_label
-                    for i in range(settings['expand_parasite_by_px']):
-                        parasite = binary_dilation(parasite, structure=struct)
-                    dilated_mask[parasite] = parasite_label
-                parasite_mask = dilated_mask
+            #if settings['expand_parasite']:
+            #    struct = generate_binary_structure(2, 2)
+            #    dilated_mask = np.zeros_like(parasite_mask)
+            #    unique_parasite = np.unique(parasite_mask)
+            #    unique_parasite = unique_nuclei[unique_parasite != 0]
+            #    for parasite_label in unique_parasite:
+            #        parasite = parasite_mask == parasite_label
+            #        for i in range(settings['expand_parasite_by_px']):
+            #            parasite = binary_dilation(parasite, structure=struct)
+            #        dilated_mask[parasite] = parasite_label
+            #    parasite_mask = dilated_mask
             if settings['merge_edge_parasite_cells']:
                 parasite_mask, cell_mask = merge_overlapping_objects(mask1=parasite_mask, mask2=cell_mask)
         else:
@@ -2005,7 +2005,7 @@ def measure_crop_core(index, time_ls, file, settings):
             if isinstance(settings['dialate_pngs'], list):
                 dialate_pngs = settings['dialate_pngs']
 
-            if isinstance(settings['dialate_png_ratios'], bool):
+            if isinstance(settings['dialate_png_ratios'], float):
                 dialate_png_ratios = [settings['dialate_png_ratios'], settings['dialate_png_ratios'], settings['dialate_png_ratios']]
             if isinstance(settings['dialate_png_ratios'], list):
                 dialate_png_ratios = settings['dialate_png_ratios']
@@ -2444,12 +2444,41 @@ def mip_all(src):
             np.save(os.path.join(src, filename), concatenated)
     return
 
-def preprocess_generate_masks(src, experiment, channels, nucleus_dim=None, cell_dim=None, parasite_dim=None, magnefication=40, signal_to_noise=5,randomize=True, batch_size=100, remove_background=True, cellprob_thresholds=[0,0,0], lower_quantile=0.01, timelapse=False, preprocess=True, count_ls=[False,False,False], masks=True, plot=False, examples_to_plot=1, normalize_plots=False, save_ls=[True,True,True], merge_ls=[False,False,False], backgrounds=[100,100,100,100], min_highs=[1000,1000,1000,1000], workers=26, all_to_mip=False, verbose=True):
+def preprocess_generate_masks(src, experiment, channels, nucleus_dim=None, cell_dim=None, parasite_dim=None, magnefication=40, signal_to_noise=5,randomize=True, batch_size=100, remove_background=True, cellprob_thresholds=0, lower_quantile=0.01, timelapse=False, preprocess=True, count=False, masks=True, plot=False, examples_to_plot=1, normalize_plots=False, save=True, merge=False, backgrounds=100, workers=26, all_to_mip=False, verbose=True):
     
     mask_channels = [nucleus_dim, parasite_dim, cell_dim]
     
     cellpose_channels = [item for item in mask_channels if item is not None]
-    
+
+    if isinstance(merge, bool):
+        merge = [merge, merge, merge]
+    if isinstance(merge, list):
+        merge = merge
+
+    if isinstance(save, bool):
+        save = [save, save, save]
+    if isinstance(save, list):
+        save = save
+
+    if isinstance(count, bool):
+        count = [count, count, count]
+    if isinstance(count, list):
+        count = count
+
+    if isinstance(backgrounds, int):
+        backgrounds = [backgrounds, backgrounds, backgrounds, backgrounds]
+        min_highs = backgrounds*10
+    if isinstance(backgrounds, list):
+        backgrounds = backgrounds
+        min_highs = backgrounds*10
+
+    if isinstance(cellprob_thresholds, float):
+        cellprob_thresholds = [cellprob_thresholds, cellprob_thresholds, cellprob_thresholds]
+    if isinstance(cellprob_thresholds, int):
+        cellprob_thresholds = [cellprob_thresholds, cellprob_thresholds, cellprob_thresholds]  
+    if isinstance(cellprob_thresholds, list):
+        cellprob_thresholds = cellprob_thresholds
+        
     if preprocess: 
         preprocess_img_data(src,
                             plot=plot,
@@ -2483,10 +2512,10 @@ def preprocess_generate_masks(src, experiment, channels, nucleus_dim=None, cell_
                            cellprob_threshold=cellprob_thresholds[0],
                            plot=plot,
                            nr=examples_to_plot,
-                           save=save_ls[0],
-                           merge=merge_ls[0],
+                           save=save[0],
+                           merge=merge[0],
                            verbose=verbose,
-                           count=count_ls[0],
+                           count=count[0],
                            timelapse=timelapse,
                            file_type='.npz')
             torch.cuda.empty_cache()
@@ -2499,10 +2528,10 @@ def preprocess_generate_masks(src, experiment, channels, nucleus_dim=None, cell_
                            cellprob_threshold=cellprob_thresholds[1],
                            plot=plot,
                            nr=examples_to_plot,
-                           save=save_ls[1],
-                           merge=merge_ls[1],
+                           save=save[1],
+                           merge=merge[1],
                            verbose=verbose,
-                           count=count_ls[1],
+                           count=count[1],
                            timelapse=timelapse,
                            file_type='.npz')
             torch.cuda.empty_cache()
@@ -2515,14 +2544,17 @@ def preprocess_generate_masks(src, experiment, channels, nucleus_dim=None, cell_
                            cellprob_threshold=cellprob_thresholds[2],
                            plot=plot,
                            nr=examples_to_plot,
-                           save=save_ls[2],
-                           merge=merge_ls[2],
+                           save=save[2],
+                           merge=merge[2],
                            verbose=verbose,
-                           count=count_ls[2],
+                           count=count[2],
                            timelapse=timelapse,
                            file_type='.npz')
             torch.cuda.empty_cache()
         load_and_concatenate_arrays(src, channels=channels)
+    
+    torch.cuda.empty_cache()
+    gc.collect()
     return
 
 def read_db(db_loc, tables):
