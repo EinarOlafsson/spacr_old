@@ -3738,19 +3738,20 @@ def process_folder_and_append_to_db(folder, db_conn, counter):
     return counter
 
 def plot_data(csv_loc, channel_of_interest, target, category_order, figuresize=50):
-    import math
-    import pandas as pd
-    import matplotlib.pyplot as plt
-    import seaborn as sns
+    #import math
+    #import pandas as pd
+    #import matplotlib.pyplot as plt
+    #import seaborn as sns
     
     df = pd.read_csv(csv_loc)
 
-    
     color_list = [(55/255, 155/255, 155/255), 
               (155/255, 55/255, 155/255), 
               (55/255, 155/255, 255/255), 
               (255/255, 55/255, 155/255)]
     
+    sns.set_palette(sns.color_palette(color_list))
+
     columns = ['parasite_outside_cell_mean_mean', 'parasite_outside_cytoplasm_mean_mean', 'parasite_outside_nucleus_mean_mean', 'parasite_outside_cell_q75_mean', 'parasite_outside_cytoplasm_q75_mean', 'parasite_outside_nucleus_q75_mean', 'parasite_periphery_cell_mean_mean','parasite_periphery_cytoplasm_mean_mean' ,'parasite_periphery_nucleus_mean_mean']
     
     width = figuresize*2
