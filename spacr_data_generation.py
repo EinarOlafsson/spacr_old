@@ -2139,7 +2139,7 @@ def save_settings_to_db(settings):
     conn.close()
 
 def measure_crop(settings):
-    
+    #
     save_settings_to_db(settings)
 
     files = [f for f in os.listdir(settings['input_folder']) if f.endswith('.npy')]
