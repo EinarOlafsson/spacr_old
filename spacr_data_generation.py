@@ -3775,7 +3775,11 @@ def plot_data(csv_loc, category_order, figuresize=50):
 
     # Save the first figure
     results_dir = os.path.dirname(csv_loc)
-    fig.savefig(os.path.join(results_dir, 'results_bar.pdf'))
+    csv_name = os.path.dirname(csv_loc)
+    pdf_name_bar = csv_name.replace('.csv', '') + 'bar.pdf'
+    pdf_name_jitter = csv_name.replace('.csv', '') + 'jitter.pdf'
+
+    fig.savefig(os.path.join(results_dir, pdf_name_bar))
 
     fig, axes = plt.subplots(nrows=2, ncols=columns_per_row, figsize=(width, height * 2))  # Changed nrows to 2
     axes = axes.flatten()  # Flatten the 2D array to 1D for easier indexing
@@ -3797,4 +3801,4 @@ def plot_data(csv_loc, category_order, figuresize=50):
     plt.show()
 
     # Save the first figure
-    fig.savefig(os.path.join(results_dir, 'results_jitter.pdf'))
+    fig.savefig(os.path.join(results_dir, pdf_name_jitter))
