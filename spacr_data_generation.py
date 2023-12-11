@@ -3746,8 +3746,9 @@ def plot_data(csv_loc, category_order, figuresize=50):
               (55/255, 155/255, 255/255), 
               (255/255, 55/255, 155/255)]
     
-    columns = ['parasite_outside_cell_mean_mean', 'parasite_outside_cytoplasm_mean_mean', 'parasite_outside_nucleus_mean_mean', 'parasite_outside_cell_q75_mean', 'parasite_outside_cytoplasm_q75_mean', 'parasite_outside_nucleus_q75_mean', 'parasite_periphery_cell_mean_mean','parasite_periphery_cytoplasm_mean_mean' ,'parasite_periphery_nucleus_mean_mean']
-    
+    #columns = ['parasite_outside_cell_mean_mean', 'parasite_outside_cytoplasm_mean_mean', 'parasite_outside_nucleus_mean_mean', 'parasite_outside_cell_q75_mean', 'parasite_outside_cytoplasm_q75_mean', 'parasite_outside_nucleus_q75_mean', 'parasite_periphery_cell_mean_mean','parasite_periphery_cytoplasm_mean_mean' ,'parasite_periphery_nucleus_mean_mean']
+    columns = ['parasite_cytoplasm_mean_mean', 'parasite_cytoplasm_q75_mean', 'parasite_outside_cytoplasm_mean_mean', 'parasite_outside_cytoplasm_q75_mean','parasite_periphery_cytoplasm_mean_mean', 'parasite_periphery_cytoplasm_q75_mean']
+
     width = figuresize*2
     columns_per_row = math.ceil(len(columns) / 2)  # Number of columns per row, rounded up
     height = (figuresize*2)/columns_per_row
