@@ -3750,7 +3750,7 @@ def plot_data(csv_loc, channel_of_interest, target, category_order, figuresize=5
               (55/255, 155/255, 255/255), 
               (255/255, 55/255, 155/255)]
     
-    sns.set_palette(sns.color_palette(color_list))
+    #sns.set_palette(sns.color_palette(color_list))
 
     columns = ['parasite_outside_cell_mean_mean', 'parasite_outside_cytoplasm_mean_mean', 'parasite_outside_nucleus_mean_mean', 'parasite_outside_cell_q75_mean', 'parasite_outside_cytoplasm_q75_mean', 'parasite_outside_nucleus_q75_mean', 'parasite_periphery_cell_mean_mean','parasite_periphery_cytoplasm_mean_mean' ,'parasite_periphery_nucleus_mean_mean']
     
@@ -3766,7 +3766,7 @@ def plot_data(csv_loc, channel_of_interest, target, category_order, figuresize=5
     for i, col in enumerate(columns):
 
         ax = axes[i]
-        sns.barplot(ax=ax, data=df, x='condition', y=f'{col}', hue='parasite', capsize=.1, ci='sd', dodge=False, order=category_order)
+        sns.barplot(ax=ax, data=df, x='condition', y=f'{col}', hue='parasite', capsize=.1, ci='sd', dodge=False, order=category_order, palette=sns.color_palette(color_list))
         #ax.set_xlabel(f'Parasite {df_type}', fontsize=font)
         ax.set_ylabel(f'{col}', fontsize=int(font*2))
         ax.legend_.remove()
@@ -3790,7 +3790,7 @@ def plot_data(csv_loc, channel_of_interest, target, category_order, figuresize=5
     for i, col in enumerate(columns):
 
         ax = axes[i]
-        sns.stripplot(ax=ax, data=df, x='condition', y=f'{col}', hue='parasite', dodge=False, jitter=True, order=category_order)
+        sns.stripplot(ax=ax, data=df, x='condition', y=f'{col}', hue='parasite', dodge=False, jitter=True, order=category_order, palette=sns.color_palette(color_list))
         ax.set_ylabel(f'{col}', fontsize=int(font*2))
         ax.legend_.remove()
         ax.tick_params(axis='both', which='major', labelsize=font)
