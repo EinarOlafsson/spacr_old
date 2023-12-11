@@ -3774,10 +3774,11 @@ def plot_data(csv_loc, category_order, figuresize=50):
     plt.show()
 
     # Save the first figure
-    results_dir = os.path.dirname(csv_loc) #+ '/results'
+    results_dir = os.path.dirname(csv_loc)
     csv_name = os.path.basename(csv_loc)
-    pdf_name_bar = csv_name.replace('.csv', '') + 'bar.pdf'
-    pdf_name_jitter = csv_name.replace('.csv', '') + 'jitter.pdf'
+    csv_name, extension = os.path.splitext(csv_name)
+    pdf_name_bar = csv_name + '_bar.pdf'
+    pdf_name_jitter = csv_name + '_jitter.pdf'
 
     fig.savefig(os.path.join(results_dir, pdf_name_bar))
 
