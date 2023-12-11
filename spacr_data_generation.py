@@ -1571,7 +1571,9 @@ def create_dataframe(radial_distributions, object_type):
     df = df.reset_index().rename(columns={'index': 'label'})
     return df
 
-def calculate_correlation_object_level(channel_image1, channel_image2, mask, thresholds):
+def calculate_correlation_object_level(channel_image1, channel_image2, mask, settings):
+    thresholds = settings['manders_thresholds']
+    
     corr_data = {}
     for i in np.unique(mask)[1:]:
         object_mask = (mask == i)
@@ -1676,7 +1678,7 @@ def intensity_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask
                 chan_i = channel_arrays[:, :, i]
                 chan_j = channel_arrays[:, :, j]
                 for m, mask in enumerate(labels):
-                    coloc_df = calculate_correlation_object_level(chan_i, chan_j, mask, thresholds=settings['manders_thresholds'])
+                    coloc_df = calculate_correlation_object_level(chan_i, chan_j, mask, settings)
                     coloc_df.columns = [f'{ls[m]}_channel_{i}_channel_{j}_{col}' for col in coloc_df.columns]
                     dfs[m].append(coloc_df)
     
