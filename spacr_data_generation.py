@@ -2924,6 +2924,10 @@ def plot_controls(df, mask_chans, channel_of_interest, figuresize=5):
         controls_cols.append(controls_cols_c)
     
     unique_conditions = df['condition'].unique().tolist()
+
+    if len(unique_conditions) ==1:
+        unique_conditions=unique_conditions+unique_conditions
+    
     fig, axes = plt.subplots(len(unique_conditions), len(mask_chans)+1, figsize=(figuresize*len(mask_chans), figuresize*len(unique_conditions)))
 
     # Define RGB color tuples (scaled to 0-1 range)
