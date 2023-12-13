@@ -1131,7 +1131,12 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                                                 progress=None)
                 
                 mask_stack = filter_cp_masks(masks, flows, refine_masks, filter_size, minimum_size, maximum_size, remove_border_objects, merge, filter_dimm, batch, moving_avg_q1, moving_avg_q3, moving_count, plot, figuresize)
-                average_obj_size = get_avg_object_size(mask_stack)    
+
+                if not np.any(mask_stack):
+                    average_obj_size = 0
+                else:
+                    average_obj_size = get_avg_object_size(mask_stack)
+                    
                 average_sizes.append(average_obj_size) # Store the average size
                 overall_average_size = np.mean(average_sizes) if len(average_sizes) > 0 else 0 # Calculate the overall average size across all images
 
