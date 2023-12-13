@@ -293,7 +293,7 @@ def remove_outside_objects(stack, cell_dim, nucleus_dim, parasite_dim):
     return stack
 
 
-def plot_merged(src, src_list=None, cmap='inferno', cell_dim=4, nucleus_dim=5, parasite_dim=6, channel_dims=[0,1,2,3], figuresize=20, nr=1, print_object_number=True, normalize=False, normalization_percentiles=[1,99], overlay=True, overlay_chans=[3,2,0], outline_thickness=3, outline_color='gbr', backgrounds=[100,100,100,100], remove_background=False, filter_objects=False, filter_min_max=[[0,100000],[0,100000],[0,100000],[0,100000]], include_multinucleated=True, include_multiinfected=True, include_noninfected=True, include_border_parasites=True, interactive=False, verbose=False):
+def plot_merged(src, src_list=None, cmap='inferno', cell_dim=4, nucleus_dim=5, parasite_dim=6, channel_dims=[0,1,2,3], figuresize=20, nr=1, print_object_number=True, normalize=False, normalization_percentiles=[1,99], overlay=True, overlay_chans=[3,2,0], outline_thickness=3, outline_color='gbr', backgrounds=[100,100,100,100], remove_background=False, filter_objects=False, filter_min_max=[[0,100000],[0,100000],[0,100000],[0,100000]], include_multinucleated=True, include_multiinfected=True, include_noninfected=True, verbose=False):
     mask_dims = [cell_dim, nucleus_dim, parasite_dim]
     
     if verbose:
@@ -320,7 +320,6 @@ def plot_merged(src, src_list=None, cmap='inferno', cell_dim=4, nucleus_dim=5, p
         
     if src_list != None:
         files = src_list
-        #files = [os.path.join(src,item) for item in src_list]
     
     for file in files:
         
@@ -351,8 +350,8 @@ def plot_merged(src, src_list=None, cmap='inferno', cell_dim=4, nucleus_dim=5, p
                         stack = remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim=parasite_dim)
                     if include_multiinfected is not True:
                         stack = remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim=nucleus_dim)
-                    if include_border_parasites is not True:
-                        stack = remove_border_parasites(stack, cell_dim, nucleus_dim, parasite_dim)
+                    #if include_border_parasites is not True:
+                    #    stack = remove_border_parasites(stack, cell_dim, nucleus_dim, parasite_dim)
                     cell_area_before = avg_size_before
                     cell_count_before = total_count_before
                     cell_area_after = avg_size_after
@@ -443,22 +442,6 @@ def plot_merged(src, src_list=None, cmap='inferno', cell_dim=4, nucleus_dim=5, p
                         cy, cx = ndi.center_of_mass(mask == obj)
                         ax[i + image.shape[-1]+ax_index].text(cx, cy, str(obj), color='white', fontsize=font, ha='center', va='center')
             plt.tight_layout()
-            if interactive:
-                def on_click(event):
-                    if event.inaxes in [ax[i + image.shape[-1]+ax_index] for i in range(len(mask_dims))]:
-                        for i, ax_i in enumerate([ax[i + image.shape[-1]+ax_index] for i in range(len(mask_dims))]):
-                            if event.inaxes == ax_i:
-                                mask = np.take(stack, mask_dims[i], axis=2)
-                                y = int(event.ydata)
-                                x = int(event.xdata)
-                                label = mask[y, x]
-                                if label != 0:
-                                    mask[mask == label] = 0
-                                    stack[:, :, mask_dims[i]] = mask
-                                    ax_i.imshow(mask, cmap=random_cmap)
-                                    ax_i.figure.canvas.draw()
-
-                cid = fig.canvas.mpl_connect('button_press_event', on_click)
             plt.show()
         else:
             return
@@ -1890,8 +1873,42 @@ def generate_names(file_name, cell_id, cell_nuclei_ids, cell_parasite_ids, sourc
 
 def measure_crop_core(index, time_ls, file, settings):
     start = time.time()
+
+    #general settings
+    settings['merge_edge_parasite_cells'] = True
+    settings['radial_dist'] = True
+    settings['calculate_correlation'] = True
+    settings['manders_thresholds'] = [15,85,95]
+    settings['include_uninfected'] = False
+    settings['homogeneity'] = True
+    settings['homogeneity_distances'] = [8,16,32]
+    settings['save_arrays'] = False
+    settings['cytoplasm'] = True
+    settings['dialate_pngs'] = False
+    settings['dialate_png_ratios'] = 0.2
+
+    int_setting_keys = ['cell_dim', 'nucleus_dim', 'parasite_dim', 'cell_min', 'nucleus_min', 'parasite_min', 'cytoplasm_min']
+    if isinstance(settings['normalize'], bool) and settings['normalize']:
+        print(f'WARNING: to notmalize single object pngs set normalize to a list of 2 integers, e.g. [1,99] (lower and upper percentiles)')
+        return
+
+    if settings['normalize_by'] not in ['png', 'fov']:
+        print("Warning: normalize_by should be either 'png' to notmalize each png to its own percentiles or 'fov' to normalize each png to the fov percentiles ")
+        return
+
+    if not all(isinstance(settings[key], int) for key in int_setting_keys):
+        print(f"WARNING: {int_setting_keys} must all be integers")
+        return
+
+    if not isinstance(settings['channels'], list):
+        print(f"WARNING: channels should be a list of integers representing channels e.g. [0,1,2,3]")
+        return
+
+    if not isinstance(settings['crop_mode'], list):
+        print(f"WARNING: crop_mode should be a list with at least one element e.g. ['cell'] or ['cell','nucleus'] or [None]")
+        return
+            
     try:
-        #files_to_process = len(os.listdir(settings['input_folder']))
         source_folder = os.path.dirname(settings['input_folder'])
         file_name = os.path.splitext(file)[0]
         data = np.load(os.path.join(settings['input_folder'], file))
@@ -1909,34 +1926,12 @@ def measure_crop_core(index, time_ls, file, settings):
         cell_mask = data[:, :, settings['cell_dim']].astype(data_type)
         if settings['nuclei_dim'] is not None:
             nuclei_mask = data[:, :, settings['nuclei_dim']].astype(data_type)
-            #if settings['expand_nuclei']:
-            #    struct = generate_binary_structure(2, 2)
-            #    dilated_mask = np.zeros_like(nuclei_mask)
-            #    unique_nuclei = np.unique(nuclei_mask)
-            #    unique_nuclei = unique_nuclei[unique_nuclei != 0]
-            #    for nucleus_label in unique_nuclei:
-            #        nucleus = nuclei_mask == nucleus_label
-            #        for i in range(settings['expand_nuclei_by_px']):
-            #            nucleus = binary_dilation(nucleus, structure=struct)
-            #        dilated_mask[nucleus] = nucleus_label
-            #    nuclei_mask = dilated_mask
             nuclei_mask, cell_mask = merge_overlapping_objects(mask1=nuclei_mask, mask2=cell_mask)
         else:
             nuclei_mask = np.zeros_like(cell_mask)
 
         if settings['parasite_dim'] is not None:
             parasite_mask = data[:, :, settings['parasite_dim']].astype(data_type)
-            #if settings['expand_parasite']:
-            #    struct = generate_binary_structure(2, 2)
-            #    dilated_mask = np.zeros_like(parasite_mask)
-            #    unique_parasite = np.unique(parasite_mask)
-            #    unique_parasite = unique_nuclei[unique_parasite != 0]
-            #    for parasite_label in unique_parasite:
-            #        parasite = parasite_mask == parasite_label
-            #        for i in range(settings['expand_parasite_by_px']):
-            #            parasite = binary_dilation(parasite, structure=struct)
-            #        dilated_mask[parasite] = parasite_label
-            #    parasite_mask = dilated_mask
             if settings['merge_edge_parasite_cells']:
                 parasite_mask, cell_mask = merge_overlapping_objects(mask1=parasite_mask, mask2=cell_mask)
         else:
@@ -2052,11 +2047,16 @@ def measure_crop_core(index, time_ls, file, settings):
                                 percentiles_list = get_percentiles(png_channels, settings['normalize_percentiles'][0],q2=settings['normalize_percentiles'][1])
                             
                             png_channels = crop_center(png_channels, region, new_width=width, new_height=height)
-                            if settings['normalize']:
+
+                            if isinstance(settings['normalize'], list):
                                 if settings['normalize_by'] == 'png':
-                                    png_channels = normalize_to_dtype(png_channels, q1=settings['normalize_percentiles'][0],q2=settings['normalize_percentiles'][1])
+                                    png_channels = normalize_to_dtype(png_channels, q1=settings['normalize'][0],q2=settings['normalize'][1])
                                 if settings['normalize_by'] == 'fov':
-                                    png_channels = normalize_to_dtype(png_channels, q1=settings['normalize_percentiles'][0],q2=settings['normalize_percentiles'][1], percentiles=percentiles_list)
+                                    png_channels = normalize_to_dtype(png_channels, q1=settings['normalize'][0],q2=settings['normalize'][1], percentiles=percentiles_list)
+                            
+                            
+                            
+                            
                             os.makedirs(png_folder, exist_ok=True)
 
                             if png_channels.shape[2] == 2:
@@ -2128,7 +2128,7 @@ def save_settings_to_db(settings):
     conn.close()
 
 def measure_crop(settings):
-    #
+
     save_settings_to_db(settings)
 
     files = [f for f in os.listdir(settings['input_folder']) if f.endswith('.npy')]
@@ -2433,8 +2433,22 @@ def mip_all(src):
             np.save(os.path.join(src, filename), concatenated)
     return
 
-def preprocess_generate_masks(src, experiment, channels, nucleus_dim=None, cell_dim=None, parasite_dim=None, magnefication=40, signal_to_noise=5,randomize=True, batch_size=100, remove_background=True, cellprob_thresholds=0, lower_quantile=0.01, timelapse=False, preprocess=True, count=False, masks=True, plot=False, examples_to_plot=1, normalize_plots=False, save=True, merge=False, backgrounds=100, workers=26, all_to_mip=False, verbose=True):
+#def preprocess_generate_masks(src, experiment, channels, nucleus_dim=None, cell_dim=None, parasite_dim=None, magnefication=40, signal_to_noise=5,randomize=True, batch_size=100, remove_background=True, cellprob_thresholds=0, lower_quantile=0.01, timelapse=False, preprocess=True, count=False, masks=True, plot=False, examples_to_plot=1, normalize_plots=False, save=True, merge=False, backgrounds=100, workers=26, all_to_mip=False, verbose=True):
+
+def preprocess_generate_masks(src, experiment='experiment', preprocess=True, masks=True, save=True,  plot=False,  examples_to_plot=10,  channels=[0,1,2,3], nucleus_dim=0,  parasite_dim=2, cell_dim=3, batch_size=100,  backgrounds=100,  signal_to_noise=5, magnefication=40,  cellprob_thresholds=[0,0,-1],  workers=30,  verbose=True):
     
+    #settings that generally do not change
+    randomize = True
+    remove_background = True
+    lower_quantile = 0.02
+    merge = False
+    count = False
+    timelapse = False
+    normalize_plots = True
+    
+    if preprocess and not masks:
+        print(f'WARNING: channels for mask generation are defined when preprocess = True')
+
     mask_channels = [nucleus_dim, parasite_dim, cell_dim]
     
     cellpose_channels = [item for item in mask_channels if item is not None]
@@ -2456,10 +2470,10 @@ def preprocess_generate_masks(src, experiment, channels, nucleus_dim=None, cell_
 
     if isinstance(backgrounds, int):
         backgrounds = [backgrounds, backgrounds, backgrounds, backgrounds]
-        min_highs = backgrounds*10
+        min_highs = backgrounds*signal_to_noise
     if isinstance(backgrounds, list):
         backgrounds = backgrounds
-        min_highs = backgrounds*10
+        min_highs = backgrounds*signal_to_noise
 
     if isinstance(cellprob_thresholds, float):
         cellprob_thresholds = [cellprob_thresholds, cellprob_thresholds, cellprob_thresholds]
@@ -2897,57 +2911,6 @@ def calculate_recruitment(df, channel):
 
 def plot_controls(df, mask_chans, channel_of_interest, figuresize=5):
     mask_chans.append(channel_of_interest)
-    controls_cols = []
-    for chan in mask_chans:
-        controls_cols_c = []
-        controls_cols_c.append(f'cell_channel_{mask_chans[chan]}_mean_intensity')
-        controls_cols_c.append(f'nucleus_channel_{mask_chans[chan]}_mean_intensity')
-        controls_cols_c.append(f'parasite_channel_{mask_chans[chan]}_mean_intensity')
-        controls_cols_c.append(f'cytoplasm_channel_{mask_chans[chan]}_mean_intensity')
-        controls_cols.append(controls_cols_c)
-    print(controls_cols)
-    # Define the figure size and create subplots
-    fig, axes = plt.subplots(len(mask_chans), len(controls_cols[0]), figsize=(figuresize * len(controls_cols[0]), figuresize * len(mask_chans)))
-    unique_conditions = df['condition'].unique().tolist()
-    for i in range(len(mask_chans)):
-        for j in range(len(controls_cols[i])):
-            df_temp = df[df['condition'] == unique_conditions[i]]
-            sns.barplot(ax=axes[i,j], data=df_temp, x='condition', y=f'{controls_cols[i][j]}', hue='parasite', capsize=.1, ci='sd', dodge=False)
-            axes[i,j].set_xlabel(["cell", "nucleus", "parasite", "cytoplasm"][j])
-            axes[i,j].set_ylabel(f'{controls_cols[i][j]}')
-            axes[i,j].set_title(f'Channel {i+1} - {["cell", "nucleus", "parasite", "cytoplasm"][j]}')
-    plt.tight_layout()
-    plt.show()
-
-def plot_controls(df, mask_chans, channel_of_interest, figuresize=5):
-    mask_chans.append(channel_of_interest)
-    controls_cols = []
-    for chan in mask_chans:
-        controls_cols_c = []
-        controls_cols_c.append(f'cell_channel_{chan}_mean_intensity')
-        controls_cols_c.append(f'nucleus_channel_{chan}_mean_intensity')
-        controls_cols_c.append(f'parasite_channel_{chan}_mean_intensity')
-        controls_cols_c.append(f'cytoplasm_channel_{chan}_mean_intensity')
-        controls_cols.append(controls_cols_c)
-
-    unique_conditions = df['condition'].unique().tolist()
-
-    for condition in unique_conditions:
-        fig, axes = plt.subplots(1, len(controls_cols[0]), figsize=(figuresize * len(controls_cols[0]), figuresize))
-        df_temp = df[df['condition'] == condition]
-
-        for i, control_col in enumerate(controls_cols):
-            for j, col in enumerate(control_col):
-                sns.barplot(ax=axes[j], data=df_temp, x=col, y='parasite', capsize=.1, ci='sd', dodge=False)
-                axes[j].set_xlabel(["cell", "nucleus", "parasite", "cytoplasm"][j])
-                axes[j].set_ylabel('Parasite Mean Intensity')
-                axes[j].set_title(f'Condition: {condition} - {["cell", "nucleus", "parasite", "cytoplasm"][j]}')
-
-        plt.tight_layout()
-        plt.show()
-
-def plot_controls(df, mask_chans, channel_of_interest, figuresize=5):
-    mask_chans.append(channel_of_interest)
     if len(mask_chans) == 4:
         mask_chans = [0,1,2,3]
     if len(mask_chans) == 3:
@@ -3070,8 +3033,80 @@ def plot_recruitment(df, df_type, channel_of_interest, target, columns=[], figur
     plt.tight_layout()
     plt.show()
 
-def analyze_recruitment(src, plot=True, plot_nr=1, interactive=False, remove_background=False, target='protein of interest', cell_dim=4, nucleus_dim=5, parasite_dim=6,channel_of_interest=3, cell_metadata_ls=['Hela'], cell_loc_ls=None, parasite_metadata_ls=['rh', 'comp', 'dg8', 'TKO'], parasite_loc_ls=[['c2'], ['c3'], ['c4'], ['c5']], treatment_ls=['cm'], treatment_loc_ls=[], parasite_size_min=0, nucleus_size_min=0, cell_size_min=0, parasite_min=0, nucleus_min=0, cell_min=0, target_min=0, mask_chans=[0,1,2], plot_control=False, filter_data=False, include_multinucleated=False, include_multiinfected=False, col_names='col', size_quantiles=True, cells_per_well=10, include_noninfected=False, figuresize=20, backgrounds=100, channel_dims=[0,1,2,3], include_border_parasites=False):
+def plot_data(csv_loc, category_order, figuresize=50, y_min=1):
+
+    df = pd.read_csv(csv_loc)
+
+    color_list = [(55/255, 155/255, 155/255), 
+              (155/255, 55/255, 155/255), 
+              (55/255, 155/255, 255/255), 
+              (255/255, 55/255, 155/255)]
+    
+    #columns = ['parasite_outside_cell_mean_mean', 'parasite_outside_cytoplasm_mean_mean', 'parasite_outside_nucleus_mean_mean', 'parasite_outside_cell_q75_mean', 'parasite_outside_cytoplasm_q75_mean', 'parasite_outside_nucleus_q75_mean', 'parasite_periphery_cell_mean_mean','parasite_periphery_cytoplasm_mean_mean' ,'parasite_periphery_nucleus_mean_mean']
+    columns = ['parasite_cytoplasm_mean_mean', 'parasite_cytoplasm_q75_mean', 'parasite_outside_cytoplasm_mean_mean', 'parasite_outside_cytoplasm_q75_mean','parasite_periphery_cytoplasm_mean_mean']
+
+    width = figuresize*2
+    columns_per_row = math.ceil(len(columns) / 2)  # Number of columns per row, rounded up
+    height = (figuresize*2)/columns_per_row
+    font = figuresize/2
+    fig, axes = plt.subplots(nrows=2, ncols=columns_per_row, figsize=(width, height * 2))  # Changed nrows to 2
+    axes = axes.flatten()  # Flatten the 2D array to 1D for easier indexing
+
+    for i, col in enumerate(columns):
+        ax = axes[i]
+        sns.barplot(ax=ax, data=df, x='condition', y=f'{col}', hue='parasite', capsize=.1, ci='sd', dodge=False, order=category_order, palette=sns.color_palette(color_list))
+        #ax.set_xlabel(f'Parasite {df_type}', fontsize=font)
+        ax.set_ylabel(f'{col}', fontsize=int(font*2))
+        ax.legend_.remove()
+        ax.tick_params(axis='both', which='major', labelsize=font)
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+        if i <= 5:
+            ax.set_ylim(y_min, None)
+
+    # If there are fewer subplots than the grid size, you may want to hide the remaining empty subplots
+    for i in range(len(columns), len(axes)):
+        axes[i].axis('off')
+
+    plt.tight_layout()
+    plt.show()
+
+    # Save the first figure
+    results_dir = os.path.dirname(csv_loc)
+    csv_name = os.path.basename(csv_loc)
+    csv_name, extension = os.path.splitext(csv_name)
+    pdf_name_bar = csv_name + '_bar.pdf'
+    pdf_name_jitter = csv_name + '_jitter.pdf'
+
+    fig.savefig(os.path.join(results_dir, pdf_name_bar))
+
+    fig, axes = plt.subplots(nrows=2, ncols=columns_per_row, figsize=(width, height * 2))  # Changed nrows to 2
+    axes = axes.flatten()  # Flatten the 2D array to 1D for easier indexing
+    for i, col in enumerate(columns):
+
+        ax = axes[i]
+        sns.stripplot(ax=ax, data=df, x='condition', y=f'{col}', hue='parasite', dodge=False, jitter=True, order=category_order, palette=sns.color_palette(color_list))
+        ax.set_ylabel(f'{col}', fontsize=int(font*2))
+        ax.legend_.remove()
+        ax.tick_params(axis='both', which='major', labelsize=font)
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+        if i <= 5:
+            ax.set_ylim(y_min, None)
+
+    # If there are fewer subplots than the grid size, you may want to hide the remaining empty subplots
+    for i in range(len(columns), len(axes)):
+        axes[i].axis('off')
+    plt.tight_layout()
+    plt.show()
+
+    # Save the first figure
+    fig.savefig(os.path.join(results_dir, pdf_name_jitter))
+
+#def analyze_recruitment(src, plot=True, plot_nr=1, remove_background=False, target='protein of interest', cell_dim=4, nucleus_dim=5, parasite_dim=6,channel_of_interest=3, cell_metadata_ls=['Hela'], cell_loc_ls=None, parasite_metadata_ls=['genotype_1', 'genotype_1', 'genotype_1', 'genotype_1'], parasite_loc_ls=[['c2'], ['c3'], ['c4'], ['c5']], treatment_ls=['cm'], treatment_loc_ls=None, parasite_size_min=0, nucleus_size_min=0, cell_size_min=0, parasite_min=0, nucleus_min=0, cell_min=0, target_min=0, plot_control=False, filter_data=False, include_multinucleated=False, include_multiinfected=False, col_names='col', size_quantiles=True, cells_per_well=10, include_noninfected=False, figuresize=20, backgrounds=100, channel_dims=[0,1,2,3], include_border_parasites=False):
+def analyze_recruitment(src, target='experiment', cell_metadata_ls=['HeLa'],  parasite_metadata_ls=['genotype_1', 'genotype_2', 'genotype_3', 'genotype_4'], parasite_loc_ls=[['c1','c2','c3','c4','c5','c6'], ['c7','c8','c9','c10','c11','c12'], ['c13','c14','c15','c16','c17','c18'], ['c19','c20','c21','c22','c23','c24']], treatment_ls=['cm'], treatment_loc_ls=None, col_names='col', plot=True, plot_control=True, plot_nr=2, figuresize=50, cell_mask_dim=4, nucleus_mask_dim=5, parasite_mask_dim=6, cell_chann_dim=3, nucleus_chann_dim=0, parasite_chann_dim=2, channel_of_interest=3, filter_data=True, parasite_size_min=0, nucleus_size_min=0, cell_size_min=0, parasite_min=0, nucleus_min=0, cell_min=0, target_min=0, cells_per_well=0, include_noninfected=False, include_multiinfected=True, include_multinucleated=True, remove_background=True, backgrounds=100,  channel_dims=[0,1,2,3]):
+    
     mask_dims=[cell_dim,nucleus_dim,parasite_dim]
+    mask_chans=[nucleus_chann_dim, parasite_chann_dim, cell_chann_dim]
+    #channel_dims=[nucleus_chann_dim, parasite_chann_dim, cell_chann_dim, channel_of_interest]
     
     if isinstance(col_names, str):
         col_names = [col_names, col_names, col_names]
@@ -3121,9 +3156,9 @@ def analyze_recruitment(src, plot=True, plot_nr=1, interactive=False, remove_bac
                     src_list=files,
                     cmap='inferno', 
                     interactive=interactive,
-                    cell_dim=cell_dim,
-                    nucleus_dim=nucleus_dim,
-                    parasite_dim=parasite_dim,
+                    cell_dim=mask_dims[0],
+                    nucleus_dim=mask_dims[1],
+                    parasite_dim=mask_dims[2],
                     channel_dims=channel_dims, 
                     figuresize=20, 
                     nr=plot_nr,
@@ -3141,20 +3176,19 @@ def analyze_recruitment(src, plot=True, plot_nr=1, interactive=False, remove_bac
                     include_multinucleated=include_multinucleated,
                     include_multiinfected=include_multiinfected,
                     include_noninfected=include_noninfected,
-                    include_border_parasites=include_border_parasites,
-                    verbose=True)
+                    verbose=True)    
     
     if filter_data:
         df = df[df['cell_area'] > cell_size_min]
-        df = df[df[f'cell_channel_{mask_chans[2]}_mean_intensity'] > cell_min]
+        df = df[df[f'cell_channel_{mask_chans[0]}_mean_intensity'] > cell_min]
         print(f'After cell filtration {len(df)}')
         
         df = df[df['nucleus_area'] > nucleus_size_min]
-        df = df[df[f'nucleus_channel_{mask_chans[0]}_mean_intensity'] > nucleus_min]
+        df = df[df[f'nucleus_channel_{mask_chans[1]}_mean_intensity'] > nucleus_min]
         print(f'After nucleus filtration {len(df)}')
         
         df = df[df['parasite_area'] > parasite_size_min]
-        df=df[df[f'parasite_channel_{mask_chans[1]}_mean_intensity'] > parasite_min]
+        df=df[df[f'parasite_channel_{mask_chans[2]}_mean_intensity'] > parasite_min]
         print(f'After parasite filtration {len(df)}')
         
         df = df[df[f'cell_channel_{channel_of_interest}_percentile_95'] > target_min]
@@ -3219,7 +3253,10 @@ def analyze_recruitment(src, plot=True, plot_nr=1, interactive=False, remove_bac
 
     wells.to_csv(results_loc+'/wells.csv', index=True, header=True)
     cells.to_csv(results_loc+'/cells.csv', index=True, header=True)
-    
+
+    plot_data(cells, category_order=parasite_metadata_ls, figuresize=20, y_min=1)
+    plot_data(wells, category_order=parasite_metadata_ls, figuresize=20, y_min=1)
+
     return [df,df_well]
 
 def filter_parasite_nuclei(df, upper_quantile=0.95, plot=True):
@@ -3736,71 +3773,3 @@ def process_folder_and_append_to_db(folder, db_conn, counter):
         print("SQLite error:", e, flush=True)
     
     return counter
-
-def plot_data(csv_loc, category_order, figuresize=50, y_min=1):
-
-    df = pd.read_csv(csv_loc)
-
-    color_list = [(55/255, 155/255, 155/255), 
-              (155/255, 55/255, 155/255), 
-              (55/255, 155/255, 255/255), 
-              (255/255, 55/255, 155/255)]
-    
-    #columns = ['parasite_outside_cell_mean_mean', 'parasite_outside_cytoplasm_mean_mean', 'parasite_outside_nucleus_mean_mean', 'parasite_outside_cell_q75_mean', 'parasite_outside_cytoplasm_q75_mean', 'parasite_outside_nucleus_q75_mean', 'parasite_periphery_cell_mean_mean','parasite_periphery_cytoplasm_mean_mean' ,'parasite_periphery_nucleus_mean_mean']
-    columns = ['parasite_cytoplasm_mean_mean', 'parasite_cytoplasm_q75_mean', 'parasite_outside_cytoplasm_mean_mean', 'parasite_outside_cytoplasm_q75_mean','parasite_periphery_cytoplasm_mean_mean']
-
-    width = figuresize*2
-    columns_per_row = math.ceil(len(columns) / 2)  # Number of columns per row, rounded up
-    height = (figuresize*2)/columns_per_row
-    font = figuresize/2
-    fig, axes = plt.subplots(nrows=2, ncols=columns_per_row, figsize=(width, height * 2))  # Changed nrows to 2
-    axes = axes.flatten()  # Flatten the 2D array to 1D for easier indexing
-
-    for i, col in enumerate(columns):
-        ax = axes[i]
-        sns.barplot(ax=ax, data=df, x='condition', y=f'{col}', hue='parasite', capsize=.1, ci='sd', dodge=False, order=category_order, palette=sns.color_palette(color_list))
-        #ax.set_xlabel(f'Parasite {df_type}', fontsize=font)
-        ax.set_ylabel(f'{col}', fontsize=int(font*2))
-        ax.legend_.remove()
-        ax.tick_params(axis='both', which='major', labelsize=font)
-        ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
-        if i <= 5:
-            ax.set_ylim(y_min, None)
-
-    # If there are fewer subplots than the grid size, you may want to hide the remaining empty subplots
-    for i in range(len(columns), len(axes)):
-        axes[i].axis('off')
-
-    plt.tight_layout()
-    plt.show()
-
-    # Save the first figure
-    results_dir = os.path.dirname(csv_loc)
-    csv_name = os.path.basename(csv_loc)
-    csv_name, extension = os.path.splitext(csv_name)
-    pdf_name_bar = csv_name + '_bar.pdf'
-    pdf_name_jitter = csv_name + '_jitter.pdf'
-
-    fig.savefig(os.path.join(results_dir, pdf_name_bar))
-
-    fig, axes = plt.subplots(nrows=2, ncols=columns_per_row, figsize=(width, height * 2))  # Changed nrows to 2
-    axes = axes.flatten()  # Flatten the 2D array to 1D for easier indexing
-    for i, col in enumerate(columns):
-
-        ax = axes[i]
-        sns.stripplot(ax=ax, data=df, x='condition', y=f'{col}', hue='parasite', dodge=False, jitter=True, order=category_order, palette=sns.color_palette(color_list))
-        ax.set_ylabel(f'{col}', fontsize=int(font*2))
-        ax.legend_.remove()
-        ax.tick_params(axis='both', which='major', labelsize=font)
-        ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
-        if i <= 5:
-            ax.set_ylim(y_min, None)
-
-    # If there are fewer subplots than the grid size, you may want to hide the remaining empty subplots
-    for i in range(len(columns), len(axes)):
-        axes[i].axis('off')
-    plt.tight_layout()
-    plt.show()
-
-    # Save the first figure
-    fig.savefig(os.path.join(results_dir, pdf_name_jitter))
