@@ -1894,7 +1894,7 @@ def find_bounding_box(crop_mask, _id, buffer=10):
 
     # Cropped region
     cropped_region = crop_mask[y_min:y_max+1, x_min:x_max+1]
-    return bounding_box_region
+    return cropped_region
 
 def measure_crop_core(index, time_ls, file, settings):
     start = time.time() 
