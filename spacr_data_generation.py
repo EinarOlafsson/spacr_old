@@ -2434,8 +2434,8 @@ def mip_all(src):
     return
 
 #def preprocess_generate_masks(src, experiment, channels, nucleus_dim=None, cell_dim=None, parasite_dim=None, magnefication=40, signal_to_noise=5,randomize=True, batch_size=100, remove_background=True, cellprob_thresholds=0, lower_quantile=0.01, timelapse=False, preprocess=True, count=False, masks=True, plot=False, examples_to_plot=1, normalize_plots=False, save=True, merge=False, backgrounds=100, workers=26, all_to_mip=False, verbose=True):
-
-def preprocess_generate_masks(src, experiment='experiment', preprocess=True, masks=True, save=True,  plot=False,  examples_to_plot=10,  channels=[0,1,2,3], nucleus_dim=0,  parasite_dim=2, cell_dim=3, batch_size=100,  backgrounds=100,  signal_to_noise=5, magnefication=40,  cellprob_thresholds=[0,0,-1],  workers=30,  verbose=True):
+#def preprocess_generate_masks(src, experiment='experiment', preprocess=True, masks=True, save=True,  plot=False,  examples_to_plot=10,  channels=[0,1,2,3], nucleus_dim=0,  parasite_dim=2, cell_chann_dim=3, batch_size=100,  backgrounds=100,  signal_to_noise=5, magnefication=40,  cellprob_thresholds=[0,0,-1],  workers=30,  verbose=True):
+def preprocess_generate_masks(src, experiment='experiment', preprocess=True, masks=True, save=True,  plot=True,  examples_to_plot=1,  channels=[0,1,2,3], cell_chann_dim=1, cell_cp_prob=0, nucleus_chann_dim=0, nucleus_cp_prob=0, parasite_chann_dim=2,  parasite_cp_prob=-1,  batch_size=4,  backgrounds=100,  signal_to_noise=5, magnefication=40,  workers=30,  verbose=True):
     
     #settings that generally do not change
     randomize = True
