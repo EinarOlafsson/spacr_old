@@ -3097,16 +3097,16 @@ def plot_data(csv_loc, category_order, figuresize=50, y_min=1):
     fig.savefig(os.path.join(results_dir, pdf_name_jitter))
 
 #def analyze_recruitment(src, plot=True, plot_nr=1, remove_background=False, target='protein of interest', cell_dim=4, nucleus_dim=5, parasite_dim=6,channel_of_interest=3, cell_metadata_ls=['Hela'], cell_loc_ls=None, parasite_metadata_ls=['genotype_1', 'genotype_1', 'genotype_1', 'genotype_1'], parasite_loc_ls=[['c2'], ['c3'], ['c4'], ['c5']], treatment_ls=['cm'], treatment_loc_ls=None, parasite_size_min=0, nucleus_size_min=0, cell_size_min=0, parasite_min=0, nucleus_min=0, cell_min=0, target_min=0, plot_control=False, filter_data=False, include_multinucleated=False, include_multiinfected=False, col_names='col', size_quantiles=True, cells_per_well=10, include_noninfected=False, figuresize=20, backgrounds=100, channel_dims=[0,1,2,3], include_border_parasites=False):
-def analyze_recruitment(src, target='experiment', cell_metadata_ls=['HeLa'],  parasite_metadata_ls=['genotype_1', 'genotype_2', 'genotype_3', 'genotype_4'], parasite_loc_ls=[['c1','c2','c3','c4','c5','c6'], ['c7','c8','c9','c10','c11','c12'], ['c13','c14','c15','c16','c17','c18'], ['c19','c20','c21','c22','c23','c24']], treatment_ls=['cm'], treatment_loc_ls=None, col_names='col', plot=True, plot_control=True, plot_nr=2, figuresize=50, cell_mask_dim=4, nucleus_mask_dim=5, parasite_mask_dim=6, cell_chann_dim=3, nucleus_chann_dim=0, parasite_chann_dim=2, channel_of_interest=3, filter_data=True, parasite_size_min=0, nucleus_size_min=0, cell_size_min=0, parasite_min=0, nucleus_min=0, cell_min=0, target_min=0, cells_per_well=0, include_noninfected=False, include_multiinfected=True, include_multinucleated=True, remove_background=True, backgrounds=100,  channel_dims=[0,1,2,3]):
+def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_plate_metadata=None, parasite_types=['genotype_1', 'genotype_2', 'genotype_3', 'genotype_4'], parasite_plate_metadata=[['c1','c2','c3','c4','c5','c6'], ['c7','c8','c9','c10','c11','c12'], ['c13','c14','c15','c16','c17','c18'], ['c19','c20','c21','c22','c23','c24']], treatments=['cm'], treatment_plate_metadata=None, metadata_types='col', plot=True, plot_control=True, plot_nr=2, figuresize=50, cell_mask_dim=4, nucleus_mask_dim=5, parasite_mask_dim=6, cell_chann_dim=3, nucleus_chann_dim=0, parasite_chann_dim=2, channel_of_interest=3, filter_data=True, parasite_size_min=0, nucleus_size_min=0, cell_size_min=0, parasite_min=0, nucleus_min=0, cell_min=0, target_min=0, cells_per_well=0, include_noninfected=False, include_multiinfected=True, include_multinucleated=True, remove_background=True, backgrounds=100,  channel_dims=[0,1,2,3]):
     
     mask_dims=[cell_mask_dim,nucleus_mask_dim,parasite_mask_dim]
     mask_chans=[nucleus_chann_dim, parasite_chann_dim, cell_chann_dim]
     #channel_dims=[nucleus_chann_dim, parasite_chann_dim, cell_chann_dim, channel_of_interest]
     
-    if isinstance(col_names, str):
-        col_names = [col_names, col_names, col_names]
+    if isinstance(metadata_types, str):
+        metadata_types = [metadata_types, metadata_types, metadata_types]
     if isinstance(col_names, list):
-        col_names = col_names
+        metadata_types = metadata_types
 
     if isinstance(backgrounds, int):
         backgrounds = [backgrounds, backgrounds, backgrounds, backgrounds]
@@ -3127,13 +3127,13 @@ def analyze_recruitment(src, target='experiment', cell_metadata_ls=['HeLa'],  pa
     df, object_dfs = read_and_merge_data(db_loc, tables, verbose=True, include_multinucleated=include_multinucleated, include_multiinfected=include_multiinfected, include_noninfected=include_noninfected)
     
     df = annotate_conditions(df, 
-                    cells=cell_metadata_ls, 
-                    cell_loc=cell_loc_ls, 
-                    parasites=parasite_metadata_ls,
-                    parasite_loc=parasite_loc_ls,
-                    treatments=treatment_ls, 
-                    treatment_loc=treatment_loc_ls,
-                    types=col_names)
+                    cells=cell_types, 
+                    cell_loc=cell_plate_metadata, 
+                    parasites=parasite_types,
+                    parasite_loc=parasite_plate_metadata,
+                    treatments=treatments, 
+                    treatment_loc=treatment_plate_metadata,
+                    types=metadata_types)
     
     df = df.dropna(subset=['condition'])
     print(f'After dropping non-annotated wells: {len(df)} rows')
