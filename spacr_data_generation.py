@@ -2449,7 +2449,7 @@ def preprocess_generate_masks(src, experiment='experiment', preprocess=True, mas
     if preprocess and not masks:
         print(f'WARNING: channels for mask generation are defined when preprocess = True')
 
-    mask_channels = [nucleus_dim, parasite_dim, cell_dim]
+    mask_channels = [nucleus_chann_dim, parasite_chann_dim, cell_chann_dim]
     
     cellpose_channels = [item for item in mask_channels if item is not None]
 
@@ -2473,14 +2473,7 @@ def preprocess_generate_masks(src, experiment='experiment', preprocess=True, mas
         min_highs = backgrounds*signal_to_noise
     if isinstance(backgrounds, list):
         backgrounds = backgrounds
-        min_highs = backgrounds*signal_to_noise
-
-    if isinstance(cellprob_thresholds, float):
-        cellprob_thresholds = [cellprob_thresholds, cellprob_thresholds, cellprob_thresholds]
-    if isinstance(cellprob_thresholds, int):
-        cellprob_thresholds = [cellprob_thresholds, cellprob_thresholds, cellprob_thresholds]  
-    if isinstance(cellprob_thresholds, list):
-        cellprob_thresholds = cellprob_thresholds
+        min_highs = backgrounds*signal_to_noise    
         
     if preprocess: 
         preprocess_img_data(src,
@@ -2502,7 +2495,7 @@ def preprocess_generate_masks(src, experiment='experiment', preprocess=True, mas
                             all_to_mip=all_to_mip,
                             fps=2)
     if masks:
-        if cell_dim != None:
+        if cell_chann_dim != None:
             if len(cellpose_channels) == 2:
                 chans = [0,1]
             if len(cellpose_channels) == 3:
@@ -2512,7 +2505,7 @@ def preprocess_generate_masks(src, experiment='experiment', preprocess=True, mas
                            mag=magnefication,
                            batch_size=batch_size,
                            channels=chans,
-                           cellprob_threshold=cellprob_thresholds[0],
+                           cellprob_threshold=cell_cp_prob,
                            plot=plot,
                            nr=examples_to_plot,
                            save=save[0],
@@ -2522,13 +2515,13 @@ def preprocess_generate_masks(src, experiment='experiment', preprocess=True, mas
                            timelapse=timelapse,
                            file_type='.npz')
             torch.cuda.empty_cache()
-        if nucleus_dim != None:
+        if nucleus_chann_dim != None:
             generate_masks(src,
                            object_type='nuclei',
                            mag=magnefication,
                            batch_size=batch_size,
                            channels=[0,0],
-                           cellprob_threshold=cellprob_thresholds[1],
+                           cellprob_threshold=nucleus_cp_prob,
                            plot=plot,
                            nr=examples_to_plot,
                            save=save[1],
@@ -2538,13 +2531,13 @@ def preprocess_generate_masks(src, experiment='experiment', preprocess=True, mas
                            timelapse=timelapse,
                            file_type='.npz')
             torch.cuda.empty_cache()
-        if parasite_dim != None:
+        if parasite_chann_dim != None:
             generate_masks(src,
                            object_type='parasite',
                            mag=magnefication,
                            batch_size=batch_size,
                            channels=[1,0],
-                           cellprob_threshold=cellprob_thresholds[2],
+                           cellprob_threshold=parasite_cp_prob,
                            plot=plot,
                            nr=examples_to_plot,
                            save=save[2],
