@@ -1885,16 +1885,19 @@ def find_bounding_box(crop_mask, _id, buffer=10):
     y_min, y_max = object_indices[0].min(), object_indices[0].max()
     x_min, x_max = object_indices[1].min(), object_indices[1].max()
 
-    # Crop the region using the bounding box
-    # Add some buffer if needed, e.g., +/- 10 pixels
+    # Add buffer to the bounding box coordinates
     y_min = max(y_min - buffer, 0)
-    y_max = min(y_max + buffer, crop_mask.shape[0])
+    y_max = min(y_max + buffer, crop_mask.shape[0] - 1)
     x_min = max(x_min - buffer, 0)
-    x_max = min(x_max + buffer, crop_mask.shape[1])
+    x_max = min(x_max + buffer, crop_mask.shape[1] - 1)
 
-    # Cropped region
-    cropped_region = crop_mask[y_min:y_max+1, x_min:x_max+1]
-    return cropped_region
+    # Create a new mask with the same dimensions as crop_mask
+    new_mask = np.zeros_like(crop_mask)
+
+    # Fill in the bounding box area with the _id
+    new_mask[y_min:y_max+1, x_min:x_max+1] = _id
+
+    return new_mask
 
 def measure_crop_core(index, time_ls, file, settings):
     start = time.time() 
