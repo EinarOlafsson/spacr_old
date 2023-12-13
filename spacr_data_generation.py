@@ -1056,6 +1056,8 @@ def filter_cp_masks(masks, flows, refine_masks, filter_size, minimum_size, maxim
     return mask_stack
     
 def identify_masks(src, object_type, model_name, batch_size, channels, diameter, minimum_size, maximum_size, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', refine_masks=True, filter_size=True, filter_dimm=True, remove_border_objects=False, verbose=False, plot=False, merge=False, save=True, start_at=0, file_type='.npz', count=False, net_avg=True, resample=True, timelapse=False):
+    
+    #Note add logic that handles batches of size 1 as these will break the code batches must all be > 2 images
     gc.collect()
     print('========== generating masks ==========')
     print('Torch available:', torch.cuda.is_available())
