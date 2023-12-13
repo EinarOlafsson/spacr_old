@@ -1878,6 +1878,24 @@ def generate_names(file_name, cell_id, cell_nuclei_ids, cell_parasite_ids, sourc
     table_name = fldr.replace("/", "_")
     return img_name, fldr, table_name
 
+def find_bounding_box(crop_mask, _id, buffer=10):
+    object_indices = np.where(crop_mask == _id)
+
+    # Determine the bounding box coordinates
+    y_min, y_max = object_indices[0].min(), object_indices[0].max()
+    x_min, x_max = object_indices[1].min(), object_indices[1].max()
+
+    # Crop the region using the bounding box
+    # Add some buffer if needed, e.g., +/- 10 pixels
+    y_min = max(y_min - buffer, 0)
+    y_max = min(y_max + buffer, crop_mask.shape[0])
+    x_min = max(x_min - buffer, 0)
+    x_max = min(x_max + buffer, crop_mask.shape[1])
+
+    # Cropped region
+    cropped_region = crop_mask[y_min:y_max+1, x_min:x_max+1]
+    return bounding_box_region
+
 def measure_crop_core(index, time_ls, file, settings):
     start = time.time() 
     try:
@@ -1994,12 +2012,16 @@ def measure_crop_core(index, time_ls, file, settings):
                     objects_in_image = np.unique(crop_mask)
                     objects_in_image = objects_in_image[objects_in_image != 0]
                     img_paths = []
-                    
+
                     for _id in objects_in_image:
                         region = crop_mask == _id
                         region_cell_ids = np.atleast_1d(np.unique(cell_mask * region))
                         region_nuclei_ids = np.atleast_1d(np.unique(nuclei_mask * region))
                         region_parasite_ids = np.atleast_1d(np.unique(parasite_mask * region))
+                        
+                        if settings['use_bounding_box']:
+                            region = find_bounding_box(crop_mask, _id, buffer=10)
+                        
                         img_name, fldr, table_name = generate_names(file_name=file_name, cell_id=region_cell_ids, cell_nuclei_ids=region_nuclei_ids, cell_parasite_ids=region_parasite_ids, source_folder=source_folder, crop_mode=crop_mode)
                         
                         if dialate_png:
@@ -2113,6 +2135,7 @@ def measure_crop(settings):
     settings['cytoplasm'] = True
     settings['dialate_pngs'] = False
     settings['dialate_png_ratios'] = 0.2
+    settings['center_crop'] = True
 
     int_setting_keys = ['cell_mask_dim', 'nuclei_mask_dim', 'parasite_mask_dim', 'cell_min_size', 'nucleus_min_size', 'parasite_min_size', 'cytoplasm_min_size']
     
