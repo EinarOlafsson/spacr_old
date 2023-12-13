@@ -2445,6 +2445,8 @@ def preprocess_generate_masks(src, experiment='experiment', preprocess=True, mas
     count = False
     timelapse = False
     normalize_plots = True
+    all_to_mip = False
+    fps = 2
     
     if preprocess and not masks:
         print(f'WARNING: channels for mask generation are defined when preprocess = True')
