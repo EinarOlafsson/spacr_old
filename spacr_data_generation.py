@@ -366,7 +366,7 @@ def plot_merged(src, src_list=None, cmap='inferno', cell_mask_dim=4, nucleus_mas
                     parasite_count_before = total_count_before
                     parasite_area_after = avg_size_after
                     parasite_count_after = total_count_after
-        image = np.take(stack, channel_mask_dims, axis=2)
+        image = np.take(stack, channel_dims, axis=2)
         if remove_background:
             for chan_index, channel in enumerate(range(image.shape[-1])):
                 single_channel = stack[:, :, channel]  # Extract the specific channel
