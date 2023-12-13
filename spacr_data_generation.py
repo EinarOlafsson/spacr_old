@@ -3107,15 +3107,14 @@ def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_pla
         metadata_types = [metadata_types, metadata_types, metadata_types]
     if isinstance(metadata_types, list):
         metadata_types = metadata_types
-    
+
     if isinstance(backgrounds, int):
         backgrounds = [backgrounds, backgrounds, backgrounds, backgrounds]
     if isinstance(backgrounds, float):
         backgrounds = [backgrounds, backgrounds, backgrounds, backgrounds]
     if isinstance(backgrounds, list):
         backgrounds = backgrounds
-        
-    
+
     sns.color_palette("mako", as_cmap=True)
     print(f'channel:{channel_of_interest} = {target}')
     overlay_channels = [0, 1, 2, 3]
