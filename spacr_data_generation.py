@@ -2107,7 +2107,8 @@ def measure_crop(settings):
     settings['dialate_pngs'] = False
     settings['dialate_png_ratios'] = 0.2
 
-    int_setting_keys = ['cell_mask_dim', 'nuclei_mask_dim', 'parasite_mask_dim', 'cell_min', 'nucleus_min', 'parasite_min', 'cytoplasm_min']
+    int_setting_keys = ['cell_mask_dim', 'nuclei_mask_dim', 'parasite_mask_dim', 'cell_min_size', 'nucleus_min_size', 'parasite_min_size', 'cytoplasm_min_size']
+    
     if isinstance(settings['normalize'], bool) and settings['normalize']:
         print(f'WARNING: to notmalize single object pngs set normalize to a list of 2 integers, e.g. [1,99] (lower and upper percentiles)')
         return
