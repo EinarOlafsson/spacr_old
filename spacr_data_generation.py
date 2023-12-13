@@ -3039,9 +3039,9 @@ def plot_recruitment(df, df_type, channel_of_interest, target, columns=[], figur
     plt.tight_layout()
     plt.show()
 
-def plot_data(csv_loc, category_order, figuresize=50, y_min=1):
+def plot_data(df, csv_loc, category_order, figuresize=50, y_min=1):
 
-    df = pd.read_csv(csv_loc)
+    #df = pd.read_csv(csv_loc)
 
     color_list = [(55/255, 155/255, 155/255), 
               (155/255, 55/255, 155/255), 
@@ -3255,18 +3255,20 @@ def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_pla
     
     cells = df
     wells = df_well
-    
+
     results_loc = src+'/results'
-    
+    wells_loc = results_loc+'/wells.csv'
+    cells_loc = results_loc+'/cells.csv'
+
     os.makedirs(results_loc, exist_ok=True)
 
-    wells.to_csv(results_loc+'/wells.csv', index=True, header=True)
-    cells.to_csv(results_loc+'/cells.csv', index=True, header=True)
+    wells.to_csv(wells_loc, index=True, header=True)
+    cells.to_csv(cells_loc, index=True, header=True)
 
-    plot_data(cells, category_order=parasite_types, figuresize=20, y_min=1)
-    plot_data(wells, category_order=parasite_types, figuresize=20, y_min=1)
+    plot_data(cells, cells_loc, cells_loccategory_order=parasite_types, figuresize=20, y_min=1)
+    plot_data(wells, wells_loc, category_order=parasite_types, figuresize=20, y_min=1)
 
-    return [df,df_well]
+    return [cells,wells]
 
 def filter_parasite_nuclei(df, upper_quantile=0.95, plot=True):
     upper_int = df['mean_intensity'].quantile(0.3)
