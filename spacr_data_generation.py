@@ -3105,7 +3105,7 @@ def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_pla
     
     if isinstance(metadata_types, str):
         metadata_types = [metadata_types, metadata_types, metadata_types]
-    if isinstance(col_names, list):
+    if isinstance(metadata_types, list):
         metadata_types = metadata_types
 
     if isinstance(backgrounds, int):
