@@ -293,14 +293,14 @@ def remove_outside_objects(stack, cell_dim, nucleus_dim, parasite_dim):
     return stack
 
 
-def plot_merged(src, src_list=None, cmap='inferno', cell_dim=4, nucleus_dim=5, parasite_dim=6, channel_dims=[0,1,2,3], figuresize=20, nr=1, print_object_number=True, normalize=False, normalization_percentiles=[1,99], overlay=True, overlay_chans=[3,2,0], outline_thickness=3, outline_color='gbr', backgrounds=[100,100,100,100], remove_background=False, filter_objects=False, filter_min_max=[[0,100000],[0,100000],[0,100000],[0,100000]], include_multinucleated=True, include_multiinfected=True, include_noninfected=True, verbose=False):
+def plot_merged(src, src_list=None, cmap='inferno', cell_mask_dim=4, nucleus_mask_dim=5, parasite_mask_dim=6, channel_dims=[0,1,2,3], figuresize=20, nr=1, print_object_number=True, normalize=False, normalization_percentiles=[1,99], overlay=True, overlay_chans=[3,2,0], outline_thickness=3, outline_color='gbr', backgrounds=[100,100,100,100], remove_background=False, filter_objects=False, filter_min_max=[[0,100000],[0,100000],[0,100000],[0,100000]], include_multinucleated=True, include_multiinfected=True, include_noninfected=True, verbose=False):
     mask_dims = [cell_dim, nucleus_dim, parasite_dim]
     
     if verbose:
         if isinstance(src, str):
-            print(f'src:{src}, cmap:{cmap}, mask_dims:{mask_dims}, channel_dims:{channel_dims}, figuresize:{figuresize}, nr:{nr}, print_object_number:{print_object_number}, normalize:{normalize}, normalization_percentiles:{normalization_percentiles}, overlay:{overlay}, overlay_chans:{overlay_chans}, outline_thickness:{outline_thickness}, outline_color:{outline_color}, backgrounds:{backgrounds}, remove_background:{remove_background},filter_objects:{filter_objects},filter_min_max:{filter_min_max},verbose:{verbose}')
+            print(f'src:{src}, cmap:{cmap}, mask_mask_dims:{mask_mask_dims}, channel_mask_dims:{channel_mask_dims}, figuresize:{figuresize}, nr:{nr}, print_object_number:{print_object_number}, normalize:{normalize}, normalization_percentiles:{normalization_percentiles}, overlay:{overlay}, overlay_chans:{overlay_chans}, outline_thickness:{outline_thickness}, outline_color:{outline_color}, backgrounds:{backgrounds}, remove_background:{remove_background},filter_objects:{filter_objects},filter_min_max:{filter_min_max},verbose:{verbose}')
         else:
-            print(f'src:{os.path.dirname(src[0])}, cmap:{cmap}, mask_dims:{mask_dims}, channel_dims:{channel_dims}, figuresize:{figuresize}, nr:{nr}, print_object_number:{print_object_number}, normalize:{normalize}, normalization_percentiles:{normalization_percentiles}, overlay:{overlay}, overlay_chans:{overlay_chans}, outline_thickness:{outline_thickness}, outline_color:{outline_color}, backgrounds:{backgrounds}, remove_background:{remove_background},filter_objects:{filter_objects},filter_min_max:{filter_min_max},verbose:{verbose}')
+            print(f'src:{os.path.dirname(src[0])}, cmap:{cmap}, mask_mask_dims:{mask_mask_dims}, channel_mask_dims:{channel_mask_dims}, figuresize:{figuresize}, nr:{nr}, print_object_number:{print_object_number}, normalize:{normalize}, normalization_percentiles:{normalization_percentiles}, overlay:{overlay}, overlay_chans:{overlay_chans}, outline_thickness:{outline_thickness}, outline_color:{outline_color}, backgrounds:{backgrounds}, remove_background:{remove_background},filter_objects:{filter_objects},filter_min_max:{filter_min_max},verbose:{verbose}')
 
     font = figuresize/2
     index = 0
@@ -328,9 +328,9 @@ def plot_merged(src, src_list=None, cmap='inferno', cell_dim=4, nucleus_dim=5, p
         print(f'{path}')
         stack = np.load(path)
         if not include_noninfected:
-            stack = remove_noninfected(stack, cell_dim, nucleus_dim, parasite_dim)
+            stack = remove_noninfected(stack, cell_mask_dim, nucleus_mask_dim, parasite_mask_dim)
         if filter_objects:
-            stack = remove_outside_objects(stack, cell_dim, nucleus_dim, parasite_dim)
+            stack = remove_outside_objects(stack, cell_mask_dim, nucleus_mask_dim, parasite_mask_dim)
 
             for i, mask_dim in enumerate(mask_dims):
                 min_max = filter_min_max[i]
@@ -345,28 +345,28 @@ def plot_merged(src, src_list=None, cmap='inferno', cell_dim=4, nucleus_dim=5, p
                 props_after = measure.regionprops_table(stack[:, :, mask_dim], properties=['label', 'area']) 
                 avg_size_after = np.mean(props_after['area'])
                 total_count_after = len(props_after['label'])
-                if mask_dim == cell_dim:
+                if mask_dim == cell_mask_dim:
                     if include_multinucleated is not True:
-                        stack = remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim=parasite_dim)
+                        stack = remove_multiobject_cells(stack, mask_dim, cell_mask_dim, nucleus_mask_dim, parasite_mask_dim, object_dim=parasite_mask_dim)
                     if include_multiinfected is not True:
-                        stack = remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim=nucleus_dim)
+                        stack = remove_multiobject_cells(stack, mask_dim, cell_mask_dim, nucleus_mask_dim, parasite_mask_dim, object_dim=nucleus_mask_dim)
                     #if include_border_parasites is not True:
-                    #    stack = remove_border_parasites(stack, cell_dim, nucleus_dim, parasite_dim)
+                    #    stack = remove_border_parasites(stack, cell_mask_dim, nucleus_mask_dim, parasite_mask_dim)
                     cell_area_before = avg_size_before
                     cell_count_before = total_count_before
                     cell_area_after = avg_size_after
                     cell_count_after = total_count_after
-                if mask_dim == nucleus_dim:
+                if mask_dim == nucleus_mask_dim:
                     nucleus_area_before = avg_size_before
                     nucleus_count_before = total_count_before
                     nucleus_area_after = avg_size_after
                     nucleus_count_after = total_count_after
-                if mask_dim == parasite_dim:
+                if mask_dim == parasite_mask_dim:
                     parasite_area_before = avg_size_before
                     parasite_count_before = total_count_before
                     parasite_area_after = avg_size_after
                     parasite_count_after = total_count_after
-        image = np.take(stack, channel_dims, axis=2)
+        image = np.take(stack, channel_mask_dims, axis=2)
         if remove_background:
             for chan_index, channel in enumerate(range(image.shape[-1])):
                 single_channel = stack[:, :, channel]  # Extract the specific channel
@@ -414,11 +414,11 @@ def plot_merged(src, src_list=None, cmap='inferno', cell_dim=4, nucleus_dim=5, p
                 ax_index = 0
             
             if filter_objects:
-                if cell_dim is not None:
+                if cell_mask_dim is not None:
                     print(f'removed {cell_count_before-cell_count_after} cells, cell size from {cell_area_before} to {cell_area_after}')
-                if nucleus_dim is not None:
+                if nucleus_mask_dim is not None:
                     print(f'removed {nucleus_count_before-nucleus_count_after} nuclei, nuclei size from {nucleus_area_before} to {nucleus_area_after}')
-                if parasite_dim is not None:
+                if parasite_mask_dim is not None:
                     print(f'removed {parasite_count_before-parasite_count_after} parasites, parasite size from {parasite_area_before} to {parasite_area_after}')
             
             for v in range(0, image.shape[-1]):
@@ -446,8 +446,8 @@ def plot_merged(src, src_list=None, cmap='inferno', cell_dim=4, nucleus_dim=5, p
         else:
             return
 
-def save_filtered_cells_to_csv(src, cell_dim=4, nucleus_dim=5, parasite_dim=6, include_multinucleated=True, include_multiinfected=True, include_noninfected=False, include_border_parasites=False, verbose=False):
-    mask_dims = [cell_dim, nucleus_dim, parasite_dim]
+def save_filtered_cells_to_csv(src, cell_mask_dim=4, nucleus_mask_dim=5, parasite_mask_dim=6, include_multinucleated=True, include_multiinfected=True, include_noninfected=False, include_border_parasites=False, verbose=False):
+    mask_dims = [cell_mask_dim, nucleus_mask_dim, parasite_mask_dim]
     dest = os.path.join(src, 'measurements')
     os.makedirs(dest, exist_ok=True)
     csv_file = dest+'/filtered_filelist.csv'
@@ -458,11 +458,11 @@ def save_filtered_cells_to_csv(src, cell_dim=4, nucleus_dim=5, parasite_dim=6, i
         if not include_noninfected:
             stack = remove_noninfected(stack, cell_dim, nucleus_dim, parasite_dim)
         if include_multinucleated is not True:
-            stack = remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim=parasite_dim)
+            stack = remove_multiobject_cells(stack, mask_dim, cell_mask_dim, nucleus_mask_dim, parasite_mask_dim, object_dim=parasite_mask_dim)
         if include_multiinfected is not True:
-            stack = remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim=nucleus_dim)
+            stack = remove_multiobject_cells(stack, mask_dim, cell_mask_dim, nucleus_mask_dim, parasite_mask_dim, object_dim=nucleus_mask_dim)
         if include_border_parasites is not True:
-            stack = remove_border_parasites(stack, cell_dim, nucleus_dim, parasite_dim)
+            stack = remove_border_parasites(stack, cell_mask_dim, nucleus_mask_dim, parasite_mask_dim)
         for i, mask_dim in enumerate(mask_dims):
             mask = np.take(stack, mask_dim, axis=2)
             unique_labels = np.unique(mask)
@@ -3149,7 +3149,6 @@ def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_pla
         plot_merged(src+'/merged',
                     src_list=files,
                     cmap='inferno', 
-                    interactive=interactive,
                     cell_dim=mask_dims[0],
                     nucleus_dim=mask_dims[1],
                     parasite_dim=mask_dims[2],
