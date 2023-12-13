@@ -3263,8 +3263,8 @@ def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_pla
     wells.to_csv(results_loc+'/wells.csv', index=True, header=True)
     cells.to_csv(results_loc+'/cells.csv', index=True, header=True)
 
-    plot_data(cells, category_order=parasite_metadata_ls, figuresize=20, y_min=1)
-    plot_data(wells, category_order=parasite_metadata_ls, figuresize=20, y_min=1)
+    plot_data(cells, category_order=parasite_types, figuresize=20, y_min=1)
+    plot_data(wells, category_order=parasite_types, figuresize=20, y_min=1)
 
     return [df,df_well]
 
