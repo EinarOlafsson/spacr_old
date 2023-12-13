@@ -294,7 +294,7 @@ def remove_outside_objects(stack, cell_dim, nucleus_dim, parasite_dim):
 
 
 def plot_merged(src, src_list=None, cmap='inferno', cell_mask_dim=4, nucleus_mask_dim=5, parasite_mask_dim=6, channel_dims=[0,1,2,3], figuresize=20, nr=1, print_object_number=True, normalize=False, normalization_percentiles=[1,99], overlay=True, overlay_chans=[3,2,0], outline_thickness=3, outline_color='gbr', backgrounds=[100,100,100,100], remove_background=False, filter_objects=False, filter_min_max=[[0,100000],[0,100000],[0,100000],[0,100000]], include_multinucleated=True, include_multiinfected=True, include_noninfected=True, verbose=False):
-    mask_dims = [cell_dim, nucleus_dim, parasite_dim]
+    mask_dims = [cell_mask_dim, nucleus_mask_dim, parasite_mask_dim]
     
     if verbose:
         if isinstance(src, str):
