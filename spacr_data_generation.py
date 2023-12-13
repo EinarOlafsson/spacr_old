@@ -1872,42 +1872,7 @@ def generate_names(file_name, cell_id, cell_nuclei_ids, cell_parasite_ids, sourc
     return img_name, fldr, table_name
 
 def measure_crop_core(index, time_ls, file, settings):
-    start = time.time()
-
-    #general settings
-    settings['merge_edge_parasite_cells'] = True
-    settings['radial_dist'] = True
-    settings['calculate_correlation'] = True
-    settings['manders_thresholds'] = [15,85,95]
-    settings['include_uninfected'] = False
-    settings['homogeneity'] = True
-    settings['homogeneity_distances'] = [8,16,32]
-    settings['save_arrays'] = False
-    settings['cytoplasm'] = True
-    settings['dialate_pngs'] = False
-    settings['dialate_png_ratios'] = 0.2
-
-    int_setting_keys = ['cell_dim', 'nucleus_dim', 'parasite_dim', 'cell_min', 'nucleus_min', 'parasite_min', 'cytoplasm_min']
-    if isinstance(settings['normalize'], bool) and settings['normalize']:
-        print(f'WARNING: to notmalize single object pngs set normalize to a list of 2 integers, e.g. [1,99] (lower and upper percentiles)')
-        return
-
-    if settings['normalize_by'] not in ['png', 'fov']:
-        print("Warning: normalize_by should be either 'png' to notmalize each png to its own percentiles or 'fov' to normalize each png to the fov percentiles ")
-        return
-
-    if not all(isinstance(settings[key], int) for key in int_setting_keys):
-        print(f"WARNING: {int_setting_keys} must all be integers")
-        return
-
-    if not isinstance(settings['channels'], list):
-        print(f"WARNING: channels should be a list of integers representing channels e.g. [0,1,2,3]")
-        return
-
-    if not isinstance(settings['crop_mode'], list):
-        print(f"WARNING: crop_mode should be a list with at least one element e.g. ['cell'] or ['cell','nucleus'] or [None]")
-        return
-            
+    start = time.time() 
     try:
         source_folder = os.path.dirname(settings['input_folder'])
         file_name = os.path.splitext(file)[0]
@@ -1923,26 +1888,26 @@ def measure_crop_core(index, time_ls, file, settings):
 
         #extract image, cell, nucleus and parasite arrays
         channel_arrays = data[:, :, settings['channels']].astype(data_type)
-        cell_mask = data[:, :, settings['cell_dim']].astype(data_type)
-        if settings['nuclei_dim'] is not None:
-            nuclei_mask = data[:, :, settings['nuclei_dim']].astype(data_type)
+        cell_mask = data[:, :, settings['cell_mask_dim']].astype(data_type)
+        if settings['nuclei_mask_dim'] is not None:
+            nuclei_mask = data[:, :, settings['nuclei_mask_dim']].astype(data_type)
             nuclei_mask, cell_mask = merge_overlapping_objects(mask1=nuclei_mask, mask2=cell_mask)
         else:
             nuclei_mask = np.zeros_like(cell_mask)
 
-        if settings['parasite_dim'] is not None:
-            parasite_mask = data[:, :, settings['parasite_dim']].astype(data_type)
+        if settings['parasite_mask_dim'] is not None:
+            parasite_mask = data[:, :, settings['parasite_mask_dim']].astype(data_type)
             if settings['merge_edge_parasite_cells']:
                 parasite_mask, cell_mask = merge_overlapping_objects(mask1=parasite_mask, mask2=cell_mask)
         else:
             parasite_mask = np.zeros_like(cell_mask)
             
-        if settings['cell_min'] is not None:
-            cell_mask = filter_object(cell_mask, settings['cell_min']) # Filter out small cells
-        if settings['nucleus_min'] is not None:
-            nuclei_mask = filter_object(nuclei_mask, settings['nucleus_min']) # Filter out small nuclei
-        if settings['parasite_min'] is not None:
-            parasite_mask = filter_object(parasite_mask, settings['parasite_min']) # Filter out small parasites
+        if settings['cell_min_size'] is not None:
+            cell_mask = filter_object(cell_mask, settings['cell_min_size']) # Filter out small cells
+        if settings['nucleus_min_size'] is not None:
+            nuclei_mask = filter_object(nuclei_mask, settings['nucleus_min_size']) # Filter out small nuclei
+        if settings['parasite_min_size'] is not None:
+            parasite_mask = filter_object(parasite_mask, settings['parasite_min_size']) # Filter out small parasites
 
         # Create cytoplasm mask
         if settings['cytoplasm']:
@@ -1950,24 +1915,24 @@ def measure_crop_core(index, time_ls, file, settings):
         else:
             cytoplasm_mask = np.zeros_like(cell_mask)
         
-        if settings['cell_min'] is not None:
-            cell_mask = filter_object(cell_mask, settings['cell_min']) # Filter out small cells
-        if settings['nucleus_min'] is not None:
-            nuclei_mask = filter_object(nuclei_mask, settings['nucleus_min']) # Filter out small nuclei
-        if settings['parasite_min'] is not None:
-            parasite_mask = filter_object(parasite_mask, settings['parasite_min']) # Filter out small parasites
-        if settings['cytoplasm_min'] is not None:
-            cytoplasm_mask = filter_object(cytoplasm_mask, settings['cytoplasm_min']) # Filter out small cytoplasms
+        if settings['cell_min_size'] is not None:
+            cell_mask = filter_object(cell_mask, settings['cell_min_size']) # Filter out small cells
+        if settings['nucleus_min_size'] is not None:
+            nuclei_mask = filter_object(nuclei_mask, settings['nucleus_min_size']) # Filter out small nuclei
+        if settings['parasite_min_size'] is not None:
+            parasite_mask = filter_object(parasite_mask, settings['parasite_min_size']) # Filter out small parasites
+        if settings['cytoplasm_min_size'] is not None:
+            cytoplasm_mask = filter_object(cytoplasm_mask, settings['cytoplasm_min_size']) # Filter out small cytoplasms
 
         if settings['include_uninfected'] == False:
             cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask = exclude_objects(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask, include_uninfected=False)
         
         # Update data with the new masks
-        data[:, :, settings['cell_dim']] = cell_mask.astype(data_type)
-        if settings['nuclei_dim'] is not None:
-            data[:, :, settings['nuclei_dim']] = nuclei_mask.astype(data_type)
-        if settings['parasite_dim'] is not None:
-            data[:, :, settings['parasite_dim']] = parasite_mask.astype(data_type)
+        data[:, :, settings['cell_mask_dim']] = cell_mask.astype(data_type)
+        if settings['nuclei_mask_dim'] is not None:
+            data[:, :, settings['nuclei_mask_dim']] = nuclei_mask.astype(data_type)
+        if settings['parasite_mask_dim'] is not None:
+            data[:, :, settings['parasite_mask_dim']] = parasite_mask.astype(data_type)
         data = np.concatenate((data, cytoplasm_mask[:, :, np.newaxis]), axis=2)
         
         if settings['plot_filtration']:
@@ -2129,6 +2094,40 @@ def save_settings_to_db(settings):
 
 def measure_crop(settings):
 
+    #general settings
+    settings['merge_edge_parasite_cells'] = True
+    settings['radial_dist'] = True
+    settings['calculate_correlation'] = True
+    settings['manders_thresholds'] = [15,85,95]
+    settings['include_uninfected'] = False
+    settings['homogeneity'] = True
+    settings['homogeneity_distances'] = [8,16,32]
+    settings['save_arrays'] = False
+    settings['cytoplasm'] = True
+    settings['dialate_pngs'] = False
+    settings['dialate_png_ratios'] = 0.2
+
+    int_setting_keys = ['cell_mask_dim', 'nuclei_mask_dim', 'parasite_mask_dim', 'cell_min', 'nucleus_min', 'parasite_min', 'cytoplasm_min']
+    if isinstance(settings['normalize'], bool) and settings['normalize']:
+        print(f'WARNING: to notmalize single object pngs set normalize to a list of 2 integers, e.g. [1,99] (lower and upper percentiles)')
+        return
+
+    if settings['normalize_by'] not in ['png', 'fov']:
+        print("Warning: normalize_by should be either 'png' to notmalize each png to its own percentiles or 'fov' to normalize each png to the fov percentiles ")
+        return
+
+    if not all(isinstance(settings[key], int) for key in int_setting_keys):
+        print(f"WARNING: {int_setting_keys} must all be integers")
+        return
+
+    if not isinstance(settings['channels'], list):
+        print(f"WARNING: channels should be a list of integers representing channels e.g. [0,1,2,3]")
+        return
+
+    if not isinstance(settings['crop_mode'], list):
+        print(f"WARNING: crop_mode should be a list with at least one element e.g. ['cell'] or ['cell','nucleus'] or [None]")
+        return
+    
     save_settings_to_db(settings)
 
     files = [f for f in os.listdir(settings['input_folder']) if f.endswith('.npy')]
