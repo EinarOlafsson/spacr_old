@@ -3223,26 +3223,26 @@ def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_pla
     n_conditions = len(conditions)
     fig, axs = plt.subplots(1, n_conditions, figsize=(8*n_conditions, 4), sharey=True)
     plt.subplots_adjust(bottom=0.8)
-    if size_quantiles:
-        for ax, condition in zip(axs, conditions):
-            df_condition = df[df['condition'] == condition]
-            df_condition['parasite_area_quartiles'] = pd.qcut(df_condition['parasite_area'], 
-                                                              q=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], 
-                                                              labels=['0-10%','10-20%', '20-30%', '30-40%', '40-50%', '50-60%', '60-70%', '70-80%', '80-90%', '90-100%'])
-
-            sns.barplot(data=df_condition, x='parasite_area_quartiles', y='recruitment', ci='sd', capsize=.2, ax=ax)
-            ax.set_title(f'Recruitment by Parasite Size ({condition})')
-            ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
-            for i, p in enumerate(ax.patches):
-                x = p.get_x() + p.get_width() / 2.
-                quartile = df_condition['parasite_area_quartiles'].cat.categories[i]
-                n_samples = df_condition['parasite_area_quartiles'].value_counts().loc[quartile]
-                min_recruitment = df_condition.loc[df_condition['parasite_area_quartiles'] == quartile, 'parasite_area'].min()
-                max_recruitment = df_condition.loc[df_condition['parasite_area_quartiles'] == quartile, 'parasite_area'].max()
-                x_norm = x / len(df_condition['parasite_area_quartiles'].cat.categories)
-                ax.text(x_norm, -0.4, f'n:{n_samples}\n{min_recruitment:.2f}\n{max_recruitment:.2f}', ha='center', va='top', transform=ax.transAxes)
-        plt.tight_layout()
-        plt.show()
+    #if size_quantiles:
+    #    for ax, condition in zip(axs, conditions):
+    #        df_condition = df[df['condition'] == condition]
+    #        df_condition['parasite_area_quartiles'] = pd.qcut(df_condition['parasite_area'], 
+    #                                                          q=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], 
+    #                                                          labels=['0-10%','10-20%', '20-30%', '30-40%', '40-50%', '50-60%', '60-70%', '70-80%', '80-90%', '90-100%'])
+    #
+    #        sns.barplot(data=df_condition, x='parasite_area_quartiles', y='recruitment', ci='sd', capsize=.2, ax=ax)
+    #        ax.set_title(f'Recruitment by Parasite Size ({condition})')
+    #        ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+    #        for i, p in enumerate(ax.patches):
+    #            x = p.get_x() + p.get_width() / 2.
+    #            quartile = df_condition['parasite_area_quartiles'].cat.categories[i]
+    #            n_samples = df_condition['parasite_area_quartiles'].value_counts().loc[quartile]
+    #            min_recruitment = df_condition.loc[df_condition['parasite_area_quartiles'] == quartile, 'parasite_area'].min()
+    #            max_recruitment = df_condition.loc[df_condition['parasite_area_quartiles'] == quartile, 'parasite_area'].max()
+    #            x_norm = x / len(df_condition['parasite_area_quartiles'].cat.categories)
+    #            ax.text(x_norm, -0.4, f'n:{n_samples}\n{min_recruitment:.2f}\n{max_recruitment:.2f}', ha='center', va='top', transform=ax.transAxes)
+    #    plt.tight_layout()
+    #    plt.show()
     #if save_filtered_filelist:
     #    save_filtered_cells_to_csv(src, cell_dim=cell_dim, nucleus_dim=nucleus_dim, parasite_dim=parasite_dim, include_multinucleated=include_multinucleated, include_multiinfected=include_multiinfected, include_noninfected=include_noninfected, include_border_parasites=include_border_parasites, verbose=True)
     
