@@ -209,14 +209,48 @@ def plot_arrays(src, figuresize=50, cmap='inferno', nr=1, normalize=True, q1=1, 
         plt.show()
     return
 
-def remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim):
+#def remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim):
+#    cell_mask = stack[:, :, mask_dim]
+#    nucleus_mask = stack[:, :, nucleus_dim]
+#    parasite_mask = stack[:, :, parasite_dim]
+#    object_mask = stack[:, :, object_dim]
+
+#    for cell_label in np.unique(cell_mask)[1:]:
+#        cell_region = cell_mask == cell_label
+#        labels_in_cell = np.unique(object_mask[cell_region])
+#        if len(labels_in_cell) > 2:
+#            cell_mask[cell_region] = 0
+#            nucleus_mask[cell_region] = 0
+#            for parasite_label in labels_in_cell[1:]:  # Skip the first label (0)
+#                parasite_mask[parasite_mask == parasite_label] = 0
+
+#    stack[:, :, cell_dim] = cell_mask
+#    stack[:, :, nucleus_dim] = nucleus_mask
+#    stack[:, :, parasite_dim] = parasite_mask
+#    return stack
+
+def remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim, advanced_filtration=False):
     cell_mask = stack[:, :, mask_dim]
     nucleus_mask = stack[:, :, nucleus_dim]
     parasite_mask = stack[:, :, parasite_dim]
     object_mask = stack[:, :, object_dim]
 
-    for cell_label in np.unique(cell_mask)[1:]:
+    for cell_label in np.unique(cell_mask)[1:]:  # Skip the first label (0)
         cell_region = cell_mask == cell_label
+        cell_area = np.sum(cell_region)
+        
+        # Calculate nucleus and parasite areas within the cell
+        nucleus_area = np.sum(nucleus_mask[cell_region])
+        parasite_area = np.sum(parasite_mask[cell_region])
+
+        # Advanced filtration based on nucleus and parasite areas
+        if advanced_filtration and (nucleus_area > 0.5 * cell_area or parasite_area > 0.5 * cell_area):
+            cell_mask[cell_region] = 0
+            nucleus_mask[cell_region] = 0
+            parasite_mask[cell_region] = 0
+            continue
+
+        # Original multi-object removal logic
         labels_in_cell = np.unique(object_mask[cell_region])
         if len(labels_in_cell) > 2:
             cell_mask[cell_region] = 0
@@ -293,7 +327,7 @@ def remove_outside_objects(stack, cell_dim, nucleus_dim, parasite_dim):
     return stack
 
 
-def plot_merged(src, src_list=None, cmap='inferno', cell_mask_dim=4, nucleus_mask_dim=5, parasite_mask_dim=6, channel_dims=[0,1,2,3], figuresize=20, nr=1, print_object_number=True, normalize=False, normalization_percentiles=[1,99], overlay=True, overlay_chans=[3,2,0], outline_thickness=3, outline_color='gbr', backgrounds=[100,100,100,100], remove_background=False, filter_objects=False, filter_min_max=[[0,100000],[0,100000],[0,100000],[0,100000]], include_multinucleated=True, include_multiinfected=True, include_noninfected=True, verbose=False):
+def plot_merged(src, src_list=None, cmap='inferno', cell_mask_dim=4, nucleus_mask_dim=5, parasite_mask_dim=6, channel_dims=[0,1,2,3], figuresize=20, nr=1, print_object_number=True, normalize=False, normalization_percentiles=[1,99], overlay=True, overlay_chans=[3,2,0], outline_thickness=3, outline_color='gbr', backgrounds=[100,100,100,100], remove_background=False, filter_objects=False, filter_min_max=[[0,100000],[0,100000],[0,100000],[0,100000]], include_multinucleated=True, include_multiinfected=True, include_noninfected=True, advanced_filter=False, verbose=False):
     mask_dims = [cell_mask_dim, nucleus_mask_dim, parasite_mask_dim]
     
     if verbose:
@@ -345,6 +379,20 @@ def plot_merged(src, src_list=None, cmap='inferno', cell_mask_dim=4, nucleus_mas
                 props_after = measure.regionprops_table(stack[:, :, mask_dim], properties=['label', 'area']) 
                 avg_size_after = np.mean(props_after['area'])
                 total_count_after = len(props_after['label'])
+                
+                if advanced_filter:
+
+                    #Removes cells where the cytoplasm is too small for comparison
+                    df['cell_vs_parasite_area'] = df[f'cell_area']/df[f'parasite_area']
+                    df = df[df['cell_vs_parasite_area'] > 2]
+                    print(f'After advanced cell/parasite area filtration', len(df))
+            
+                    #Removes cells where the cytoplasm is too small for comparison
+                    df['cell_vs_nucleus_area'] = df[f'cell_area']/df[f'nucleus_area']
+                    df = df[df['cell_vs_nucleus_area'] > 2]
+                    print(f'After advanced cell/nucleus area filtration', len(df))
+                
+                
                 if mask_dim == cell_mask_dim:
                     if include_multinucleated is not True:
                         stack = remove_multiobject_cells(stack, mask_dim, cell_mask_dim, nucleus_mask_dim, parasite_mask_dim, object_dim=parasite_mask_dim)
@@ -3134,7 +3182,7 @@ def plot_data(df, csv_loc, category_order, figuresize=50, y_min=1):
     fig.savefig(os.path.join(results_dir, pdf_name_jitter))
 
 #def analyze_recruitment(src, plot=True, plot_nr=1, remove_background=False, target='protein of interest', cell_dim=4, nucleus_dim=5, parasite_dim=6,channel_of_interest=3, cell_metadata_ls=['Hela'], cell_loc_ls=None, parasite_metadata_ls=['genotype_1', 'genotype_1', 'genotype_1', 'genotype_1'], parasite_loc_ls=[['c2'], ['c3'], ['c4'], ['c5']], treatment_ls=['cm'], treatment_loc_ls=None, parasite_size_min=0, nucleus_size_min=0, cell_size_min=0, parasite_min=0, nucleus_min=0, cell_min=0, target_min=0, plot_control=False, filter_data=False, include_multinucleated=False, include_multiinfected=False, col_names='col', size_quantiles=True, cells_per_well=10, include_noninfected=False, figuresize=20, backgrounds=100, channel_dims=[0,1,2,3], include_border_parasites=False):
-def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_plate_metadata=None, parasite_types=['genotype_1', 'genotype_2', 'genotype_3', 'genotype_4'], parasite_plate_metadata=[['c1','c2','c3','c4','c5','c6'], ['c7','c8','c9','c10','c11','c12'], ['c13','c14','c15','c16','c17','c18'], ['c19','c20','c21','c22','c23','c24']], treatments=['cm'], treatment_plate_metadata=None, metadata_types='col', plot=True, plot_control=True, plot_nr=2, figuresize=50, cell_mask_dim=4, nucleus_mask_dim=5, parasite_mask_dim=6, cell_chann_dim=3, nucleus_chann_dim=0, parasite_chann_dim=2, channel_of_interest=3, filter_data=True, parasite_size_min=0, nucleus_size_min=0, cell_size_min=0, parasite_min=0, nucleus_min=0, cell_min=0, target_min=0, cells_per_well=0, include_noninfected=False, include_multiinfected=True, include_multinucleated=True, remove_background=True, backgrounds=100,  channel_dims=[0,1,2,3]):
+def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_plate_metadata=None, parasite_types=['genotype_1', 'genotype_2', 'genotype_3', 'genotype_4'], parasite_plate_metadata=[['c1','c2','c3','c4','c5','c6'], ['c7','c8','c9','c10','c11','c12'], ['c13','c14','c15','c16','c17','c18'], ['c19','c20','c21','c22','c23','c24']], treatments=['cm'], treatment_plate_metadata=None, metadata_types='col', plot=True, plot_control=True, plot_nr=2, figuresize=50, cell_mask_dim=4, nucleus_mask_dim=5, parasite_mask_dim=6, cell_chann_dim=3, nucleus_chann_dim=0, parasite_chann_dim=2, channel_of_interest=3, filter_data=True, parasite_size_min=0, nucleus_size_min=0, cell_size_min=0, parasite_min=0, nucleus_min=0, cell_min=0, target_min=0, cells_per_well=0, include_noninfected=False, include_multiinfected=True, include_multinucleated=True, remove_background=True, backgrounds=100,  channel_dims=[0,1,2,3], advanced_filter=False):
 
     print(f'Cells: {cell_types}, in {cell_plate_metadata}')
     print(f'Parasites: {parasite_types}, in {parasite_plate_metadata}')
@@ -3183,13 +3231,10 @@ def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_pla
     df = df.dropna(subset=['condition'])
     print(f'After dropping non-annotated wells: {len(df)} rows')
     
-    #for col in df.columns:
-    #    print(col)
-    
     files = df['file_name'].tolist()
     files = [item + '.npy' for item in files]
     random.shuffle(files)
-    #
+    
     max_ = 100**10
     if plot:
         plot_merged(src+'/merged',
@@ -3215,6 +3260,7 @@ def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_pla
                     include_multinucleated=include_multinucleated,
                     include_multiinfected=include_multiinfected,
                     include_noninfected=include_noninfected,
+                    advanced_filter=False,
                     verbose=True)    
     
     if filter_data:
@@ -3232,7 +3278,29 @@ def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_pla
         
         df = df[df[f'cell_channel_{channel_of_interest}_percentile_95'] > target_min]
         print(f'After channel {channel_of_interest} filtration', len(df))
+
+    if advanced_filter:
+        print(f'Advanced filtration')
+        #Removes cells where parasites objects were not captured correctly
+        df[f'parasite_vs_cytoplasm_{mask_chans[2]}_channel'] = df[f'parasite_channel_{mask_chans[2]}_mean_intensity']/df[f'cytoplasm_channel_{mask_chans[2]}_mean_intensity']
+        df = df[df[f'parasite_vs_cytoplasm_{mask_chans[2]}_channel'] > 2]
+        print(f'After advanced parasite/cytoplasm intensity filtration (parasite channel)', len(df))
+
+        #Removes cells where nucleus objects were not captured correctly
+        df[f'nucleus_vs_cytoplasm_{mask_chans[1]}_channel'] = df[f'nucleus_channel_{mask_chans[1]}_mean_intensity']/df[f'cytoplasm_channel_{mask_chans[1]}_mean_intensity']
+        df = df[df[f'nucleus_vs_cytoplasm_{mask_chans[1]}_channel'] > 2]
+        print(f'After advanced nucleus/cytoplasm intensity filtration (nuclear channel)', len(df))
         
+        #Removes cells where the cytoplasm is too small for comparison
+        df['cell_vs_parasite_area'] = df[f'cell_area']/df[f'parasite_area']
+        df = df[df['cell_vs_parasite_area'] > 2]
+        print(f'After advanced cell/parasite area filtration', len(df))
+
+        #Removes cells where the cytoplasm is too small for comparison
+        df['cell_vs_nucleus_area'] = df[f'cell_area']/df[f'nucleus_area']
+        df = df[df['cell_vs_nucleus_area'] > 2]
+        print(f'After advanced cell/nucleus area filtration', len(df))
+    
     df['recruitment'] = df[f'parasite_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
     
     df = calculate_recruitment(df, channel=0)
