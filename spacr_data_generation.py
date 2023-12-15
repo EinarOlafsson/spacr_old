@@ -209,33 +209,33 @@ def plot_arrays(src, figuresize=50, cmap='inferno', nr=1, normalize=True, q1=1, 
         plt.show()
     return
 
-#def remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim):
-#    cell_mask = stack[:, :, mask_dim]
-#    nucleus_mask = stack[:, :, nucleus_dim]
-#    parasite_mask = stack[:, :, parasite_dim]
-#    object_mask = stack[:, :, object_dim]
-
-#    for cell_label in np.unique(cell_mask)[1:]:
-#        cell_region = cell_mask == cell_label
-#        labels_in_cell = np.unique(object_mask[cell_region])
-#        if len(labels_in_cell) > 2:
-#            cell_mask[cell_region] = 0
-#            nucleus_mask[cell_region] = 0
-#            for parasite_label in labels_in_cell[1:]:  # Skip the first label (0)
-#                parasite_mask[parasite_mask == parasite_label] = 0
-
-#    stack[:, :, cell_dim] = cell_mask
-#    stack[:, :, nucleus_dim] = nucleus_mask
-#    stack[:, :, parasite_dim] = parasite_mask
-#    return stack
-
-def remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim, advanced_filtration=False):
+def remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim):
     cell_mask = stack[:, :, mask_dim]
     nucleus_mask = stack[:, :, nucleus_dim]
     parasite_mask = stack[:, :, parasite_dim]
     object_mask = stack[:, :, object_dim]
 
-    for cell_label in np.unique(cell_mask)[1:]:  # Skip the first label (0)
+    for cell_label in np.unique(cell_mask)[1:]:
+        cell_region = cell_mask == cell_label
+        labels_in_cell = np.unique(object_mask[cell_region])
+        if len(labels_in_cell) > 2:
+            cell_mask[cell_region] = 0
+            nucleus_mask[cell_region] = 0
+            for parasite_label in labels_in_cell[1:]:  # Skip the first label (0)
+                parasite_mask[parasite_mask == parasite_label] = 0
+
+    stack[:, :, cell_dim] = cell_mask
+    stack[:, :, nucleus_dim] = nucleus_mask
+    stack[:, :, parasite_dim] = parasite_mask
+    return stack
+
+def remove_advanced_filter_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim):
+    cell_mask = stack[:, :, mask_dim]
+    nucleus_mask = stack[:, :, nucleus_dim]
+    parasite_mask = stack[:, :, parasite_dim]
+    object_mask = stack[:, :, object_dim]
+
+    for cell_label in np.unique(cell_mask)[1:]: 
         cell_region = cell_mask == cell_label
         cell_area = np.sum(cell_region)
         
@@ -249,14 +249,6 @@ def remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_di
             nucleus_mask[cell_region] = 0
             parasite_mask[cell_region] = 0
             continue
-
-        # Original multi-object removal logic
-        labels_in_cell = np.unique(object_mask[cell_region])
-        if len(labels_in_cell) > 2:
-            cell_mask[cell_region] = 0
-            nucleus_mask[cell_region] = 0
-            for parasite_label in labels_in_cell[1:]:  # Skip the first label (0)
-                parasite_mask[parasite_mask == parasite_label] = 0
 
     stack[:, :, cell_dim] = cell_mask
     stack[:, :, nucleus_dim] = nucleus_mask
@@ -380,24 +372,13 @@ def plot_merged(src, src_list=None, cmap='inferno', cell_mask_dim=4, nucleus_mas
                 avg_size_after = np.mean(props_after['area'])
                 total_count_after = len(props_after['label'])
                 
-                if advanced_filter:
-
-                    #Removes cells where the cytoplasm is too small for comparison
-                    df['cell_vs_parasite_area'] = df[f'cell_area']/df[f'parasite_area']
-                    df = df[df['cell_vs_parasite_area'] > 2]
-                    print(f'After advanced cell/parasite area filtration', len(df))
-            
-                    #Removes cells where the cytoplasm is too small for comparison
-                    df['cell_vs_nucleus_area'] = df[f'cell_area']/df[f'nucleus_area']
-                    df = df[df['cell_vs_nucleus_area'] > 2]
-                    print(f'After advanced cell/nucleus area filtration', len(df))
-                
-                
                 if mask_dim == cell_mask_dim:
                     if include_multinucleated is not True:
                         stack = remove_multiobject_cells(stack, mask_dim, cell_mask_dim, nucleus_mask_dim, parasite_mask_dim, object_dim=parasite_mask_dim)
                     if include_multiinfected is not True:
                         stack = remove_multiobject_cells(stack, mask_dim, cell_mask_dim, nucleus_mask_dim, parasite_mask_dim, object_dim=nucleus_mask_dim)
+                    if advanced_filter:
+                        stack = remove_advanced_filter_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim)
                     #if include_border_parasites is not True:
                     #    stack = remove_border_parasites(stack, cell_mask_dim, nucleus_mask_dim, parasite_mask_dim)
                     cell_area_before = avg_size_before
