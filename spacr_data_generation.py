@@ -3148,8 +3148,12 @@ def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_pla
     if isinstance(metadata_types, str):
         metadata_types = [metadata_types, metadata_types, metadata_types]
     if isinstance(metadata_types, list):
-        metadata_types = metadata_types
-
+        if len(metadata_types) < 3:
+            metadata_types = [metadata_types[0], metadata_types[0], metadata_types[0]]
+            print(f'WARNING: setting metadata types to first element times 3: {metadata_types}. To avoid this behaviour, set metadata_types to a list with 3 elements. Elements should be col row or plate.')
+        else:
+            metadata_types = metadata_types
+    
     if isinstance(backgrounds, int):
         backgrounds = [backgrounds, backgrounds, backgrounds, backgrounds]
     if isinstance(backgrounds, float):
