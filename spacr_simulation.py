@@ -698,6 +698,7 @@ def log_result(result):
 def generate_paramiters(settings):
     sim_ls = []
     for avg_genes_per_well in settings['avg_genes_per_well']:
+        replicates = sett['replicates']
         sett = settings.copy()
         sett['avg_genes_per_well'] = avg_genes_per_well
         sett['sd_genes_per_well'] = int(avg_genes_per_well / 2)
@@ -735,6 +736,7 @@ def generate_paramiters(settings):
 def generate_paramiters_single(settings):
     sim_ls = []
     for avg_genes_per_well in settings['avg_genes_per_well']:
+        replicates = sett['replicates']
         sett = settings.copy()
         sett['avg_genes_per_well'] = avg_genes_per_well
         sett['sd_genes_per_well'] = int(avg_genes_per_well / 2)
