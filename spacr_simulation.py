@@ -729,7 +729,6 @@ def generate_paramiters(settings):
                                                 sim_ls.append(sett)
                                                 #print(sett)
     #print('Number of simulations:',len(sim_ls))
-    
     return sim_ls
 
 #altered for one set of settings see negative_mean and variance
@@ -768,13 +767,12 @@ def generate_paramiters_single(settings):
                                                 sim_ls.append(sett)
                                                 #print(sett)
     #print('Number of simulations:',len(sim_ls))
-    
     return sim_ls
 
 def run_multiple_simulations(settings):
-    ###
+
     sim_ls = generate_paramiters(settings)
-    print(f'running {len (sim_ls)} simulations. Standard deveations for each variable are calculeted as variable * 0.5 ')
+    print(f'Running {len (sim_ls)} simulations. Standard deveations for each variable are variable / 2 ')
     
     max_workers = settings['max_workers'] or cpu_count() - 4
     with Manager() as manager:
