@@ -542,6 +542,12 @@ def visualize_all(output):
 
     display(df)
 
+    # Check data types
+    print(df[['rank', 'coef', 'std err']].dtypes)
+    
+    # Check for NaN values
+    print(df[['rank', 'coef', 'std err']].isna().sum())
+
     ax[n].plot(df['rank'], df['coef'], '-', color = 'black')
     ax[n].fill_between(df['rank'], df['coef'] - abs(df['std err']), df['coef'] + abs(df['std err']), alpha=0.4, color='slategray')
     ax[n].set_title('Effect score error')
