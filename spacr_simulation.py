@@ -462,6 +462,7 @@ def visualize_all(output):
     gini_genes_per_well = gini(genes_per_well_df['genes_per_well'].tolist())
     plot_histogram(genes_per_well_df, "genes_per_well", ax[n], 'slategray', f'gene/well (gini = {gini_genes_per_well:.2f})', binwidth=None, log=False)
     n+=1
+    
     #plot wells per gene
     gini_wells_per_gene = gini(wells_per_gene_df['wells_per_gene'].tolist())
     plot_histogram(wells_per_gene_df, "wells_per_gene", ax[n], 'slategray', f'well/gene (Gini = {gini_wells_per_gene:.2f})', binwidth=None, log=False)
@@ -616,7 +617,7 @@ def save_data(src, output, settings, save_all=False, i=0, variable='all'):
 def save_plot(fig, src, variable, i):
     os.makedirs(f'{src}/{variable}', exist_ok=True)
     filename_fig = f'{src}/{variable}/{str(i)}_figure.pdf'
-    fig.savefig(filename_fig, dpi = 600, format='pdf', bbox_ifnches='tight')
+    fig.savefig(filename_fig, dpi = 600, format='pdf', bbox_inches='tight')
     return
     
 def run_and_save(i, settings, time_ls, total_sims):
