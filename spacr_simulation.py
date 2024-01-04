@@ -780,7 +780,7 @@ def run_multiple_simulations(settings):
     with Manager() as manager:
         time_ls = manager.list()
         total_sims = len(sim_ls)
-        with spacr.Pool(max_workers) as pool:
+        with Pool(max_workers) as pool:
             result = pool.starmap_async(spacr.run_and_save, [(index, settings, time_ls, total_sims) for index, settings in enumerate(sim_ls)])
             while not result.ready():
                 sleep(0.01)
