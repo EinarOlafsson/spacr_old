@@ -467,6 +467,7 @@ def visualize_all(output):
     plot_histogram(wells_per_gene_df, "wells_per_gene", ax[n], 'slategray', f'well/gene (Gini = {gini_wells_per_gene:.2f})', binwidth=None, log=False)
     #ax[n].set_xscale('log')
     n+=1
+    
     #plot cell classification score by inactive and active
     active_distribution = cell_scores[cell_scores['is_active'] == 1] 
     inactive_distribution = cell_scores[cell_scores['is_active'] == 0]
@@ -474,25 +475,32 @@ def visualize_all(output):
     plot_histogram(inactive_distribution, "score", ax[n], 'teal', 'Cell scores', binwidth=0.01, log=False)
     ax[n].set_xlim([0, 1])
     n+=1
+    
     #plot classifier cell predictions by inactive and active well average
+    display(inactive_distribution)
     inactive_distribution_well = inactive_distribution.groupby(['plate_row_column']).mean()
     active_distribution_well = active_distribution.groupby(['plate_row_column']).mean()
+    
     plot_histogram(active_distribution, "score", ax[n], 'slategray', 'Well scores', binwidth=0.01, log=False)
     plot_histogram(inactive_distribution, "score", ax[n], 'teal', 'Well scores', binwidth=0.01, log=False)
     ax[n].set_xlim([0, 1])
     n+=1
+    
     #plot ROC (cell classification)
     plot_roc_pr(cell_roc_dict_df, ax[n], 'ROC (Cell)', 'fpr', 'tpr')
     ax[n].plot([0, 1], [0, 1], color='black', lw=0.5, linestyle="--", label='random classifier')
     n+=1
+    
     #plot Presision recall (cell classification)
     plot_roc_pr(cell_pr_dict_df, ax[n], 'Precision recall (Cell)', 'recall', 'precision')
     ax[n].set_ylim([-0.1, 1.1])
     ax[n].set_xlim([-0.1, 1.1])
     n+=1
+    
     #Confusion matrix at optimal threshold
     plot_confusion_matrix(cell_cm, ax[n], 'Confusion Matrix Cell')
     n+=1
+    
     #plot well score
     plot_histogram(well_score, "score", ax[n], 'teal', 'Well score', binwidth=0.005, log=False)
     ax[n].set_xlim([0, 1])
@@ -608,7 +616,7 @@ def save_data(src, output, settings, save_all=False, i=0, variable='all'):
 def save_plot(fig, src, variable, i):
     os.makedirs(f'{src}/{variable}', exist_ok=True)
     filename_fig = f'{src}/{variable}/{str(i)}_figure.pdf'
-    fig.savefig(filename_fig, dpi = 600, format='pdf', bbox_inches='tight')
+    fig.savefig(filename_fig, dpi = 600, format='pdf', bbox_ifnches='tight')
     return
     
 def run_and_save(i, settings, time_ls, total_sims):
@@ -683,6 +691,7 @@ def generate_paramiters(settings):
     #print('Number of simulations:',len(sim_ls))
     
     return sim_ls
+
 #altered for one set of settings see negative_mean and variance
 def generate_paramiters_single(settings):
     sim_ls = []
