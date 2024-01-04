@@ -478,9 +478,14 @@ def visualize_all(output):
     n+=1
     
     #plot classifier cell predictions by inactive and active well average
-    display(inactive_distribution)
-    inactive_distribution_well = inactive_distribution.groupby(['plate_row_column']).mean()
-    active_distribution_well = active_distribution.groupby(['plate_row_column']).mean()
+    ##inactive_distribution_well['score'] = pd.to_numeric(inactive_distribution['score'], errors='coerce')
+    ##inactive_distribution_well = inactive_distribution_well.groupby('plate_row_column')['score'].mean()
+    
+    ##active_distribution_well['score'] = pd.to_numeric(active_distribution['score'], errors='coerce')
+    ##active_distribution_well = active_distribution_well.groupby('plate_row_column')['score'].mean()
+    
+    #inactive_distribution_well = inactive_distribution.groupby(['plate_row_column']).mean()
+    #active_distribution_well = active_distribution.groupby(['plate_row_column']).mean()
     
     plot_histogram(active_distribution, "score", ax[n], 'slategray', 'Well scores', binwidth=0.01, log=False)
     plot_histogram(inactive_distribution, "score", ax[n], 'teal', 'Well scores', binwidth=0.01, log=False)
