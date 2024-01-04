@@ -571,6 +571,7 @@ def visualize_all(output):
         ax[n].spines['right'].set_visible(False)
 
     plt.tight_layout()
+    plt.show()
     return fig
 
 def create_database(db_path):
