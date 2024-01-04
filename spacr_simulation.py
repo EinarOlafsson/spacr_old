@@ -538,6 +538,7 @@ def visualize_all(output):
     df['rank'] = [*range(0,len(df),1)]
     
     display(df)
+    
     df['rank'] = pd.to_numeric(df['rank'], errors='coerce')
     df['coef'] = pd.to_numeric(df['coef'], errors='coerce')
     df['std err'] = pd.to_numeric(df['std err'], errors='coerce')
