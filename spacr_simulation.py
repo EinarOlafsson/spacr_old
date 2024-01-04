@@ -535,21 +535,19 @@ def visualize_all(output):
     # error plot
     df = results_df[['gene', 'coef', 'std err', 'p']]
     df = df.sort_values(by = ['coef', 'p'], ascending = [True, False], na_position = 'first')
-    df['rank'] = [*range(0,len(df),1)]
-    df['rank'] = pd.to_numeric(df['rank'], errors='coerce')
-    df['coef'] = pd.to_numeric(df['coef'], errors='coerce')
-    df['std err'] = pd.to_numeric(df['std err'], errors='coerce')
-    df['rank'] = df['rank'].astype(float)
-    df['coef'] = df['coef'].astype(float)
-    df['std err'] = df['std err'].astype(float)
-
-    epsilon = 1e-6  # A small constant to ensure std err is never zero
-    df['std err adj'] = df['std err'].replace(0, epsilon)
-
-    display(df)
+    
+    #df['rank'] = [*range(0,len(df),1)]
+    #df['rank'] = pd.to_numeric(df['rank'], errors='coerce')
+    #df['coef'] = pd.to_numeric(df['coef'], errors='coerce')
+    #df['std err'] = pd.to_numeric(df['std err'], errors='coerce')
+    #df['rank'] = df['rank'].astype(float)
+    #df['coef'] = df['coef'].astype(float)
+    #df['std err'] = df['std err'].astype(float)
+    #epsilon = 1e-6  # A small constant to ensure std err is never zero
+    #df['std err adj'] = df['std err'].replace(0, epsilon)
 
     ax[n].plot(df['rank'], df['coef'], '-', color = 'black')
-    ax[n].fill_between(df['rank'], df['coef'] - abs(df['std err adj']), df['coef'] + abs(df['std err adj']), alpha=0.4, color='slategray')
+    ax[n].fill_between(df['rank'], df['coef'] - abs(df['std err']), df['coef'] + abs(df['std err']), alpha=0.4, color='slategray')
     ax[n].set_title('Effect score error')
     ax[n].set_xlabel('rank')
     ax[n].set_ylabel('Effect size')
