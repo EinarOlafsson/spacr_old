@@ -374,18 +374,37 @@ def plot_roc_pr(data, ax, title, x_label, y_label):
     ax.set_xlabel(x_label)
     ax.legend(loc="lower right")
 
+#old version
+#def plot_confusion_matrix(data, ax, title):
+#    group_names = ['True Neg','False Pos','False Neg','True Pos']
+#    group_counts = ["{0:0.0f}".format(value) for value in data.flatten()]
+#    group_percentages = ["{0:.2%}".format(value) for value in data.flatten()/np.sum(data)]
+#    labels = [f"{v1}\n{v2}\n{v3}" for v1, v2, v3 in zip(group_names,group_counts,group_percentages)]
+#    labels = np.asarray(labels).reshape(2,2)
+#    sns.heatmap(data, annot=labels, fmt='', cmap='Blues', ax=ax)
+#    ax.set_title(title)
+#    ax.set_xlabel('\nPredicted Values')
+#    ax.set_ylabel('Actual Values ')
+#    ax.xaxis.set_ticklabels(['False','True'])
+#    ax.yaxis.set_ticklabels(['False','True'])
+
 def plot_confusion_matrix(data, ax, title):
     group_names = ['True Neg','False Pos','False Neg','True Pos']
     group_counts = ["{0:0.0f}".format(value) for value in data.flatten()]
     group_percentages = ["{0:.2%}".format(value) for value in data.flatten()/np.sum(data)]
-    labels = [f"{v1}\n{v2}\n{v3}" for v1, v2, v3 in zip(group_names,group_counts,group_percentages)]
-    labels = np.asarray(labels).reshape(2,2)
-    sns.heatmap(data, annot=labels, fmt='', cmap='Blues', ax=ax)
+    
+    sns.heatmap(data, cmap='Blues', ax=ax)
+    for i in range(data.shape[0]):
+        for j in range(data.shape[1]):
+            ax.text(j+0.5, i+0.5, f'{group_names[i*2+j]}\n{group_counts[i*2+j]}\n{group_percentages[i*2+j]}',
+                    ha="center", va="center", color="black")
+
     ax.set_title(title)
     ax.set_xlabel('\nPredicted Values')
     ax.set_ylabel('Actual Values ')
     ax.xaxis.set_ticklabels(['False','True'])
     ax.yaxis.set_ticklabels(['False','True'])
+
 
 def run_simulation(settings):
     #try:
@@ -563,6 +582,7 @@ def visualize_all(output):
     plot_roc_pr(reg_pr_dict_df, ax[n], 'Precision recall (gene)', 'recall', 'precision')
     ax[n].legend(loc="lower right")
     n+=1
+    
     #Confusion matrix at optimal threshold
     plot_confusion_matrix(reg_cm, ax[n], 'Confusion Matrix Reg')
 
