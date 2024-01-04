@@ -536,8 +536,8 @@ def visualize_all(output):
     # error plot
     df = results_df[['gene', 'coef', 'std err', 'p']]
     df = df.sort_values(by = ['coef', 'p'], ascending = [True, False], na_position = 'first')
+    df['rank'] = [*range(0,len(df),1)]
     
-    #df['rank'] = [*range(0,len(df),1)]
     #df['rank'] = pd.to_numeric(df['rank'], errors='coerce')
     #df['coef'] = pd.to_numeric(df['coef'], errors='coerce')
     #df['std err'] = pd.to_numeric(df['std err'], errors='coerce')
