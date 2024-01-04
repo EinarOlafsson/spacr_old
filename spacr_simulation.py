@@ -734,6 +734,7 @@ def generate_paramiters(settings):
 
 #altered for one set of settings see negative_mean and variance
 def generate_paramiters_single(settings):
+   
     sim_ls = []
     for avg_genes_per_well in settings['avg_genes_per_well']:
         replicates = settings['replicates']
@@ -769,3 +770,22 @@ def generate_paramiters_single(settings):
     #print('Number of simulations:',len(sim_ls))
     
     return sim_ls
+
+def run_multiple_simulations(settings)
+    
+    sim_ls = generate_paramiters(settings)
+    print(f'running {len (sim_ls)} simulations. Standard deveations for each variable are calculeted as variable * 0.5 ')
+    
+    max_workers = settings['max_workers'] or cpu_count() - 4
+    with Manager() as manager:
+        time_ls = manager.list()
+        total_sims = len(sim_ls)
+        with spacr.Pool(max_workers) as pool:
+            result = pool.starmap_async(spacr.run_and_save, [(index, settings, time_ls, total_sims) for index, settings in enumerate(sim_ls)])
+            while not result.ready():
+                sleep(0.01)
+                sims_processed = len(time_ls)
+                average_time = np.mean(time_ls) if len(time_ls) > 0 else 0
+                time_left = (((total_sims-sims_processed)*average_time)/max_workers)/60
+                print(f'Progress: {sims_processed}/{total_sims} Time/simulation {average_time:.3f}sec Time Remaining {time_left:.3f} min.', end='\r', flush=True)
+            result.get()
