@@ -519,6 +519,7 @@ def visualize_all(output):
     cutoff = abs(control_mean)+(3*control_var)
     categories = ['inactive', 'control', 'active']
     colors = ['lightgrey', 'black', 'purple']
+    
     for category, color in zip(categories, colors):
         df = results_df[results_df['color'] == category]
         ax[n].scatter(df['coef'], df['logp'], c=color, alpha=0.7, label=category)
@@ -557,6 +558,7 @@ def visualize_all(output):
     plot_roc_pr(reg_roc_dict_df, ax[n], 'ROC (gene)', 'fpr', 'tpr')
     ax[n].legend(loc="lower right")
     n+=1
+    
     #plot Presision recall (regression classification)
     plot_roc_pr(reg_pr_dict_df, ax[n], 'Precision recall (gene)', 'recall', 'precision')
     ax[n].legend(loc="lower right")
