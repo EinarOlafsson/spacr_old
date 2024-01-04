@@ -771,7 +771,7 @@ def generate_paramiters_single(settings):
     
     return sim_ls
 
-def run_multiple_simulations(settings)
+def run_multiple_simulations(settings):
     
     sim_ls = generate_paramiters(settings)
     print(f'running {len (sim_ls)} simulations. Standard deveations for each variable are calculeted as variable * 0.5 ')
