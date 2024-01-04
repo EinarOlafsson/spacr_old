@@ -543,16 +543,13 @@ def visualize_all(output):
     df['coef'] = df['coef'].astype(float)
     df['std err'] = df['std err'].astype(float)
 
+    epsilon = 1e-6  # A small constant to ensure std err is never zero
+    df['std err adj'] = df['std err'].replace(0, epsilon)
+
     display(df)
 
-    # Check data types
-    print(df[['rank', 'coef', 'std err']].dtypes)
-    
-    # Check for NaN values
-    print(df[['rank', 'coef', 'std err']].isna().sum())
-
     ax[n].plot(df['rank'], df['coef'], '-', color = 'black')
-    ax[n].fill_between(df['rank'], df['coef'] - abs(df['std err']), df['coef'] + abs(df['std err']), alpha=0.4, color='slategray')
+    ax[n].fill_between(df['rank'], df['coef'] - abs(df['std err adj']), df['coef'] + abs(df['std err adj']), alpha=0.4, color='slategray')
     ax[n].set_title('Effect score error')
     ax[n].set_xlabel('rank')
     ax[n].set_ylabel('Effect size')
