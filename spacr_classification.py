@@ -1982,7 +1982,7 @@ def get_paths_from_db(df,png_df, image_type='cell_png'):
     filtered_df = png_df[png_df['png_path'].str.contains(image_type) & png_df['prcfo'].isin(objects)]
     return filtered_df
 
-def training_dataset_from_annotation(db_path, dst, annotation_column='test'):
+def training_dataset_from_annotation(db_path, dst, annotation_column='test', annotated_classes=[1,2]):
     all_paths = []
     
     # Connect to the database and retrieve the image paths and annotations
@@ -1990,7 +1990,7 @@ def training_dataset_from_annotation(db_path, dst, annotation_column='test'):
     with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         # Retrieve both png_path and annotation value
-        query = f"SELECT png_path, {annotation_column} FROM png_list WHERE {annotation_column} IN (1, 2)"
+        query = f"SELECT png_path, {annotation_column} FROM png_list WHERE {annotation_column} IN (classes)"
         cursor.execute(query)
 
         while True:
@@ -2002,10 +2002,13 @@ def training_dataset_from_annotation(db_path, dst, annotation_column='test'):
                 all_paths.append(row)
 
     # Filter paths based on annotation
-    class_1_paths = [path for path, annotation in all_paths if annotation == 1]
-    class_2_paths = [path for path, annotation in all_paths if annotation == 2]
-    
-    return class_1_paths, class_2_paths
+    class_paths = []
+    for class_ in annotated_classes:
+        class_paths_temp = [path for path, annotation in all_paths if annotation == class_]
+        class_paths.append(class_paths_temp)
+
+    print(f'Generated a list of lists from annotation of {len(class_paths)} classes')
+    return class_paths
 
 def generate_dataset_from_lists(dst, class_data, classes, test_split=0.1):
     # Make sure that the length of class_data matches the length of classes
@@ -2045,47 +2048,10 @@ def generate_dataset_from_lists(dst, class_data, classes, test_split=0.1):
 
     return
 
-#old
-#def generate_dataset_from_lists(dst, class_1, class_2, classes=['nc','pc'], test_split=0.1):
-#    all_ = len(class_1)+len(class_2)
-#    i=0
-#    
-#    train_class_1 = os.path.join(dst,f'train/{classes[0]}')
-#    train_class_2 = os.path.join(dst,f'train/{classes[1]}')
-#    test_class_1 = os.path.join(dst,f'test/{classes[0]}')
-#    test_class_2 = os.path.join(dst,f'test/{classes[1]}')
-#    
-#    os.makedirs(train_class_1, exist_ok=True)
-#    os.makedirs(train_class_2, exist_ok=True)
-#    os.makedirs(test_class_1, exist_ok=True)
-#    os.makedirs(test_class_2, exist_ok=True)
-#    
-#    class_1_train_data, class_1_test_data = train_test_split(class_1, test_size=0.1, shuffle=True, random_state=42)
-#    class_2_train_data, class_2_test_data = train_test_split(class_2, test_size=0.1, shuffle=True, random_state=42)
-#    
-#    for path in class_1_train_data:
-#        i+=1
-#        shutil.copy(path, os.path.join(train_class_1, os.path.basename(path)))
-#        print(f'{i}/{all_}', end='\r', flush=True)
-#    for path in class_1_test_data:
-#        i+=1
-#        shutil.copy(path, os.path.join(test_class_1, os.path.basename(path)))
-#        print(f'{i}/{all_}', end='\r', flush=True)
-#    for path in class_2_train_data:
-#        i+=1
-#        shutil.copy(path, os.path.join(train_class_2, os.path.basename(path)))
-#        print(f'{i}/{all_}', end='\r', flush=True)
-#    for path in class_2_test_data:
-#        i+=1
-#        shutil.copy(path, os.path.join(test_class_2, os.path.basename(path)))
-#        print(f'{i}/{all_}', end='\r', flush=True)
-#    print(f'Train class 1: {len(os.listdir(train_class_1))}, Train class 2:{len(os.listdir(train_class_2))}, Test class 1:{len(os.listdir(test_class_1))}, Test class 2:{len(os.listdir(test_class_2))}')
-#    return
-
-def generate_training_dataset(db_path, dst, mode='annotation', annotation_column='test', classes=['nc','pc'], size=200, test_split=0.1):
+def generate_training_dataset(db_path, dst, mode='annotation', annotation_column='test', annotated_classes=[1,2], classes=['nc','pc'], size=200, test_split=0.1):
     
     if mode == 'annotation':
-        class_1_paths, class_2_paths = training_dataset_from_annotation(db_path, dst, annotation_column)
+        class_1_paths, class_2_paths = training_dataset_from_annotation(db_path, dst, annotation_column, annotated_classes=annotated_classes)
         class_1_paths = random.sample(class_1_paths, size)
         class_2_paths = random.sample(class_2_paths, size)
         
