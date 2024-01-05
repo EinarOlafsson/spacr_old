@@ -1213,7 +1213,10 @@ def copy_missclassified(df):
     print(f"Copied {len(misclassified)} misclassified images.")
     return
 
-def train_test_model(src, settings, model=None):
+def train_test_model(src, settings, custom_model=False, custom_model_path=None):
+    if custom_model:
+        model = torch.load(custom_model_path) #if using a custom trained model
+    
     if settings['train']:
         save_settings(settings, src)
     torch.cuda.empty_cache()
