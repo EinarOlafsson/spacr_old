@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import random
 import time
 import torch
+import re
 
 print('Torch available:', torch.cuda.is_available())
 print('CUDA version:',torch.version.cuda)
@@ -154,15 +155,18 @@ def identify_masks(paths, dst, model_name, channels, diameter, flow_threshold=30
             cv2.imwrite(output_filename, mask)
     return
 
-def generate_cp_masks(src, model_name, channels, diameter, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False):
+def generate_cp_masks(src, regex='.tif', model_name, channels, diameter, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False):
     dst = os.path.join(src,'masks')
     os.makedirs(dst, exist_ok=True)
     paths = []
-
+    
     for filename in os.listdir(src):
         path = os.path.join(src, filename)
+        
         if filename.endswith('.tif'):
-            paths.append(path)
+            if re.search(regex, filename):
+                paths.append(path)
+    
     identify_masks(paths, dst, model_name, channels, diameter,  flow_threshold=flow_threshold, cellprob_threshold=cellprob_threshold, figuresize=figuresize, cmap=cmap, verbose=verbose, plot=plot, save=save)
 
 def train_cellpose(img_src, mask_src, model_name='toxopv', model_type='cyto', nchan=2, channels=[0, 0], learning_rate=0.2, weight_decay=1e-05, batch_size=8, n_epochs=500):
