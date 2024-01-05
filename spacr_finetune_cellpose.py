@@ -155,7 +155,7 @@ def identify_masks(paths, dst, model_name, channels, diameter, flow_threshold=30
             cv2.imwrite(output_filename, mask)
     return
 
-def generate_cp_masks(src, regex='.tif', model_name, channels, diameter, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False):
+def generate_cp_masks(src, model_name, channels, diameter, regex='.tif', flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False):
     dst = os.path.join(src,'masks')
     os.makedirs(dst, exist_ok=True)
     paths = []
