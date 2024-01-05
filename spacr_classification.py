@@ -2061,7 +2061,7 @@ def generate_training_dataset(db_path, dst, mode='annotation', annotation_column
     elif mode == 'metadata' or mode == 'recruitment':
         class_paths_ls = []
         tables = ['cell', 'nucleus', 'parasite','cytoplasm']
-        df, _ = read_and_merge_data(db_loc=db_path,
+        df, _ = read_and_merge_data(db_loc=[db_path],
                                     tables=tables,
                                     verbose=False,
                                     include_multinucleated=True,
