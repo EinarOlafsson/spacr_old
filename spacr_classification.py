@@ -2007,6 +2007,42 @@ def training_dataset_from_annotation(db_path, dst, annotation_column='test'):
     
     return class_1_paths, class_2_paths
 
+def generate_dataset_from_lists(dst, class_1, class_2, test_split=0.1):
+    all_ = len(class_1)+len(class_2)
+    i=0
+    
+    train_class_1 = os.path.join(dst,'train/class_1')
+    train_class_2 = os.path.join(dst,'train/class_2')
+    test_class_1 = os.path.join(dst,'test/class_1')
+    test_class_2 = os.path.join(dst,'test/class_2')
+    
+    os.makedirs(train_class_1, exist_ok=True)
+    os.makedirs(train_class_2, exist_ok=True)
+    os.makedirs(test_class_1, exist_ok=True)
+    os.makedirs(test_class_2, exist_ok=True)
+    
+    class_1_train_data, class_1_test_data = train_test_split(class_1, test_size=0.1, shuffle=True, random_state=42)
+    class_2_train_data, class_2_test_data = train_test_split(class_2, test_size=0.1, shuffle=True, random_state=42)
+    
+    for path in class_1_train_data:
+        i+=1
+        shutil.copy(path, os.path.join(train_class_1, os.path.basename(path)))
+        print(f'{i}/{all_}', end='\r', flush=True)
+    for path in class_1_test_data:
+        i+=1
+        shutil.copy(path, os.path.join(test_class_1, os.path.basename(path)))
+        print(f'{i}/{all_}', end='\r', flush=True)
+    for path in class_2_train_data:
+        i+=1
+        shutil.copy(path, os.path.join(train_class_2, os.path.basename(path)))
+        print(f'{i}/{all_}', end='\r', flush=True)
+    for path in class_2_test_data:
+        i+=1
+        shutil.copy(path, os.path.join(test_class_2, os.path.basename(path)))
+        print(f'{i}/{all_}', end='\r', flush=True)
+    print(f'Train class 1: {len(os.listdir(train_class_1))}, Train class 2:{len(os.listdir(train_class_2))}, Test class 1:{len(os.listdir(test_class_1))}, Test class 2:{len(os.listdir(test_class_2))}')
+    return
+
 def generate_training_dataset(db_path, dst, mode='annotation', annotation_column='test', size=200, test_split=0.1):
     
     if mode == 'annotation':
@@ -2100,42 +2136,6 @@ def generate_training_data_file_list(src,
     
     print(f'NC: {len(nc_files)}, PC:{len(pc_files)}, Screen:{len(screen_files)}, ~NC:{len(nc_files_not_in_train)}, ~PC:{len(pc_files_not_in_train)}')
     return nc_files.png_path.tolist(), pc_files.png_path.tolist(), screen_files.png_path.tolist(), nc_files_not_in_train.png_path.tolist(), pc_files_not_in_train.png_path.tolist()
-
-def generate_dataset_from_lists(dst,nc,pc, test_split=0.1):
-    all_ = len(nc)+len(pc)
-    i=0
-    
-    train_nc = os.path.join(dst,'train/nc')
-    train_pc = os.path.join(dst,'train/pc')
-    test_nc = os.path.join(dst,'test/nc')
-    test_pc = os.path.join(dst,'test/pc')
-    
-    os.makedirs(train_nc, exist_ok=True)
-    os.makedirs(train_pc, exist_ok=True)
-    os.makedirs(test_nc, exist_ok=True)
-    os.makedirs(test_pc, exist_ok=True)
-    
-    nc_train_data, nc_test_data = train_test_split(nc, test_size=0.1, shuffle=True, random_state=42)
-    pc_train_data, pc_test_data = train_test_split(pc, test_size=0.1, shuffle=True, random_state=42)
-    
-    for path in nc_train_data:
-        i+=1
-        shutil.copy(path, os.path.join(train_nc, os.path.basename(path)))
-        print(f'{i}/{all_}', end='\r', flush=True)
-    for path in nc_test_data:
-        i+=1
-        shutil.copy(path, os.path.join(test_nc, os.path.basename(path)))
-        print(f'{i}/{all_}', end='\r', flush=True)
-    for path in pc_train_data:
-        i+=1
-        shutil.copy(path, os.path.join(train_pc, os.path.basename(path)))
-        print(f'{i}/{all_}', end='\r', flush=True)
-    for path in pc_test_data:
-        i+=1
-        shutil.copy(path, os.path.join(test_pc, os.path.basename(path)))
-        print(f'{i}/{all_}', end='\r', flush=True)
-    print(f'Train nc: {len(os.listdir(train_nc))}, Train pc:{len(os.listdir(train_pc))}, Test nc:{len(os.listdir(test_nc))}, Test pc:{len(os.listdir(test_pc))}')
-    return
 
 def save_file_lists(dst, data_set, ls):
     df = pd.DataFrame(ls, columns=[data_set])  
