@@ -148,7 +148,7 @@ def identify_masks(paths, dst, model_name, channels, diameter, flow_threshold=30
         duration = (stop - start)
         time_ls.append(duration)
         average_time = np.mean(time_ls) if len(time_ls) > 0 else 0
-        print(f'Processing {file_index+1}/{len(paths)} images : Time/batch {average_time:.3f} min', end='\r', flush=True)
+        print(f'Processing {file_index+1}/{len(paths)} images : Time/image {average_time:.3f} sec', end='\r', flush=True)
         if plot:
             print_mask_and_flows(stack, mask, flows)
         if save:
