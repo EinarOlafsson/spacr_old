@@ -1982,6 +1982,62 @@ def get_paths_from_db(df,png_df, image_type='cell_png'):
     filtered_df = png_df[png_df['png_path'].str.contains(image_type) & png_df['prcfo'].isin(objects)]
     return filtered_df
 
+def training_dataset_from_annotation(db_path, dst, annotation_column='test'):
+    all_paths = []
+    
+    # Connect to the database and retrieve the image paths and annotations
+    print(f'Reading DataBase: {db_path}')
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        # Retrieve both png_path and annotation value
+        query = f"SELECT png_path, {annotation_column} FROM png_list WHERE {annotation_column} IN (1, 2)"
+        cursor.execute(query)
+
+        while True:
+            rows = cursor.fetchmany(1000)
+            if not rows:
+                break
+            for row in rows:
+                # Append tuple of (path, annotation)
+                all_paths.append(row)
+
+    # Filter paths based on annotation
+    class_1_paths = [path for path, annotation in all_paths if annotation == 1]
+    class_2_paths = [path for path, annotation in all_paths if annotation == 2]
+    
+    return class_1_paths, class_2_paths
+
+def generate_training_dataset(db_path, dst, mode='annotation', annotation_column='test', size=200, test_split=0.1):
+    
+    if mode == 'annotation':
+        class_1_paths, class_2_paths = training_dataset_from_annotation(db_path, dst, annotation_column)
+        class_1_paths = random.sample(class_1_paths, sample=size)
+        class_2_paths = random.sample(class_2_paths, sample=size)
+        
+    #if mode == 'metadata':
+    #    class_1_paths, class_2_paths = 
+    #    class_1_paths = random.sample(class_1_paths, sample=size)
+    #    class_2_paths = random.sample(class_2_paths, sample=size)
+        
+    #if mode == 'measurments':
+    #    db_loc = [src+'/measurements/measurements.db']
+    #    tables = ['cell', 'nucleus', 'parasite','cytoplasm']
+    #    df, object_dfs = read_and_merge_data(db_loc=db_path,
+    #                                         tables=tables,
+    #                                         verbose=True,
+    #                                         include_multinucleated=include_multinucleated,
+    #                                         include_multiinfected=include_multiinfected,
+    #                                         include_noninfected=include_noninfected)
+        
+    #    df['recruitment'] = df[f'parasite_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
+    
+    #    class_1_paths, class_2_paths = 
+    #    class_1_paths = random.sample(class_1_paths, sample=size)
+    #    class_2_paths = random.sample(class_2_paths, sample=size)
+        
+    generate_dataset_from_lists(dst,nc=class_1_paths,pc=class_2_paths, test_split=test_split)
+    return
+
 def generate_training_data_file_list(src, 
                         target='protein of interest', 
                         cell_dim=4, 
@@ -2045,7 +2101,7 @@ def generate_training_data_file_list(src,
     print(f'NC: {len(nc_files)}, PC:{len(pc_files)}, Screen:{len(screen_files)}, ~NC:{len(nc_files_not_in_train)}, ~PC:{len(pc_files_not_in_train)}')
     return nc_files.png_path.tolist(), pc_files.png_path.tolist(), screen_files.png_path.tolist(), nc_files_not_in_train.png_path.tolist(), pc_files_not_in_train.png_path.tolist()
 
-def generate_dataset_from_lists(dst,nc,pc, test_plit=0.1):
+def generate_dataset_from_lists(dst,nc,pc, test_split=0.1):
     all_ = len(nc)+len(pc)
     i=0
     
