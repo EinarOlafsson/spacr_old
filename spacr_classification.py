@@ -1982,23 +1982,23 @@ def get_paths_from_db(df,png_df, image_type='cell_png'):
     filtered_df = png_df[png_df['png_path'].str.contains(image_type) & png_df['prcfo'].isin(objects)]
     return filtered_df
 
-def training_dataset_from_annotation(db_path, dst, annotation_column='test', annotated_classes=[1,2]):
+def training_dataset_from_annotation(db_path, dst, annotation_column='test', annotated_classes=(1, 2)):
     all_paths = []
     
     # Connect to the database and retrieve the image paths and annotations
     print(f'Reading DataBase: {db_path}')
     with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
-        # Retrieve both png_path and annotation value
-        query = f"SELECT png_path, {annotation_column} FROM png_list WHERE {annotation_column} IN (classes)"
-        cursor.execute(query)
+        # Prepare the query with parameterized placeholders for annotated_classes
+        placeholders = ','.join('?' * len(annotated_classes))
+        query = f"SELECT png_path, {annotation_column} FROM png_list WHERE {annotation_column} IN ({placeholders})"
+        cursor.execute(query, annotated_classes)
 
         while True:
             rows = cursor.fetchmany(1000)
             if not rows:
                 break
             for row in rows:
-                # Append tuple of (path, annotation)
                 all_paths.append(row)
 
     # Filter paths based on annotation
