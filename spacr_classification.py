@@ -2007,43 +2007,82 @@ def training_dataset_from_annotation(db_path, dst, annotation_column='test'):
     
     return class_1_paths, class_2_paths
 
-def generate_dataset_from_lists(dst, class_1, class_2, test_split=0.1):
-    all_ = len(class_1)+len(class_2)
-    i=0
+def generate_dataset_from_lists(dst, class_data, classes, test_split=0.1):
+    # Make sure that the length of class_data matches the length of classes
+    if len(class_data) != len(classes):
+        raise ValueError("class_data and classes must have the same length.")
+
+    total_files = sum(len(data) for data in class_data)
+    processed_files = 0
     
-    train_class_1 = os.path.join(dst,'train/class_1')
-    train_class_2 = os.path.join(dst,'train/class_2')
-    test_class_1 = os.path.join(dst,'test/class_1')
-    test_class_2 = os.path.join(dst,'test/class_2')
-    
-    os.makedirs(train_class_1, exist_ok=True)
-    os.makedirs(train_class_2, exist_ok=True)
-    os.makedirs(test_class_1, exist_ok=True)
-    os.makedirs(test_class_2, exist_ok=True)
-    
-    class_1_train_data, class_1_test_data = train_test_split(class_1, test_size=0.1, shuffle=True, random_state=42)
-    class_2_train_data, class_2_test_data = train_test_split(class_2, test_size=0.1, shuffle=True, random_state=42)
-    
-    for path in class_1_train_data:
-        i+=1
-        shutil.copy(path, os.path.join(train_class_1, os.path.basename(path)))
-        print(f'{i}/{all_}', end='\r', flush=True)
-    for path in class_1_test_data:
-        i+=1
-        shutil.copy(path, os.path.join(test_class_1, os.path.basename(path)))
-        print(f'{i}/{all_}', end='\r', flush=True)
-    for path in class_2_train_data:
-        i+=1
-        shutil.copy(path, os.path.join(train_class_2, os.path.basename(path)))
-        print(f'{i}/{all_}', end='\r', flush=True)
-    for path in class_2_test_data:
-        i+=1
-        shutil.copy(path, os.path.join(test_class_2, os.path.basename(path)))
-        print(f'{i}/{all_}', end='\r', flush=True)
-    print(f'Train class 1: {len(os.listdir(train_class_1))}, Train class 2:{len(os.listdir(train_class_2))}, Test class 1:{len(os.listdir(test_class_1))}, Test class 2:{len(os.listdir(test_class_2))}')
+    for cls, data in zip(classes, class_data):
+        # Create directories
+        train_class_dir = os.path.join(dst, f'train/{cls}')
+        test_class_dir = os.path.join(dst, f'test/{cls}')
+        os.makedirs(train_class_dir, exist_ok=True)
+        os.makedirs(test_class_dir, exist_ok=True)
+        
+        # Split the data
+        train_data, test_data = train_test_split(data, test_size=test_split, shuffle=True, random_state=42)
+        
+        # Copy train files
+        for path in train_data:
+            shutil.copy(path, os.path.join(train_class_dir, os.path.basename(path)))
+            processed_files += 1
+            print(f'{processed_files}/{total_files}', end='\r', flush=True)
+
+        # Copy test files
+        for path in test_data:
+            shutil.copy(path, os.path.join(test_class_dir, os.path.basename(path)))
+            processed_files += 1
+            print(f'{processed_files}/{total_files}', end='\r', flush=True)
+
+    # Print summary
+    for cls in classes:
+        train_class_dir = os.path.join(dst, f'train/{cls}')
+        test_class_dir = os.path.join(dst, f'test/{cls}')
+        print(f'Train class {cls}: {len(os.listdir(train_class_dir))}, Test class {cls}: {len(os.listdir(test_class_dir))}')
+
     return
 
-def generate_training_dataset(db_path, dst, mode='annotation', annotation_column='test', size=200, test_split=0.1):
+#old
+#def generate_dataset_from_lists(dst, class_1, class_2, classes=['nc','pc'], test_split=0.1):
+#    all_ = len(class_1)+len(class_2)
+#    i=0
+#    
+#    train_class_1 = os.path.join(dst,f'train/{classes[0]}')
+#    train_class_2 = os.path.join(dst,f'train/{classes[1]}')
+#    test_class_1 = os.path.join(dst,f'test/{classes[0]}')
+#    test_class_2 = os.path.join(dst,f'test/{classes[1]}')
+#    
+#    os.makedirs(train_class_1, exist_ok=True)
+#    os.makedirs(train_class_2, exist_ok=True)
+#    os.makedirs(test_class_1, exist_ok=True)
+#    os.makedirs(test_class_2, exist_ok=True)
+#    
+#    class_1_train_data, class_1_test_data = train_test_split(class_1, test_size=0.1, shuffle=True, random_state=42)
+#    class_2_train_data, class_2_test_data = train_test_split(class_2, test_size=0.1, shuffle=True, random_state=42)
+#    
+#    for path in class_1_train_data:
+#        i+=1
+#        shutil.copy(path, os.path.join(train_class_1, os.path.basename(path)))
+#        print(f'{i}/{all_}', end='\r', flush=True)
+#    for path in class_1_test_data:
+#        i+=1
+#        shutil.copy(path, os.path.join(test_class_1, os.path.basename(path)))
+#        print(f'{i}/{all_}', end='\r', flush=True)
+#    for path in class_2_train_data:
+#        i+=1
+#        shutil.copy(path, os.path.join(train_class_2, os.path.basename(path)))
+#        print(f'{i}/{all_}', end='\r', flush=True)
+#    for path in class_2_test_data:
+#        i+=1
+#        shutil.copy(path, os.path.join(test_class_2, os.path.basename(path)))
+#        print(f'{i}/{all_}', end='\r', flush=True)
+#    print(f'Train class 1: {len(os.listdir(train_class_1))}, Train class 2:{len(os.listdir(train_class_2))}, Test class 1:{len(os.listdir(test_class_1))}, Test class 2:{len(os.listdir(test_class_2))}')
+#    return
+
+def generate_training_dataset(db_path, dst, mode='annotation', annotation_column='test', classes=['nc','pc'], size=200, test_split=0.1):
     
     if mode == 'annotation':
         class_1_paths, class_2_paths = training_dataset_from_annotation(db_path, dst, annotation_column)
@@ -2070,8 +2109,10 @@ def generate_training_dataset(db_path, dst, mode='annotation', annotation_column
     #    class_1_paths, class_2_paths = 
     #    class_1_paths = random.sample(class_1_paths, sample=size)
     #    class_2_paths = random.sample(class_2_paths, sample=size)
-        
-    generate_dataset_from_lists(dst,nc=class_1_paths,pc=class_2_paths, test_split=test_split)
+    
+    generate_dataset_from_lists(dst, class_data=[class_1_paths, class_2_paths], classes=classes, test_split=0.1)
+    #generate_dataset_from_lists(dst, nc=class_1_paths, pc=class_2_paths, test_split=test_split)
+    
     return
 
 def generate_training_data_file_list(src, 
