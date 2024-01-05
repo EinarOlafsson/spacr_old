@@ -289,7 +289,18 @@ def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
           
 def modify_masks(img_src, mask_src):
     global save_clicked, current_file_index, file_list
-    file_list = [f for f in os.listdir(img_src) if f.lower().endswith('.tif')]
+    #file_list = [f for f in os.listdir(img_src) if f.lower().endswith('.tif')]
+
+    # Get list of .tif files in img_src
+    img_files = {f for f in os.listdir(img_src) if f.lower().endswith('.tif')}
+
+    # Get list of files in mask_src (assuming same file names as in img_src)
+    mask_files = {f for f in os.listdir(mask_src)}
+
+    # Find intersection of both sets to get files present in both directories
+    file_list = list(img_files & mask_files)
+
+    
     current_file_index = 0
     if file_list:
         load_next_image(img_src, mask_src)
