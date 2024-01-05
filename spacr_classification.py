@@ -2011,8 +2011,8 @@ def generate_training_dataset(db_path, dst, mode='annotation', annotation_column
     
     if mode == 'annotation':
         class_1_paths, class_2_paths = training_dataset_from_annotation(db_path, dst, annotation_column)
-        class_1_paths = random.sample(class_1_paths, sample=size)
-        class_2_paths = random.sample(class_2_paths, sample=size)
+        class_1_paths = random.sample(class_1_paths, size)
+        class_2_paths = random.sample(class_2_paths, size)
         
     #if mode == 'metadata':
     #    class_1_paths, class_2_paths = 
