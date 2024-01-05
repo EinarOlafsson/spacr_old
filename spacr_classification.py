@@ -1349,22 +1349,26 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
     for i, dfs in enumerate(all_dfs):
         if 'cell' in tables:
             cell = dfs[0]
-            print(f'plate: {i+1} cells:{len(cell)}')
+            if verbose:
+                print(f'plate: {i+1} cells:{len(cell)}')
 
         if 'nucleus' in tables:
             nucleus = dfs[1]
-            print(f'plate: {i+1} nuclei:{len(nucleus)} ')
+            if verbose:
+                print(f'plate: {i+1} nuclei:{len(nucleus)} ')
 
         if 'parasite' in tables:
             parasite = dfs[2]
-            
-            print(f'plate: {i+1} parasites:{len(parasite)}')
+            if verbose:
+                print(f'plate: {i+1} parasites:{len(parasite)}')
+        
         if 'cytoplasm' in tables:
             if not 'parasite' in tables:
                 cytoplasm = dfs[2]
             else:
                 cytoplasm = dfs[3]
-            print(f'plate: {i+1} cytoplasms: {len(cytoplasm)}')
+            if verbose:
+                print(f'plate: {i+1} cytoplasms: {len(cytoplasm)}')
 
         if i > 0:
             if 'cell' in tables:
@@ -1390,15 +1394,17 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
         cells = cells.assign(object_label=lambda x: 'o' + x['object_label'].astype(int).astype(str))
         cells = cells.assign(prcfo = lambda x: x['prcf'] + '_' + x['object_label'])
         cells_g_df, metadata = split_data(cells, 'prcfo', 'object_label')
-        print(f'cells: {len(cells)}')
-        print(f'cells grouped: {len(cells_g_df)}')
+        if verbose:
+            print(f'cells: {len(cells)}')
+            print(f'cells grouped: {len(cells_g_df)}')
     if 'cytoplasm' in tables:
         cytoplasms = cytoplasms.assign(object_label=lambda x: 'o' + x['object_label'].astype(int).astype(str))
         cytoplasms = cytoplasms.assign(prcfo = lambda x: x['prcf'] + '_' + x['object_label'])
         cytoplasms_g_df, _ = split_data(cytoplasms, 'prcfo', 'object_label')
         merged_df = cells_g_df.merge(cytoplasms_g_df, left_index=True, right_index=True)
-        print(f'cytoplasms: {len(cytoplasms)}')
-        print(f'cytoplasms grouped: {len(cytoplasms_g_df)}')
+        if verbose:
+            print(f'cytoplasms: {len(cytoplasms)}')
+            print(f'cytoplasms grouped: {len(cytoplasms_g_df)}')
     if 'nucleus' in tables:
         nuclei = nuclei.dropna(subset=['cell_id'])
         nuclei = nuclei.assign(object_label=lambda x: 'o' + x['object_label'].astype(int).astype(str))
@@ -1409,8 +1415,9 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
             #nuclei = nuclei[~nuclei['prcfo'].duplicated()]
             nuclei = nuclei[nuclei['nuclei_prcfo_count']==1]
         nuclei_g_df, _ = split_data(nuclei, 'prcfo', 'cell_id')
-        print(f'nuclei: {len(nuclei)}')
-        print(f'nuclei grouped: {len(nuclei_g_df)}')
+        if verbose:
+            print(f'nuclei: {len(nuclei)}')
+            print(f'nuclei grouped: {len(nuclei_g_df)}')
         if 'cytoplasm' in tables:
             merged_df = merged_df.merge(nuclei_g_df, left_index=True, right_index=True)
         else:
@@ -1429,8 +1436,9 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
         if isinstance(include_multiinfected, float):
             parasites = parasites[parasites['parasite_prcfo_count']<=include_multiinfected]
         parasites_g_df, _ = split_data(parasites, 'prcfo', 'cell_id')
-        print(f'parasites: {len(parasites)}')
-        print(f'parasites grouped: {len(parasites_g_df)}')
+        if verbose:
+            print(f'parasites: {len(parasites)}')
+            print(f'parasites grouped: {len(parasites_g_df)}')
         merged_df = merged_df.merge(parasites_g_df, left_index=True, right_index=True)
     
     #Add prc column (plate row column)
@@ -1452,8 +1460,8 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
     merged_df = metadata.merge(merged_df, left_index=True, right_index=True)
     
     merged_df = merged_df.dropna(axis=1)
-    
-    print(f'Generated dataframe with: {len(merged_df.columns)} columns and {len(merged_df)} rows')
+    if verbose:
+        print(f'Generated dataframe with: {len(merged_df.columns)} columns and {len(merged_df)} rows')
     
     obj_df_ls = []
     if 'cell' in tables:
