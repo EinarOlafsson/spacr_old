@@ -90,7 +90,8 @@ def print_mask_and_flows(stack, mask, flows):
     fig, axs = plt.subplots(1,  3, figsize=(40, 5))
 
     # Plot the original image
-    axs[0].imshow(stack, cmap='gray')
+    axs[0].imshow(stack[:, :, 0], cmap='gray')
+    #axs[0].imshow(stack, cmap='gray')
     axs[0].set_title('Original Image')
     axs[0].axis('off')
 
