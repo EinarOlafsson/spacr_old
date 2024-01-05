@@ -2057,10 +2057,26 @@ def generate_training_dataset(db_path, dst, mode='annotation', annotation_column
             class_paths_temp = random.sample(class_paths, size)
             class_paths_ls_2.append(class_paths_temp)
         class_paths_ls = class_paths_ls_2
+
+    elif mode == 'metadata':
+        class_paths_ls = []
+        df, _ = read_db(db_loc=db_path, tables=['png_list'])
         
-    elif mode == 'metadata' or mode == 'recruitment':
+        df['metadata_based_class'] = np.nan
+        for i, class_ in enumerate(classes):
+            ls = class_metadata[i]
+            df.loc[df[metadata_type_by].isin(ls), 'metadata_based_class'] = class_
+
+        for class_ in classes:
+            class_temp_df = df[df['metadata_based_class'] == class_]
+            class_paths_temp = get_paths_from_db(df=class_temp_df, png_df=class_temp_df, image_type='cell_png')
+            class_paths_temp = random.sample(class_paths_temp, size)
+            class_paths_ls.append(class_paths_temp)
+    
+    elif mode == 'recruitment':
         class_paths_ls = []
         tables = ['cell', 'nucleus', 'parasite','cytoplasm']
+        
         df, _ = read_and_merge_data(locs=[db_path],
                                     tables=tables,
                                     verbose=False,
@@ -2071,34 +2087,26 @@ def generate_training_dataset(db_path, dst, mode='annotation', annotation_column
         df = annotate_conditions(df, cells=['HeLa'], cell_loc=None, parasites=['parasite'], parasite_loc=None, treatments=classes, treatment_loc=class_metadata, types = ['col','col',metadata_type_by])
         png_list_df, _ = read_db(db_loc=db_path, tables=['png_list'])
 
-        if mode == 'metadata':
-            for class_ in classes:
-                class_temp_df = df[df['cond'] == class_]
-                class_paths_temp = get_paths_from_db(df=class_temp_df, png_df=png_list_df, image_type='cell_png')
-                class_paths_temp = random.sample(class_paths_temp, size)
-                class_paths_ls.append(class_paths_temp)
-
-        if mode == 'recruitment':
-            print(f'Classes will be defined by the Q1 and Q3 quantiles of recruitment (parasite/cytoplasm for channel {channel_of_interest})')
-            df['recruitment'] = df[f'parasite_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
-            q25 = df['recruitment'].quantile(0.25)
-            q75 = df['recruitment'].quantile(0.75)
-            df_lower = df[df['recruitment'] <= q25]
-            df_upper = df[df['recruitment'] >= q75]
-            
-            class_paths_lower = get_paths_from_db(df=df_lower, png_df=png_list_df, image_type='cell_png')
-            class_paths_lower = random.sample(class_paths_lower, size)
-            class_paths_ls.append(class_paths_lower)
-            
-            class_paths_upper = get_paths_from_db(df=df_upper, png_df=png_list_df, image_type='cell_png')
-            class_paths_upper = random.sample(class_paths_upper, size)
-            class_paths_ls.append(class_paths_upper)
-            
-            for class_ in classes:
-                class_temp_df = df[df['recruitment'] == class_]
-                class_paths_temp = get_paths_from_db(df=class_temp_df, png_df=png_list_df, image_type='cell_png')
-                class_paths_temp = random.sample(class_paths_temp, sample=size)
-                class_paths_ls.append(class_paths_temp)
+        print(f'Classes will be defined by the Q1 and Q3 quantiles of recruitment (parasite/cytoplasm for channel {channel_of_interest})')
+        df['recruitment'] = df[f'parasite_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
+        q25 = df['recruitment'].quantile(0.25)
+        q75 = df['recruitment'].quantile(0.75)
+        df_lower = df[df['recruitment'] <= q25]
+        df_upper = df[df['recruitment'] >= q75]
+        
+        class_paths_lower = get_paths_from_db(df=df_lower, png_df=png_list_df, image_type='cell_png')
+        class_paths_lower = random.sample(class_paths_lower, size)
+        class_paths_ls.append(class_paths_lower)
+        
+        class_paths_upper = get_paths_from_db(df=df_upper, png_df=png_list_df, image_type='cell_png')
+        class_paths_upper = random.sample(class_paths_upper, size)
+        class_paths_ls.append(class_paths_upper)
+        
+        for class_ in classes:
+            class_temp_df = df[df['recruitment'] == class_]
+            class_paths_temp = get_paths_from_db(df=class_temp_df, png_df=png_list_df, image_type='cell_png')
+            class_paths_temp = random.sample(class_paths_temp, sample=size)
+            class_paths_ls.append(class_paths_temp)
     
     generate_dataset_from_lists(dst, class_data=class_paths_ls, classes=classes, test_split=0.1)
     
