@@ -2280,9 +2280,24 @@ def preprocess_img_data(src, img_format='.tif', bitdepth='uint16', cmap='inferno
         else:
             print(f'========== creating single channel folders ==========')
             z_to_mip(src, regex=regex)
+
+            #Make sure no batches will be of only one image
+            all_imgs = len(src+'/stack')
+            full_batches = all_imgs // batch_size
+            last_batch_size = all_imgs % batch_size
+            
+            # Check if the last batch is of size 1
+            if last_batch_size == 1:
+                # If there's only one batch and its size is 1, it's also an issue
+                if full_batches == 0:
+                    raise ValueError("Only one batch of size 1 detected. Adjust the batch size.")
+                # If the last batch is of size 1, merge it with the second last batch
+                elif full_batches > 0:
+                    raise ValueError("Last batch of size 1 detected. Adjust the batch size.")
     
         print(f'========== generating stack ==========')
         merge_channels(src, plot=False)
+        len(src+'stack')
         if plot:
             print(f'plotting {nr} images from {src}/stack')
             plot_arrays(src+'/stack', figuresize, cmap, nr=nr, normalize=normalize)
@@ -2509,6 +2524,8 @@ def preprocess_generate_masks(src, experiment='experiment', preprocess=True, mas
     normalize_plots = True
     all_to_mip = False
     fps = 2
+
+    
     
     if preprocess and not masks:
         print(f'WARNING: channels for mask generation are defined when preprocess = True')
