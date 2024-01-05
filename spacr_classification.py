@@ -2060,7 +2060,7 @@ def generate_training_dataset(db_path, dst, mode='annotation', annotation_column
 
     elif mode == 'metadata':
         class_paths_ls = []
-        df, _ = read_db(db_loc=db_path, tables=['png_list'])
+        df = read_db(db_loc=db_path, tables=['png_list'])
         
         df['metadata_based_class'] = np.nan
         for i, class_ in enumerate(classes):
@@ -2085,7 +2085,7 @@ def generate_training_dataset(db_path, dst, mode='annotation', annotation_column
                                     include_noninfected=True)
         
         df = annotate_conditions(df, cells=['HeLa'], cell_loc=None, parasites=['parasite'], parasite_loc=None, treatments=classes, treatment_loc=class_metadata, types = ['col','col',metadata_type_by])
-        png_list_df, _ = read_db(db_loc=db_path, tables=['png_list'])
+        png_list_df = read_db(db_loc=db_path, tables=['png_list'])
 
         print(f'Classes will be defined by the Q1 and Q3 quantiles of recruitment (parasite/cytoplasm for channel {channel_of_interest})')
         df['recruitment'] = df[f'parasite_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
