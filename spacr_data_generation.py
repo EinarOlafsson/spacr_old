@@ -2265,12 +2265,24 @@ def load_and_concatenate_arrays(src, channels):
         print(f'Files merged: {count}/{all_imgs}', end='\r', flush=True)
     return
 
-def preprocess_img_data(src, img_format='.tif', bitdepth='uint16', cmap='inferno', figuresize=15, normalize=False, nr=1, plot=False, mask_channels=[0,1,2], batch_size=100, timelapse=False, remove_background=False, backgrounds=[50,50,50,50], lower_quantile=0.01, save_dtype=np.float32, min_highs=[2000, 2000, 2000, 2000], correct_illumination=False, randomize=True, signal_to_noise=5, generate_movies=False, all_to_mip=False, fps=2):
+def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img_format='.tif', bitdepth='uint16', cmap='inferno', figuresize=15, normalize=False, nr=1, plot=False, mask_channels=[0,1,2], batch_size=100, timelapse=False, remove_background=False, backgrounds=[50,50,50,50], lower_quantile=0.01, save_dtype=np.float32, min_highs=[2000, 2000, 2000, 2000], correct_illumination=False, randomize=True, signal_to_noise=5, generate_movies=False, all_to_mip=False, fps=2):
     print(f'========== settings ==========')
     print(f'source == {src}')
     print(f'Bitdepth: {bitdepth}: cmap:{cmap}: figuresize:{figuresize}')
     print(f'========== consolidating arrays ==========')
-    regex = f'(?P<plateID>.*)_(?P<wellID>.*)_T(?P<timeID>.*)F(?P<fieldID>.*)L(?P<laserID>..)A(?P<AID>..)Z(?P<sliceID>.*)C(?P<chanID>.*){img_format}'
+    
+    if metadata_type == 'yokogawa':
+        regex = f'(?P<plateID>.*)_(?P<wellID>.*)_T(?P<timeID>.*)F(?P<fieldID>.*)L(?P<laserID>..)A(?P<AID>..)Z(?P<sliceID>.*)C(?P<chanID>.*){img_format}'
+    if metadata_type == 'nikon':
+        regex = f'(?P<plateID>.*)_(?P<wellID>.*)_T(?P<timeID>.*)F(?P<fieldID>.*)L(?P<laserID>..)A(?P<AID>..)Z(?P<sliceID>.*)C(?P<chanID>.*){img_format}'
+    if metadata_type == 'zeis':
+        regex = f'(?P<plateID>.*)_(?P<wellID>.*)_T(?P<timeID>.*)F(?P<fieldID>.*)L(?P<laserID>..)A(?P<AID>..)Z(?P<sliceID>.*)C(?P<chanID>.*){img_format}'
+    if metadata_type == 'leica':
+        regex = f'(?P<plateID>.*)_(?P<wellID>.*)_T(?P<timeID>.*)F(?P<fieldID>.*)L(?P<laserID>..)A(?P<AID>..)Z(?P<sliceID>.*)C(?P<chanID>.*){img_format}'
+    if metadata_type == 'custom':
+        regex = f'({custom_regex}){img_format}'
+    
+    
     print(f'regex == {regex}')
     if not os.path.exists(src+'/stack'):
         if timelapse:
@@ -2510,10 +2522,8 @@ def mip_all(src):
             np.save(os.path.join(src, filename), concatenated)
     return
 
-#def preprocess_generate_masks(src, experiment, channels, nucleus_dim=None, cell_dim=None, parasite_dim=None, magnefication=40, signal_to_noise=5,randomize=True, batch_size=100, remove_background=True, cellprob_thresholds=0, lower_quantile=0.01, timelapse=False, preprocess=True, count=False, masks=True, plot=False, examples_to_plot=1, normalize_plots=False, save=True, merge=False, backgrounds=100, workers=26, all_to_mip=False, verbose=True):
-#def preprocess_generate_masks(src, experiment='experiment', preprocess=True, masks=True, save=True,  plot=False,  examples_to_plot=10,  channels=[0,1,2,3], nucleus_dim=0,  parasite_dim=2, cell_chann_dim=3, batch_size=100,  backgrounds=100,  signal_to_noise=5, magnefication=40,  cellprob_thresholds=[0,0,-1],  workers=30,  verbose=True):
-def preprocess_generate_masks(src, experiment='experiment', preprocess=True, masks=True, save=True,  plot=True,  examples_to_plot=1,  channels=[0,1,2,3], cell_chann_dim=1, cell_cp_prob=0, nucleus_chann_dim=0, nucleus_cp_prob=0, parasite_chann_dim=2,  parasite_cp_prob=-1,  batch_size=4,  backgrounds=100,  signal_to_noise=5, magnefication=40,  workers=30,  verbose=True):
-    
+def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, experiment='experiment', preprocess=True, masks=True, save=True,  plot=True,  examples_to_plot=1,  channels=[0,1,2,3], cell_chann_dim=1, cell_cp_prob=0, nucleus_chann_dim=0, nucleus_cp_prob=0, parasite_chann_dim=2,  parasite_cp_prob=-1,  batch_size=4,  backgrounds=100,  signal_to_noise=5, magnefication=40,  workers=30,  verbose=True):
+                                
     #settings that generally do not change
     randomize = True
     remove_background = True
@@ -2558,6 +2568,8 @@ def preprocess_generate_masks(src, experiment='experiment', preprocess=True, mas
         
     if preprocess: 
         preprocess_img_data(src,
+                            metadata_type=metadata_type,
+                            custom_regex=custom_regex,
                             plot=plot,
                             normalize=normalize_plots,
                             mask_channels=mask_channels,
