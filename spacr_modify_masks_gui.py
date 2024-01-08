@@ -22,8 +22,7 @@ from skimage.measure import label
 from scipy.ndimage import binary_fill_holes
 
 # Function to normalize the image
-def normalize_to_dtype(array, q1=2, q2=98):
-    # Ensure array is at least 3D
+def normalize_to_dtype(array, lower_quantile, upper_quantile):
     if len(array.shape) == 2:
         array = np.expand_dims(array, axis=-1)
 
@@ -34,17 +33,14 @@ def normalize_to_dtype(array, q1=2, q2=98):
         img = array[..., channel]
         non_zero_img = img[img > 0]
 
-        # Determine min and max for intensity scaling
         if non_zero_img.size > 0:
-            img_min = np.percentile(non_zero_img, q1)
-            img_max = np.percentile(non_zero_img, q2)
+            img_min = np.percentile(non_zero_img, lower_quantile)
+            img_max = np.percentile(non_zero_img, upper_quantile)
         else:
             img_min, img_max = img.min(), img.max()
 
-        # Rescale intensity
         new_stack[..., channel] = rescale_intensity(img, in_range=(img_min, img_max), out_range='dtype')
 
-    # Remove the added dimension for 2D inputassociates phenotypes with genotypes by randomly inducing
     if new_stack.shape[-1] == 1:
         new_stack = np.squeeze(new_stack, axis=-1)
 
@@ -194,30 +190,29 @@ def hover(event):
             mask_val = mask[y, x]
             plt.gca().set_title(f"Intensity: {intensity_val}, Mask: {mask_val}")
 
+
+
 def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_src, mask_src):
-    global image, mask, overlay, fig, random_cmap
+    global image, mask, overlay, fig, ax, random_cmap
     global slider_itol, slider_mpixels, slider_min_size, slider_radius, check_magic_wand
-    global slider_q1, slider_q2
-    global btn_remove, btn_relabel, btn_fill_holes, btn_save, ax
+    global slider_lower_quantile, slider_upper_quantile
+    global btn_remove, btn_relabel, btn_fill_holes, btn_save
 
     # Modified save_mask_wrapper function
     def save_mask_wrapper(event):
         save_mask(event, mask_path, img_src, mask_src)
 
     # Assign values to global variables
-    intensity_tolerance = itol
-    max_pixels = mpixels
-    min_size = min_size_for_removal
-    
     image = imageio.imread(image_path)
     mask = imageio.imread(mask_path)
     
     # Check if the mask is empty and modify it accordingly
     if np.max(mask) == 0:
         # If the mask is empty, initialize with a distinct value in a small area
-        mask[0:10, 0:10] = 128  # Example initialization
+        mask[0:2, 0:2] = 128  # Example initialization
 
-    normalized_image = normalize_to_dtype(image, q1=2, q2=98)
+    # Normalize the image using default quantile values
+    normalized_image = normalize_to_dtype(image, 2, 98)
 
     # Create a custom color map for the mask
     unique_labels = np.unique(mask)
@@ -226,11 +221,30 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     random_colors[:, 3] = 1  # Set alpha to 1
     random_colors[0, :] = [0, 0, 0, 1]  # Background color
     random_cmap = mpl.colors.ListedColormap(random_colors)
-    
+
     # Create a figure and display the image with the mask overlay
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.imshow(normalized_image, cmap='gray')
     overlay = ax.imshow(mask, cmap=random_cmap, alpha=0.5)
+
+    # Slider for lower quantile
+    ax_lower_quantile = plt.axes([0.8, 0.7, 0.1, 0.02], figure=fig)
+    slider_lower_quantile = Slider(ax_lower_quantile, 'Lower Quantile', 0, 100, valinit=2)
+
+    # Slider for upper quantile
+    ax_upper_quantile = plt.axes([0.8, 0.75, 0.1, 0.02], figure=fig)
+    slider_upper_quantile = Slider(ax_upper_quantile, 'Upper Quantile', 0, 100, valinit=98)
+
+    # Callback function for updating the image based on slider values
+    def update_image(val):
+        lower_q = slider_lower_quantile.val
+        upper_q = slider_upper_quantile.val
+        normalized_image = normalize_to_dtype(image, lower_q, upper_q)
+        ax.imshow(normalized_image, cmap='gray')
+        fig.canvas.draw_idle()
+
+    slider_lower_quantile.on_changed(update_image)
+    slider_upper_quantile.on_changed(update_image)
 
     # Define the button color
     button_color_1 = rgb_to_mpl_color(155, 55, 155)
