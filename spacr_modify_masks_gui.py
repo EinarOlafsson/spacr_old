@@ -194,13 +194,14 @@ def hover(event):
             plt.gca().set_title(f"Intensity: {intensity_val}, Mask: {mask_val}")
 
 def update_quantiles(val):
-    global image, overlay, ax, fig  # Access global variables
+    global image, mask, ax, fig, overlay, slider_q1, slider_q2
     q1 = slider_q1.val
     q2 = slider_q2.val
     normalized_image = normalize_to_dtype(image, q1=q1, q2=q2)
-    ax.images.remove(ax.images[0])  # Remove previous image
-    ax.imshow(normalized_image, cmap='gray')  # Show updated image
-    overlay = ax.imshow(mask, cmap=random_cmap, alpha=0.5)  # Update overlay
+
+    ax.clear()  # Clear the current axes
+    ax.imshow(normalized_image, cmap='gray')  # Redraw the normalized image
+    overlay = ax.imshow(mask, cmap=random_cmap, alpha=0.5)  # Redraw the overlay
     fig.canvas.draw_idle()
 
 def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_src, mask_src):
