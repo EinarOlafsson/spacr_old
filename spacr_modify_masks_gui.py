@@ -268,11 +268,11 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
 
     # Slider for lower quantile
     ax_lower_quantile = plt.axes([0.8, 0.7, 0.1, 0.02], figure=fig)
-    slider_lower_quantile = Slider(ax_lower_quantile, 'Lower Quantile', 0, 10, valinit=2)
+    slider_lower_quantile = Slider(ax_lower_quantile, 'Lower Quantile', 0, 25, valinit=0)
 
     # Slider for upper quantile
     ax_upper_quantile = plt.axes([0.8, 0.75, 0.1, 0.02], figure=fig)
-    slider_upper_quantile = Slider(ax_upper_quantile, 'Upper Quantile', 90, 100, valinit=98)
+    slider_upper_quantile = Slider(ax_upper_quantile, 'Upper Quantile', 75, 100, valinit=100)
 
     slider_lower_quantile.on_changed(update_image)
     slider_upper_quantile.on_changed(update_image)
