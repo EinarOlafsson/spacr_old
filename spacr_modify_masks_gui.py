@@ -206,11 +206,22 @@ def update_quantiles(val):
 def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_src, mask_src):
     global image, mask, overlay, fig, random_cmap
     global slider_itol, slider_mpixels, slider_min_size, slider_radius, check_magic_wand
+    global slider_q1, slider_q2
     global btn_remove, btn_relabel, btn_fill_holes, btn_save, ax
 
     # Modified save_mask_wrapper function
     def save_mask_wrapper(event):
         save_mask(event, mask_path, img_src, mask_src)
+
+    # Slider for q1
+    ax_q1 = plt.axes([0.8, 0.7, 0.1, 0.02])
+    slider_q1 = Slider(ax_q1, 'Q1', 0, 100, valinit=2)
+    slider_q1.on_changed(update_quantiles)
+    
+    # Slider for q2
+    ax_q2 = plt.axes([0.8, 0.75, 0.1, 0.02])
+    slider_q2 = Slider(ax_q2, 'Q2', 0, 100, valinit=98)
+    slider_q2.on_changed(update_quantiles)
 
     # Assign values to global variables
     intensity_tolerance = itol
@@ -307,17 +318,7 @@ def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     # Slider for radius
     ax_radius = plt.axes([0.8, 0.65, 0.1, 0.02])
     slider_radius = Slider(ax_radius, 'Radius', 0, 10, valinit=1)
-
-    # Slider for q1
-    ax_q1 = plt.axes([0.8, 0.7, 0.1, 0.02])
-    slider_q1 = Slider(ax_q1, 'Q1', 0, 100, valinit=2)
-    slider_q1.on_changed(update_quantiles)
     
-    # Slider for q2
-    ax_q2 = plt.axes([0.8, 0.75, 0.1, 0.02])
-    slider_q2 = Slider(ax_q2, 'Q2', 0, 100, valinit=98)
-    slider_q2.on_changed(update_quantiles)
-
     plt.show()
           
 def modify_masks(img_src, mask_src):
