@@ -193,6 +193,16 @@ def hover(event):
             mask_val = mask[y, x]
             plt.gca().set_title(f"Intensity: {intensity_val}, Mask: {mask_val}")
 
+def update_quantiles(val):
+    global image, overlay, ax, fig  # Access global variables
+    q1 = slider_q1.val
+    q2 = slider_q2.val
+    normalized_image = normalize_to_dtype(image, q1=q1, q2=q2)
+    ax.images.remove(ax.images[0])  # Remove previous image
+    ax.imshow(normalized_image, cmap='gray')  # Show updated image
+    overlay = ax.imshow(mask, cmap=random_cmap, alpha=0.5)  # Update overlay
+    fig.canvas.draw_idle()
+
 def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_src, mask_src):
     global image, mask, overlay, fig, random_cmap
     global slider_itol, slider_mpixels, slider_min_size, slider_radius, check_magic_wand
@@ -209,9 +219,14 @@ def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     
     image = imageio.imread(image_path)
     mask = imageio.imread(mask_path)
+
+    # Normalize the image using slider values
+    q1 = slider_q1.val
+    q2 = slider_q2.val
+    normalized_image = normalize_to_dtype(image, q1=q1, q2=q2)
     
     # Normalize the image
-    normalized_image = normalize_to_dtype(image)
+    #normalized_image = normalize_to_dtype(image)
 
     # Create a custom color map for the mask
     unique_labels = np.unique(mask)
@@ -268,22 +283,40 @@ def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     fig.canvas.mpl_connect('motion_notify_event', hover)
 
     # Sliders
-    ax_itol = plt.axes([0.8, 0.55, 0.15, 0.03])
+    ax_itol = plt.axes([0.8, 0.55, 0.1, 0.02])
     slider_itol = Slider(ax_itol, 'Tolerance', 0, 2000, valinit=100)
 
-    ax_mpixels = plt.axes([0.8, 0.5, 0.15, 0.03])
+    ax_mpixels = plt.axes([0.8, 0.5, 0.1, 0.02])
     slider_mpixels = Slider(ax_mpixels, 'Max Pixels', 0, 2000, valinit=500)
 
-    ax_min_size = plt.axes([0.8, 0.45, 0.15, 0.03])
+    ax_min_size = plt.axes([0.8, 0.45, 0.1, 0.02])
     slider_min_size = Slider(ax_min_size, 'Min Size', 0, 2000, valinit=50)
+
+    # Slider for q1
+    ax_q1 = plt.axes([0.8, 0.7, 0.1, 0.02])
+    slider_q1 = Slider(ax_q1, 'Q1', 0, 100, valinit=2)
+    
+    # Slider for q2
+    ax_q2 = plt.axes([0.8, 0.75, 0.1, 0.02])
+    slider_q2 = Slider(ax_q2, 'Q2', 0, 100, valinit=98)
     
     # Checkbox for toggling Magic Wand
-    ax_check = plt.axes([0.8, 0.6, 0.15, 0.1])
+    ax_check = plt.axes([0.8, 0.6, 0.1, 0.02])
     check_magic_wand = CheckButtons(ax_check, ['Magic Wand'], [True])
     
     # Slider for radius
-    ax_radius = plt.axes([0.8, 0.65, 0.15, 0.03])
+    ax_radius = plt.axes([0.8, 0.65, 0.1, 0.02])
     slider_radius = Slider(ax_radius, 'Radius', 0, 10, valinit=1)
+
+    # Slider for q1
+    ax_q1 = plt.axes([0.8, 0.7, 0.1, 0.02])
+    slider_q1 = Slider(ax_q1, 'Q1', 0, 100, valinit=2)
+    slider_q1.on_changed(update_quantiles)
+    
+    # Slider for q2
+    ax_q2 = plt.axes([0.8, 0.75, 0.1, 0.02])
+    slider_q2 = Slider(ax_q2, 'Q2', 0, 100, valinit=98)
+    slider_q2.on_changed(update_quantiles)
 
     plt.show()
           
