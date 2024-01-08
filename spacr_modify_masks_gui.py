@@ -203,7 +203,7 @@ def update_quantiles(val):
     overlay = ax.imshow(mask, cmap=random_cmap, alpha=0.5)  # Update overlay
     fig.canvas.draw_idle()
 
-def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_src, mask_src):
+def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_src, mask_src):
     global image, mask, overlay, fig, random_cmap
     global slider_itol, slider_mpixels, slider_min_size, slider_radius, check_magic_wand
     global slider_q1, slider_q2
@@ -323,8 +323,7 @@ def medify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
           
 def modify_masks(img_src, mask_src):
     global save_clicked, current_file_index, file_list
-    #file_list = [f for f in os.listdir(img_src) if f.lower().endswith('.tif')]
-
+    
     # Get list of .tif files in img_src
     img_files = {f for f in os.listdir(img_src) if f.lower().endswith('.tif')}
 
@@ -354,7 +353,7 @@ def load_next_image(img_src, mask_src):
         mask_path = os.path.join(mask_src, file)
         
         if os.path.exists(mask_path):
-            medify_mask(image_path, mask_path, itol=1000, mpixels=1000, min_size_for_removal=100, img_src=img_src, mask_src=mask_src)
+            modify_mask(image_path, mask_path, itol=1000, mpixels=1000, min_size_for_removal=100, img_src=img_src, mask_src=mask_src)
         
         else:
             print(f"No corresponding mask found for {file}")
