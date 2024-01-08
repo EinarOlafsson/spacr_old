@@ -61,42 +61,39 @@ def find_nearest_nonzero_pixel(mask, seed_point):
     distances = np.sqrt((non_zero_coords[:, 0] - y) ** 2 + (non_zero_coords[:, 1] - x) ** 2)
     nearest_pixel_index = np.argmin(distances)
     nearest_pixel_value = mask[tuple(non_zero_coords[nearest_pixel_index])]
+    
+    if nearest_pixel_value == 0:
+        nearest_pixel_value = 255  # Change to 255 if the nearest pixel value is 0
+
 
     return nearest_pixel_value
 
 # Magic Wand function
 def magic_wand(image, mask, seed_point, intensity_tolerance=100, max_pixels=1000, remove=False):
     x, y = seed_point
-    initial_value = np.float32(image[y, x])  # Cast to float to prevent overflow
+    initial_value = np.float32(image[y, x])
     to_check = deque([(x, y)])
-    checked = set()  # Reset for each new call
-    
+    checked = set()
+    fill_value = 255 if mask.sum() == 0 else find_nearest_nonzero_pixel(mask, seed_point)
+
     if remove:
         fill_value = 0
-    else:
-        fill_value = find_nearest_nonzero_pixel(mask, seed_point)
-        if fill_value == 0:
-            fill_value = 65535 if mask.dtype == np.uint16 else 255  # Default fill value if no non-zero pixels are found
 
-    filled_pixels = 0
-
-    while to_check and filled_pixels < max_pixels:
+    while to_check and len(checked) < max_pixels:
         x, y = to_check.popleft()
         if (x, y) in checked or not (0 <= x < image.shape[1] and 0 <= y < image.shape[0]):
             continue
 
         checked.add((x, y))
 
-        current_value = np.float32(image[y, x])  # Cast to float
+        current_value = np.float32(image[y, x])
         if abs(current_value - initial_value) <= intensity_tolerance:
             mask[y, x] = fill_value
-            filled_pixels += 1
 
-            # Check and add adjacent pixels within tolerance
             for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 nx, ny = x + dx, y + dy
                 if 0 <= nx < image.shape[1] and 0 <= ny < image.shape[0] and (nx, ny) not in checked:
-                    next_value = np.float32(image[ny, nx])  # Cast to float
+                    next_value = np.float32(image[ny, nx])
                     if abs(next_value - initial_value) <= intensity_tolerance:
                         to_check.append((nx, ny))
 
@@ -118,9 +115,13 @@ def on_click(event):
 
         if use_magic_wand:
             if event.button == 1:  # Left mouse button
-                mask = magic_wand(image, mask, (x, y), intensity_tolerance, max_pixels)
+                mask = magic_wand(image, mask, (x, y), slider_itol.val, slider_mpixels.val)
             elif event.button == 3:  # Right mouse button
-                mask = magic_wand(image, mask, (x, y), intensity_tolerance, max_pixels, remove=True)
+                mask = magic_wand(image, mask, (x, y), slider_itol.val, slider_mpixels.val, remove=True)
+
+            overlay.set_data(mask)
+            overlay.set_cmap(random_cmap)
+            fig.canvas.draw()
         else:
             # Define the area to be modified based on the radius
             y_min, y_max = max(y - radius, 0), min(y + radius + 1, mask.shape[0])
@@ -210,6 +211,11 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     
     image = imageio.imread(image_path)
     mask = imageio.imread(mask_path)
+    
+    # Check if the mask is empty and modify it accordingly
+    if np.max(mask) == 0:
+        # If the mask is empty, initialize with a distinct value in a small area
+        mask[0:10, 0:10] = 128  # Example initialization
 
     normalized_image = normalize_to_dtype(image, q1=2, q2=98)
 
