@@ -5,7 +5,6 @@
 #save_clicked = False
 import matplotlib.pyplot as plt
 
-
 import os
 import time
 import numpy as np
@@ -65,7 +64,7 @@ def find_nearest_nonzero_pixel(mask, seed_point):
     return nearest_pixel_value
 
 # Magic Wand function
-def magic_wand(image, mask, seed_point, intensity_tolerance=100, max_pixels=1000, remove=False):
+def magic_wand(image, mask, seed_point, intensity_tolerance=25, max_pixels=1000, remove=False):
     x, y = seed_point
     initial_value = np.float32(image[y, x])
     to_check = deque([(x, y)])
@@ -143,19 +142,46 @@ def remove_small_objects(event):
 
 # Function to relabel objects
 def relabel_objects(event):
-    global mask
-    mask = label(mask)
-    overlay.set_data(mask)
-    overlay.set_cmap(random_cmap)
-    fig.canvas.draw()
+    global mask, overlay, fig, ax, random_cmap
+
+    # Relabel the mask
+    binary_mask = mask > 0
+    labeled_mask = label(binary_mask)
+    mask = labeled_mask
+
+    # Regenerate the colormap
+    n_labels = np.max(mask)
+    random_colors = np.random.rand(n_labels + 1, 4)
+    random_colors[0, :] = [0, 0, 0, 0]  # Background color
+    random_cmap = mpl.colors.ListedColormap(random_colors)
+
+    # Remove the old overlay and create a new one
+    overlay.remove()
+    overlay = ax.imshow(mask, cmap=random_cmap, alpha=0.5)
+
+    # Redraw the figure
+    fig.canvas.draw_idle()
+    #fig.canvas.draw()
+
     
 # Function to fill holes in objects
 def fill_holes(event):
-    global mask
-    mask = binary_fill_holes(mask).astype(mask.dtype)
+    global mask, overlay, fig, ax
+
+    # Ensure the mask is boolean for binary_fill_holes
+    binary_mask = mask > 0
+
+    # Fill holes in the binary mask
+    filled_mask = binary_fill_holes(binary_mask)
+
+    # Update the original mask; convert back to original dtype if needed
+    mask = filled_mask.astype(mask.dtype) * 255
+
+    # Update the overlay
     overlay.set_data(mask)
-    overlay.set_cmap(random_cmap)
     fig.canvas.draw()
+
+
 
 #Function to save the modified mask
 def save_mask(event, mask_path, img_src, mask_src):
@@ -190,10 +216,9 @@ def hover(event):
             mask_val = mask[y, x]
             plt.gca().set_title(f"Intensity: {intensity_val}, Mask: {mask_val}")
 
-
-
 def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_src, mask_src):
     global image, mask, overlay, fig, ax, random_cmap
+    global displayed_image
     global slider_itol, slider_mpixels, slider_min_size, slider_radius, check_magic_wand
     global slider_lower_quantile, slider_upper_quantile
     global btn_remove, btn_relabel, btn_fill_holes, btn_save
@@ -201,15 +226,29 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     # Modified save_mask_wrapper function
     def save_mask_wrapper(event):
         save_mask(event, mask_path, img_src, mask_src)
+        
+    # Callback function for updating the image based on slider values
+    # This takes to long add a delay in rendering here
+    def update_image(val):
+        global displayed_image, overlay
+
+        lower_q = slider_lower_quantile.val
+        upper_q = slider_upper_quantile.val
+        normalized_image = normalize_to_dtype(image, lower_q, upper_q)
+
+        # Update only the displayed intensity image, not the overlay
+        displayed_image.set_data(normalized_image)
+        fig.canvas.draw_idle()
 
     # Assign values to global variables
     image = imageio.imread(image_path)
     mask = imageio.imread(mask_path)
+    mask = mask.astype(np.int32)
     
     # Check if the mask is empty and modify it accordingly
     if np.max(mask) == 0:
         # If the mask is empty, initialize with a distinct value in a small area
-        mask[0:2, 0:2] = 128  # Example initialization
+        mask[0:2, 0:2] = 1  # Example initialization
 
     # Normalize the image using default quantile values
     normalized_image = normalize_to_dtype(image, 2, 98)
@@ -224,24 +263,16 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
 
     # Create a figure and display the image with the mask overlay
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.imshow(normalized_image, cmap='gray')
-    overlay = ax.imshow(mask, cmap=random_cmap, alpha=0.5)
+    displayed_image = ax.imshow(normalized_image, cmap='gray')  # Store reference to the displayed image
+    overlay = ax.imshow(mask, cmap=random_cmap, alpha=0.5)  # Store reference to the mask overlay
 
     # Slider for lower quantile
     ax_lower_quantile = plt.axes([0.8, 0.7, 0.1, 0.02], figure=fig)
-    slider_lower_quantile = Slider(ax_lower_quantile, 'Lower Quantile', 0, 100, valinit=2)
+    slider_lower_quantile = Slider(ax_lower_quantile, 'Lower Quantile', 0, 10, valinit=2)
 
     # Slider for upper quantile
     ax_upper_quantile = plt.axes([0.8, 0.75, 0.1, 0.02], figure=fig)
-    slider_upper_quantile = Slider(ax_upper_quantile, 'Upper Quantile', 0, 100, valinit=98)
-
-    # Callback function for updating the image based on slider values
-    def update_image(val):
-        lower_q = slider_lower_quantile.val
-        upper_q = slider_upper_quantile.val
-        normalized_image = normalize_to_dtype(image, lower_q, upper_q)
-        ax.imshow(normalized_image, cmap='gray')
-        fig.canvas.draw_idle()
+    slider_upper_quantile = Slider(ax_upper_quantile, 'Upper Quantile', 90, 100, valinit=98)
 
     slider_lower_quantile.on_changed(update_image)
     slider_upper_quantile.on_changed(update_image)
@@ -289,7 +320,7 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
 
     # Sliders
     ax_itol = plt.axes([0.8, 0.55, 0.1, 0.02])
-    slider_itol = Slider(ax_itol, 'Tolerance', 0, 2000, valinit=100)
+    slider_itol = Slider(ax_itol, 'Tolerance', 0, 2000, valinit=25)
 
     ax_mpixels = plt.axes([0.8, 0.5, 0.1, 0.02])
     slider_mpixels = Slider(ax_mpixels, 'Max Pixels', 0, 2000, valinit=500)
