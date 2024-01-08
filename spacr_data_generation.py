@@ -2522,7 +2522,7 @@ def mip_all(src):
             np.save(os.path.join(src, filename), concatenated)
     return
 
-def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, experiment='experiment', preprocess=True, masks=True, save=True,  plot=True,  examples_to_plot=1,  channels=[0,1,2,3], cell_chann_dim=1, cell_cp_prob=0, nucleus_chann_dim=0, nucleus_cp_prob=0, parasite_chann_dim=2,  parasite_cp_prob=-1,  batch_size=4,  backgrounds=100,  signal_to_noise=5, magnefication=40,  workers=30,  verbose=True):
+def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, experiment='experiment', preprocess=True, masks=True, save=True,  plot=True,  examples_to_plot=1,  channels=[0,1,2,3], cell_chann_dim=1, cell_cp_prob=0, nucleus_chann_dim=0, nucleus_cp_prob=0, parasite_chann_dim=2,  parasite_cp_prob=-1,  batch_size=4,  backgrounds=100,  signal_to_noise=5, magnefication=40,  workers=30,  all_to_mip = False, verbose=True):
                                 
     #settings that generally do not change
     randomize = True
@@ -2532,7 +2532,6 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
     count = False
     timelapse = False
     normalize_plots = True
-    all_to_mip = False
     fps = 2
 
     
