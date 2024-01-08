@@ -193,17 +193,6 @@ def hover(event):
             mask_val = mask[y, x]
             plt.gca().set_title(f"Intensity: {intensity_val}, Mask: {mask_val}")
 
-def update_quantiles(val):
-    global image, mask, ax, fig, overlay, slider_q1, slider_q2
-    q1 = slider_q1.val
-    q2 = slider_q2.val
-    normalized_image = normalize_to_dtype(image, q1=q1, q2=q2)
-
-    ax.clear()  # Clear the current axes
-    ax.imshow(normalized_image, cmap='gray')  # Redraw the normalized image
-    overlay = ax.imshow(mask, cmap=random_cmap, alpha=0.5)  # Redraw the overlay
-    fig.canvas.draw_idle()
-
 def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_src, mask_src):
     global image, mask, overlay, fig, random_cmap
     global slider_itol, slider_mpixels, slider_min_size, slider_radius, check_magic_wand
@@ -214,16 +203,6 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     def save_mask_wrapper(event):
         save_mask(event, mask_path, img_src, mask_src)
 
-    # Slider for q1
-    ax_q1 = plt.axes([0.8, 0.7, 0.1, 0.02])
-    slider_q1 = Slider(ax_q1, 'Q1', 0, 100, valinit=2)
-    slider_q1.on_changed(update_quantiles)
-    
-    # Slider for q2
-    ax_q2 = plt.axes([0.8, 0.75, 0.1, 0.02])
-    slider_q2 = Slider(ax_q2, 'Q2', 0, 100, valinit=98)
-    slider_q2.on_changed(update_quantiles)
-
     # Assign values to global variables
     intensity_tolerance = itol
     max_pixels = mpixels
@@ -232,13 +211,7 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     image = imageio.imread(image_path)
     mask = imageio.imread(mask_path)
 
-    # Normalize the image using slider values
-    q1 = slider_q1.val
-    q2 = slider_q2.val
-    normalized_image = normalize_to_dtype(image, q1=q1, q2=q2)
-    
-    # Normalize the image
-    #normalized_image = normalize_to_dtype(image)
+    normalized_image = normalize_to_dtype(image, q1=2, q2=98)
 
     # Create a custom color map for the mask
     unique_labels = np.unique(mask)
@@ -303,14 +276,6 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
 
     ax_min_size = plt.axes([0.8, 0.45, 0.1, 0.02])
     slider_min_size = Slider(ax_min_size, 'Min Size', 0, 2000, valinit=50)
-
-    # Slider for q1
-    ax_q1 = plt.axes([0.8, 0.7, 0.1, 0.02])
-    slider_q1 = Slider(ax_q1, 'Q1', 0, 100, valinit=2)
-    
-    # Slider for q2
-    ax_q2 = plt.axes([0.8, 0.75, 0.1, 0.02])
-    slider_q2 = Slider(ax_q2, 'Q2', 0, 100, valinit=98)
     
     # Checkbox for toggling Magic Wand
     ax_check = plt.axes([0.8, 0.6, 0.1, 0.02])
