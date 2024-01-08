@@ -2510,13 +2510,14 @@ def mip_all(src):
     for filename in os.listdir(src):
         if filename.endswith('.npy'):
             array = np.load(os.path.join(src, filename))
+            array = normalize_to_dtype(array, q1=2,q2=98, percentiles=None)
             if array.ndim != 3:
                 print(f"Generating zero array for {filename} due to unexpected dimensions: {array.shape}")
                 zeros_array = np.zeros((array.shape[0], array.shape[1], 1))
                 concatenated = np.concatenate([array, zeros_array], axis=2)
             else:
                 # Compute the MIP excluding the first array
-                mip = np.max(array[:, :, 1:], axis=2)
+                #mip = np.max(array[:, :, 1:], axis=2)
                 mip = mip[:, :, np.newaxis]
                 concatenated = np.concatenate([array, mip], axis=2)
             np.save(os.path.join(src, filename), concatenated)
