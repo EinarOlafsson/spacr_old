@@ -2504,24 +2504,41 @@ def make_mask_movie(src, fps):
         clip.write_videofile(output_path, logger=None)  # ProgressbarLogger, PrintLogger, None
         print(f'Progress: Movie:{i+1}/{len(npz_files)}', end='\r', flush=True)
     return
-
-def mip_all(src):
+def mip_all(src, include_first_chan=True):
+    # Print a starting message to indicate the beginning of the MIP generation process.
     print('========== generating MIPs ==========')
+
+    # Iterate over each file in the specified directory (src).
     for filename in os.listdir(src):
+        # Check if the current file is a NumPy array file (with .npy extension).
         if filename.endswith('.npy'):
+            # Load the array from the file.
             array = np.load(os.path.join(src, filename))
-            array = normalize_to_dtype(array, q1=2,q2=98, percentiles=None)
-            if array.ndim != 3:
+            # Normalize the array using custom parameters (q1=2, q2=98).
+            array = normalize_to_dtype(array, q1=2, q2=98, percentiles=None)
+
+            if array.ndim != 3: # Check if the array is not 3-dimensional.
+                # Log a message indicating a zero array will be generated due to unexpected dimensions.
                 print(f"Generating zero array for {filename} due to unexpected dimensions: {array.shape}")
+                # Create a zero array with the same height and width as the original array, but with a single depth layer.
                 zeros_array = np.zeros((array.shape[0], array.shape[1], 1))
+                # Concatenate the original array with the zero array along the depth axis.
                 concatenated = np.concatenate([array, zeros_array], axis=2)
             else:
-                # Compute the MIP excluding the first array
-                #mip = np.max(array[:, :, 1:], axis=2)
+                if include_first_chan:
+                    # Compute the MIP for the entire array along the third axis.
+                    mip = np.max(array, axis=2)
+                else:
+                    # Compute the MIP excluding the first layer of the array along the depth axis.
+                    mip = np.max(array[:, :, 1:], axis=2)
+                # Reshape the MIP to make it 3-dimensional.
                 mip = mip[:, :, np.newaxis]
+                # Concatenate the MIP with the original array.
                 concatenated = np.concatenate([array, mip], axis=2)
+            # save
             np.save(os.path.join(src, filename), concatenated)
     return
+
 
 def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, experiment='experiment', preprocess=True, masks=True, save=True,  plot=True,  examples_to_plot=1,  channels=[0,1,2,3], cell_chann_dim=1, cell_cp_prob=0, nucleus_chann_dim=0, nucleus_cp_prob=0, parasite_chann_dim=2,  parasite_cp_prob=-1,  batch_size=4,  backgrounds=100,  signal_to_noise=5, magnefication=40,  workers=30,  all_to_mip = False, verbose=True):
                                 
