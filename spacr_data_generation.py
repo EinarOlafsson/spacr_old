@@ -97,6 +97,24 @@ import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning) # Ignore RuntimeWarning
 warnings.filterwarnings("ignore")
 
+def list_folders(src):
+    # List to hold the names of folders
+    folders = []
+    # Check if the source directory exists
+    if not os.path.exists(src):
+        print(f"The directory {src} does not exist.")
+        return folders
+    # Iterate over all items in the directory
+    for item in os.listdir(src):
+        # Construct the full path
+        item_path = os.path.join(src, item)
+        # Check if the item is a directory
+        if os.path.isdir(item_path):
+            folders.append(item)
+    # Sort the list of folders alphabetically
+    sorted_folders = sorted(folders)
+    return sorted_folders
+
 def z_to_mip(src, regex, batch_size=100):
     regular_expression = re.compile(regex)
     images_by_key = defaultdict(list)
