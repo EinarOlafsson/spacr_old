@@ -3,12 +3,18 @@
 #import matplotlib.pyplot as plt
 #global save_clicked
 #save_clicked = False
+#import matplotlib.pyplot as plt
+
+import matplotlib
+matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 
 import os
 import time
 import numpy as np
 import cv2
+import warnings
+
 from PIL import Image#, ImageFile
 import imageio.v2 as imageio
 from skimage import morphology
@@ -24,6 +30,32 @@ from scipy.ndimage import binary_fill_holes
 from skimage.transform import resize
 from skimage import feature
 from matplotlib.widgets import TextBox
+
+warnings.filterwarnings('ignore', category=RuntimeWarning, message='QCoreApplication::exec: The event loop is already running')
+
+plt.style.use('ggplot')
+
+# Style paramiters
+plt.rcParams['axes.grid'] = False  # Disable grid
+plt.rcParams['axes.facecolor'] = 'white'  # Change axis face color
+plt.rcParams['lines.linewidth'] = 2       # Change line width
+plt.rcParams['font.size'] = 12           # Font size
+plt.rcParams['axes.labelsize'] = 14      # Axis label size
+plt.rcParams['axes.titlesize'] = 16      # Axis title size
+plt.rcParams['axes.spines.top'] = True   # Hide the top spine
+plt.rcParams['axes.spines.right'] = True # Hide the right spine
+
+# To display all style paramiters: run the following in jupyter
+#%matplotlib inline
+#import matplotlib.pyplot as plt
+
+## Set the ggplot style
+#plt.style.use('ggplot')
+
+## Display all style parameters for ggplot
+#for param, value in plt.rcParams.items():
+#    print(f"{param}: {value}")
+
 
 Image.MAX_IMAGE_PIXELS = None 
 
@@ -259,7 +291,7 @@ def hover(event):
                 txt.set_visible(False)
 
             # Display new text at desired location (e.g., top-left corner)
-            ax.text(0.01, 0.95, f"Intensity: {intensity_val}, Mask: {mask_val}", transform=ax.transAxes, fontsize=10, verticalalignment='top', bbox=dict(boxstyle="round,pad=0.3", facecolor='yellow', alpha=0.5))
+            ax.text(0.01, 0.99, f"Intensity: {intensity_val}, Mask: {mask_val}", transform=ax.transAxes, fontsize=10, verticalalignment='top', bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.4))
 
             # Redraw the figure
             fig.canvas.draw_idle()
@@ -371,13 +403,28 @@ def freehand_draw(event):
             fig.canvas.draw()
             #is_freehand_drawing = False
             #check_freehand.set_active(0)
+            
+# Adding a short explanation buttons/sliders/boxes
+def add_text_box_annotation(ax, text, x, y):
+    ax.annotate(text, xy=(x, y), xycoords='axes fraction', ha='center', va='center',
+                fontsize=8, color='gray')
+
+def handle_checkbox_change(label):
+    global check_freehand, check_magic_wand
+    if label == 'Freehand':
+        if check_freehand.get_status()[0]:
+            check_magic_wand.set_active(0)
+    elif label == 'Magic Wand':
+        if check_magic_wand.get_status()[0]:
+            check_freehand.set_active(0)
 
 def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_src, mask_src, rescale_factor):
     global image, mask, overlay, fig, ax, random_cmap, displayed_image, normalized_image
     global slider_itol, slider_mpixels, slider_min_size, slider_radius, check_magic_wand
     global slider_lower_quantile, slider_upper_quantile
-    global btn_remove, btn_relabel, btn_fill_holes, btn_save, btn_invert, btn_clear, check_freehand, freehand_points
-
+    global btn_remove, btn_relabel, btn_fill_holes, btn_save, btn_invert, btn_clear, check_freehand, freehand_points, freehand_lines
+    save_clicked = False
+    
     # Modified _wrapper function
     def save_mask_wrapper(event):
         save_mask(event, mask_path, image_path, img_src, mask_src, rescale_factor, original_dimensions)
@@ -419,6 +466,7 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
 
     # Freehand
     freehand_points = []
+    freehand_lines = []
     is_freehand_drawing = False
     
     # Add a checkbox for toggling Freehand drawing
@@ -465,6 +513,10 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     # Checkbox for toggling Magic Wand
     ax_check = plt.axes([0.85, 0.625, 0.1, 0.02])
     check_magic_wand = CheckButtons(ax_check, ['Magic Wand'], [True])
+    
+    # Make sure freehand and magic wand are not selected simultaniously
+    check_freehand.on_clicked(handle_checkbox_change)
+    check_magic_wand.on_clicked(handle_checkbox_change)
     
     # Slider for radius
     ax_radius = plt.axes([0.85, 0.6, 0.1, 0.02])
@@ -537,6 +589,24 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     btn_save.label.set_weight('bold')
     btn_save.label.set_color('white')
     
+    # Add short text explanations
+    add_text_box_annotation(ax_freehand, "Left: connect, Right: close", 0.85, 0.625)
+    #add_text_box_annotation(ax_lower_quantile, "Set the radius for drawing", 0.85, 0.7)
+    #add_text_box_annotation(ax_upper_quantile, "Set the radius for drawing", 0.85, 0.675)
+    add_text_box_annotation(ax_check, "Left: select, Right: deselect", 0.85, 0.625)
+    #add_text_box_annotation(ax_radius, "Set the radius for drawing", 0.85, 0.6)
+    #add_text_box_annotation(ax_itol, "Set the radius for drawing", 0.85, 0.575)
+    #add_text_box_annotation(ax_mpixels, "Set the radius for drawing", 0.85, 0.55)
+    #add_text_box_annotation(ax_min_size, "Set the radius for drawing", 0.85, 0.5)
+    #add_text_box_annotation(ax_remove, "Set the radius for drawing", 0.85, 0.45)
+    #add_text_box_annotation(ax_fill_holes, "Set the radius for drawing", 0.85, 0.4)
+    #add_text_box_annotation(ax_relabel, "Set the radius for drawing", 0.85, 0.35)
+    #add_text_box_annotation(ax_invert, "Set the radius for drawing", 0.85, 0.3)
+    #add_text_box_annotation(ax_clear, "Set the radius for drawing", 0.85, 0.25)
+    #add_text_box_annotation(ax_save, "Set the radius for drawing", 0.85, 0.2)
+    
+    
+    
     # Connect the mouse click event
     fig.canvas.mpl_connect('button_press_event', on_click)
     
@@ -544,7 +614,7 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     fig.canvas.mpl_connect('motion_notify_event', hover)
 
     plt.show()
-          
+
 def modify_masks(img_src, mask_src, rescale_factor):
     global save_clicked, current_file_index, file_list
     
