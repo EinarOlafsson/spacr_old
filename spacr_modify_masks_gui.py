@@ -463,7 +463,7 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
 
     # Create a figure and display the image with the mask overlay
     fig, ax = plt.subplots(figsize=(8, 6))
-
+    fig.canvas.manager.set_window_title("SpaCr: modify mask")
     # Make the window full screen
     mng = plt.get_current_fig_manager()
     mng.window.showMaximized()
