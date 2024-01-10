@@ -18,58 +18,70 @@
 #15. conda install ipywidgets
 #16. pip install timm --no-deps
 
+import subprocess
+import sys
 
-from functools import reduce
-from scipy.stats import fisher_exact
+def install(package):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+dependencies = [
+    "torch", "cellpose", "pandas", "ipykernel", 
+    "mahotas", "scikit-learn", "scikit-image",
+    "seaborn", "matplotlib", "numpy==1.24.0", 
+    "xgboost", "btrack", "moviepy", "ipywidgets", 
+    "timm --no-deps"
+]
+
+update(conda)
+
+for package in dependencies:
+    try:
+        __import__(package)
+    except ImportError:
+        print(f"Installing {package}...")
+        if package == "torch":
+            install(f'torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118')
+        else:
+            install(package)
+
+print('Dependencies installed')
+
+#system dependencies
+import os, re, gc, cv2, sys, csv, time, math, string, shutil, random, sqlite3, datetime, torch, torchvision
+
+print('Torch available:', torch.cuda.is_available())
+print('CUDA version:',torch.version.cuda)
+
+# image and array processing
+import numpy as np
+import pandas as pd
+from PIL import Image, ImageTk, ImageOps
+
+# statmodels
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.stats.stattools import durbin_watson
 import statsmodels.formula.api as smf
 import statsmodels.api as sm
-from adjustText import adjust_text
-from sklearn.linear_model import Lasso, Ridge
-from sklearn.preprocessing import OneHotEncoder
 from statsmodels.stats.multitest import multipletests
 
-#system dependencies
-import os
-import re
-import gc
-import cv2
-import sys
-import csv
-import time
-import math
-import string
-import scipy.stats as stats
-import shutil
-import random
-import sqlite3
-import tarfile
-import datetime
-import numpy as np
-import pandas as pd
+# other
 import tkinter as tk
 from io import BytesIO
 from tkinter import filedialog
 from itertools import combinations
-from collections import OrderedDict
-from collections import defaultdict
-from PIL import Image, ImageTk, ImageOps
+from collections import OrderedDict, defaultdict
+from functools import reduce
+from adjustText import adjust_text
 from IPython.display import display, clear_output
 
-#multiprocessing
+#paralell processing
 import multiprocessing
 from itertools import product
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Pool, cpu_count, Value, Lock
 
-#torch 
-import torch
-
-print('Torch available:', torch.cuda.is_available())
-print('CUDA version:',torch.version.cuda)
-
+# torch
 from torch import nn
 import torch.nn as nn
 import torch.nn.functional as F
@@ -78,8 +90,6 @@ from torchsummary import summary
 from torch.utils.checkpoint import checkpoint
 from torch.cuda.amp import autocast, GradScaler
 from torch.utils.data import DataLoader, Dataset, random_split, Subset, ConcatDataset
-
-import torchvision
 import torch.optim as optim
 from torch.optim import Adagrad
 from torch.optim import AdamW
@@ -89,40 +99,38 @@ from torchvision import datasets, models
 import torchvision.transforms as transforms
 import torchvision.datasets.utils as dataset_utils
 
-#Visualization dependencies
+# Visualization dependencies
 import seaborn as sns
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.pyplot as plt
 
-#Image processing dependencies
+# Image processing dependencies
+import scipy.stats as stats
 import scipy.ndimage as ndi
-from scipy.stats import zscore
+from scipy.stats import zscore, fisher_exact
 from scipy.stats import pearsonr
 from scipy.optimize import linear_sum_assignment
 from scipy.ndimage import binary_erosion, binary_dilation as binary_erosion, binary_dilation, distance_transform_edt, generate_binary_structure
+from scipy.interpolate import UnivariateSpline
 
-#scikit-image
+# scikit-image
 from skimage import exposure, measure, morphology, filters
-from skimage.measure import label, regionprops
 from skimage.segmentation import find_boundaries, clear_border, watershed
 from skimage.morphology import opening, disk, closing, dilation, square
 from skimage.exposure import rescale_intensity
-from skimage.feature import peak_local_max
 from skimage.measure import label, regionprops_table, regionprops, shannon_entropy, find_contours
-from skimage.measure import regionprops
-from skimage.feature import graycomatrix, graycoprops
+from skimage.feature import graycomatrix, graycoprops, peak_local_max
 from mahotas.features import zernike_moments
 
-#sypy and scikit
-from scipy.interpolate import UnivariateSpline
-from sklearn.metrics import roc_curve, auc, precision_recall_curve, confusion_matrix, roc_auc_score
+# scikit-learn
+from sklearn.metrics import roc_curve, auc, precision_recall_curve, confusion_matrix, roc_auc_score, classification_report, accuracy_score
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, accuracy_score
-from sklearn.ensemble import IsolationForest
+from sklearn.ensemble import RandomForestClassifier, IsolationForest
 from sklearn.covariance import EllipticEnvelope
 from sklearn.decomposition import PCA
+from sklearn.linear_model import Lasso, Ridge
+from sklearn.preprocessing import OneHotEncoder
 
 def imshow(img, labels, nrow=20, color='white', fontsize=12):
     n_images = len(labels)
