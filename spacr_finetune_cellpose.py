@@ -1,8 +1,26 @@
+import subprocess
+import sys
+
+def install(package):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+dependencies = [
+    "matplotlib", "numpy", "opencv-python", "scikit-image", 
+    "scipy", "Pillow", "imageio", "matplotlib", "random",
+    "torch", "warnings", "imageio", "cellpose", "collections"
+]
+
+for package in dependencies:
+    try:
+        __import__(package)
+    except ImportError:
+        print(f"Installing {package}...")
+        install(package)
+
+print('Dependencies installed')
+
 import os
 import gc
-import cv2
-import numpy as np
-import os
 import cv2
 import numpy as np
 import matplotlib as mpl
