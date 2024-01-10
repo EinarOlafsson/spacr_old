@@ -6,7 +6,7 @@ def install(package):
 
 dependencies = [
     "matplotlib", "numpy", "opencv-python", "scikit-image", 
-    "scipy", "Pillow", "imageio", "matplotlib"
+    "scipy", "Pillow", "imageio", "matplotlib", "PyQt5"
 ]
 
 for package in dependencies:
