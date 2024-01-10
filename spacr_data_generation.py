@@ -5,12 +5,12 @@ def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
 
 dependencies = [
-    "numpy", "opencv-python", "scikit-image", "scikit-learn",
+    "python=3.9", "opencv-python", "scikit-image", "scikit-learn",
     "scipy", "Pillow", "matplotlib", "imageio", "torch", 
     "warnings", "imageio", "cellpose", "moviepy", "pandas",
      "ipython", "tkinter", "multiprocessing","ipywidgets",
     "seaborn", "mahotas", "xgboost", "btrack",  "matplotlib",
-    "pydantic", "pydantic_core", "typing_extensions"
+    "numpy==1.24.0"
 ]
 
 for package in dependencies:
@@ -18,7 +18,10 @@ for package in dependencies:
         __import__(package)
     except ImportError:
         print(f"Installing {package}...")
-        install(package)
+        if package == "torch":
+            install(f'torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118')
+        else:
+            install(package)
 
 print('Dependencies installed')
 
@@ -27,7 +30,7 @@ import os, gc, re, cv2, csv, math, time, torch, json, traceback
 print('Torch available:', torch.cuda.is_available())
 print('CUDA version:',torch.version.cuda)
 
-import string, shutil, random, logging, sqlite3, cellpose, btrack, imageio
+import string, shutil, random, logging, sqlite3, cellpose, imageio
 
 # Image and array processing
 from cellpose import models, dynamics
@@ -45,7 +48,8 @@ from concurrent.futures import ThreadPoolExecutor
 import threading  # Make sure this line is here
 from pathlib import Path
 import xgboost as xgb
-from btrack import datasets
+#import btrack
+#from btrack import datasets
 import moviepy.editor as mpy
 import ipywidgets as widgets
 from ipywidgets import IntProgress, interact, interact_manual, Button, HBox
