@@ -14,7 +14,7 @@ dependencies = [
     "scipy", "Pillow", "matplotlib", "imageio",  "matplotlib",
     "warnings", "imageio", "cellpose", "moviepy", "pandas",
      "ipython", "tkinter", "multiprocessing","ipywidgets",
-    "seaborn", "mahotas", "xgboost", "numpy==1.24.0"
+    "seaborn", "mahotas", "xgboost", "numpy"
 ]
 
 for package in dependencies:
