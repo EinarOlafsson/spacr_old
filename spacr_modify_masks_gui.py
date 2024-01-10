@@ -49,9 +49,6 @@ plt.rcParams['axes.spines.right'] = True # Hide the right spine
 #for param, value in plt.rcParams.items():
 #    print(f"{param}: {value}")
 
-
-
-
 # Function to normalize the image
 def normalize_to_dtype(array, lower_quantile, upper_quantile):
     if len(array.shape) == 2:
@@ -438,7 +435,8 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     image, original_dimensions = downsample_tiff(image_path, scale_factor=rescale_factor)
     
     # Calculate image area and max intensity
-    height, width = image.shape[:2]
+    width, height = image.size
+    #height, width = image.shape[:2]
     image_area = height * width
     max_intensity = image.max()
 
