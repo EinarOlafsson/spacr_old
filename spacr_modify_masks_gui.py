@@ -1,10 +1,3 @@
-## Run in notebook
-#%matplotlib qt
-#import matplotlib.pyplot as plt
-#global save_clicked
-#save_clicked = False
-#import matplotlib.pyplot as plt
-
 import matplotlib
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
@@ -15,23 +8,23 @@ import numpy as np
 import cv2
 import warnings
 
-from PIL import Image#, ImageFile
-import imageio.v2 as imageio
-from skimage import morphology
-from collections import deque
-from skimage.exposure import rescale_intensity
-from scipy.ndimage import binary_dilation
-from skimage.morphology import disk
-import matplotlib as mpl
-from matplotlib.widgets import CheckButtons, Button, Slider
-import skimage.morphology as morph
 from skimage.measure import label
-from scipy.ndimage import binary_fill_holes
+import skimage.morphology as morph
+from skimage import feature, morphology
+from skimage.morphology import disk
+from skimage.exposure import rescale_intensity
 from skimage.transform import resize
-from skimage import feature
-from matplotlib.widgets import TextBox
+
+from scipy.ndimage import binary_dilation, binary_fill_holes
+
+from PIL import Image
+import imageio.v2 as imageio
+from collections import deque
+import matplotlib as mpl
+from matplotlib.widgets import CheckButtons, Button, Slider, TextBox
 
 warnings.filterwarnings('ignore', category=RuntimeWarning, message='QCoreApplication::exec: The event loop is already running')
+Image.MAX_IMAGE_PIXELS = None
 
 plt.style.use('ggplot')
 
@@ -57,7 +50,7 @@ plt.rcParams['axes.spines.right'] = True # Hide the right spine
 #    print(f"{param}: {value}")
 
 
-Image.MAX_IMAGE_PIXELS = None 
+
 
 # Function to normalize the image
 def normalize_to_dtype(array, lower_quantile, upper_quantile):
