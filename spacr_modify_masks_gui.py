@@ -652,7 +652,8 @@ def modify_masks(img_src, mask_src, rescale_factor):
         # Get list of files in new_mask from masks
         new_mask_files_mask = {f for f in os.listdir(mask_src)}
         file_list = [elem for elem in file_list if elem not in new_mask_files_mask]
-        
+    if len(file_list) == 0:
+        return
     current_file_index = 0
     if file_list:
         load_next_image(img_src, mask_src, rescale_factor)
