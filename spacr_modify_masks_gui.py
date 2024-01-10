@@ -18,16 +18,11 @@ for package in dependencies:
 
 print('Dependencies installed')
 
-import matplotlib
+import os, time, cv2, warnings, matplotlib
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 
-import os
-import time
 import numpy as np
-import cv2
-import warnings
-
 from skimage.measure import label
 import skimage.morphology as morph
 from skimage import feature, morphology
