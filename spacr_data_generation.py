@@ -9,7 +9,8 @@ dependencies = [
     "scipy", "Pillow", "matplotlib", "imageio", "torch", 
     "warnings", "imageio", "cellpose", "moviepy", "pandas",
      "ipython", "tkinter", "multiprocessing","ipywidgets",
-    "seaborn", "mahotas", "xgboost", "btrack",  "matplotlib"
+    "seaborn", "mahotas", "xgboost", "btrack",  "matplotlib",
+    "pydantic", "pydantic_core", "typing_extensions"
 ]
 
 for package in dependencies:
