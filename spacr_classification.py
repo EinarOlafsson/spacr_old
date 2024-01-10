@@ -1,23 +1,3 @@
-##install spacr:
-
-#using nvidia drivers: 525.125.06 woth CUDA Version: 12.0 
-#1. conda update conda
-#2. conda create -n spacr python=3.9
-#3. conda config --add channels conda-forge
-#4. pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-#5. conda install cellpose
-#6. conda install pandas
-#7. conda install ipykernel
-#8. conda install mahotas
-#9. conda install scikit-learn scikit-image
-#10. conda install seaborn matplotlib
-#11. pip install numpy==1.24.0
-#12. conda install xgboost
-#13. pip install btrack
-#14. conda install moviepy
-#15. conda install ipywidgets
-#16. pip install timm --no-deps
-
 import subprocess
 import sys
 
@@ -25,11 +5,10 @@ def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
 
 dependencies = [
-    "torch", "cellpose", "pandas", "ipykernel", 
-    "mahotas", "scikit-learn", "scikit-image",
-    "seaborn", "matplotlib", "numpy==1.24.0", 
-    "xgboost", "btrack", "moviepy", "ipywidgets", 
-    "timm --no-deps"
+    "python=3.9", "torch", "cellpose", "pandas", "ipykernel", 
+    "mahotas", "scikit-learn", "scikit-image", "numpy==1.24.0", 
+    "seaborn", "matplotlib", "timm --no-deps", "xgboost",
+    "moviepy", "ipywidgets"
 ]
 
 for package in dependencies:
