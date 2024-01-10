@@ -32,8 +32,6 @@ dependencies = [
     "timm --no-deps"
 ]
 
-update(conda)
-
 for package in dependencies:
     try:
         __import__(package)
