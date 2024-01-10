@@ -196,8 +196,17 @@ def move_to_chan_folder(src, regex, timelapse=False):
                         newpath.mkdir(exist_ok=True)
                         shutil.move(file, move)
     return
+# Generate random colour cmap
+def random_cmap(num_objects=100):
+    #num_objects = len(unique_labels[unique_labels != 0])
+    random_colors = np.random.rand(num_objects+1, 4)
+    random_colors[:, 3] = 1
+    random_colors[0, :] = [0, 0, 0, 1]
+    random_cmap = mpl.colors.ListedColormap(random_colors)
+    return random_cmap
 
 def plot_arrays(src, figuresize=50, cmap='inferno', nr=1, normalize=True, q1=1, q2=99):
+    mask_cmap = random_cmap()
     paths = []
     for file in os.listdir(src):
         if file.endswith('.npy'):
@@ -558,10 +567,8 @@ def merge_channels(src, plot=False):
 
     avg_time = (time.time() - start_time) / len(dir_files)
     print(f'Average Time: {avg_time:.3f} sec')
-
     if plot:
         plot_arrays(src+'/stack')
-
     return
 
 def plot_4D_arrays(src, figuresize=10, cmap='inferno', nr_npz=1, nr=1):
