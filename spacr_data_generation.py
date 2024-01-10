@@ -1,65 +1,77 @@
-import os
-import gc
-import re
-import cv2
-import csv
+import subprocess
 import sys
-import math
-import time
-import torch
-import json
-import traceback
+
+def install(package):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+dependencies = [
+    "numpy", "opencv-python", "scikit-image", "scikit-learn",
+    "scipy", "Pillow", "matplotlib", "imageio", "torch", 
+    "warnings", "imageio", "cellpose", "moviepy", "pandas",
+     "ipython", "tkinter", "multiprocessing","ipywidgets",
+    "seaborn", "mahotas", "xgboost", "btrack",  "matplotlib"
+]
+
+for package in dependencies:
+    try:
+        __import__(package)
+    except ImportError:
+        print(f"Installing {package}...")
+        install(package)
+
+print('Dependencies installed')
+
+import os, gc, re, cv2, csv, math, time, torch, json, traceback
 
 print('Torch available:', torch.cuda.is_available())
 print('CUDA version:',torch.version.cuda)
 
-import string
-import shutil
-import random
-import logging
-import sqlite3
-import cellpose
-from pathlib import Path
-from cellpose import models
+import string, shutil, random, logging, sqlite3, cellpose, btrack, imageio
+
+# Image and array processing
+from cellpose import models, dynamics
 from torch.cuda.amp import autocast
 import pandas as pd
-
-from queue import Queue
-from IPython.display import display, clear_output, HTML
-from PIL import Image, ImageTk, ImageOps
-import tkinter as tk
 import numpy as np
+from PIL import Image, ImageTk, ImageOps
+
+
+# other
+from queue import Queue
+import tkinter as tk
 from tkinter import Tk, Label, Button
 from concurrent.futures import ThreadPoolExecutor
 import threading  # Make sure this line is here
-import time 
+from pathlib import Path
+import xgboost as xgb
+from btrack import datasets
+import moviepy.editor as mpy
+import ipywidgets as widgets
+from ipywidgets import IntProgress, interact, interact_manual, Button, HBox
+from IPython.display import display, clear_output, HTML
 
+# Data visualization
 import seaborn as sns
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from matplotlib.colors import LinearSegmentedColormap
-
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from collections import defaultdict
 
+# scikit-image
 from skimage import exposure, measure, morphology, filters
 from skimage.measure import label, regionprops
 from skimage.segmentation import find_boundaries, clear_border, watershed
 from skimage.morphology import opening, disk, closing, dilation, square
 from skimage.exposure import rescale_intensity
-from skimage.feature import peak_local_max
 from skimage.measure import label, regionprops_table, regionprops, shannon_entropy, find_contours
-from skimage.measure import regionprops
-#from skimage.feature import zernike_moments
-from skimage.feature import graycomatrix, graycoprops
+from skimage.feature import graycomatrix, graycoprops, peak_local_max
 from mahotas.features import zernike_moments
 
-import xgboost as xgb
+# scikit-learn
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.model_selection import train_test_split
-
-from scipy.interpolate import UnivariateSpline
 from sklearn.metrics import roc_curve, auc, precision_recall_curve, confusion_matrix, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
@@ -67,32 +79,21 @@ from sklearn.metrics import classification_report, accuracy_score
 from sklearn.ensemble import IsolationForest
 from sklearn.covariance import EllipticEnvelope
 
-from cellpose import models
-from cellpose import dynamics
-
-import btrack
-from btrack import datasets
-
+# SciPy
 import scipy.ndimage as ndi
 from scipy.stats import pearsonr
+from scipy.interpolate import UnivariateSpline
 from scipy.optimize import linear_sum_assignment
 from scipy.ndimage import binary_erosion, binary_dilation as binary_erosion, binary_dilation, distance_transform_edt, generate_binary_structure
 
-import imageio
-import moviepy.editor as mpy
-
-import ipywidgets as widgets
-from ipywidgets import IntProgress
-from ipywidgets import interact, interact_manual, Button, HBox
-from IPython.display import display
-from IPython.display import clear_output
-
+# parallel processing
 import multiprocessing as mp
 from multiprocessing import Lock
 from multiprocessing import Pool, cpu_count
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 
+# warnings
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning) # Ignore RuntimeWarning
 warnings.filterwarnings("ignore")
