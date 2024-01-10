@@ -5,12 +5,11 @@ def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
 
 dependencies = [
-    "python=3.9", "opencv-python", "scikit-image", "scikit-learn",
-    "scipy", "Pillow", "matplotlib", "imageio", "torch", 
+    "torch", "opencv-python", "scikit-image", "scikit-learn",
+    "scipy", "Pillow", "matplotlib", "imageio",  "matplotlib",
     "warnings", "imageio", "cellpose", "moviepy", "pandas",
      "ipython", "tkinter", "multiprocessing","ipywidgets",
-    "seaborn", "mahotas", "xgboost", "btrack",  "matplotlib",
-    "numpy==1.24.0"
+    "seaborn", "mahotas", "xgboost", "numpy==1.24.0"
 ]
 
 for package in dependencies:
