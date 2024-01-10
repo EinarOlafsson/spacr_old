@@ -1,3 +1,23 @@
+import subprocess
+import sys
+
+def install(package):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+dependencies = [
+    "matplotlib", "numpy", "opencv-python", "scikit-image", 
+    "scipy", "Pillow", "imageio", "matplotlib"
+]
+
+for package in dependencies:
+    try:
+        __import__(package)
+    except ImportError:
+        print(f"Installing {package}...")
+        install(package)
+
+print('Dependencies installed')
+
 import matplotlib
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
