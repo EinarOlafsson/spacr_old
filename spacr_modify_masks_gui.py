@@ -1,6 +1,11 @@
 import subprocess
 import sys
 
+# Check if the Python version is not 3.9
+if sys.version_info.major != 3 or sys.version_info.minor != 9:
+    current_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    print(f"Workflow validated for Python 3.9, current version is {current_version}")
+
 def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
 
