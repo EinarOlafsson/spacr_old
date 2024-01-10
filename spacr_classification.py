@@ -11,7 +11,7 @@ def install(package):
 
 dependencies = [
     "torch", "cellpose", "pandas", "ipykernel", "ipywidgets",
-    "mahotas", "scikit-learn", "scikit-image", "numpy==1.24.0", 
+    "mahotas", "scikit-learn", "scikit-image", "numpy", 
     "seaborn", "matplotlib", "timm --no-deps", "xgboost",
     "moviepy"
 ]
