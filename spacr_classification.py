@@ -5,7 +5,7 @@ def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
 
 dependencies = [
-    "python=3.9", "torch", "cellpose", "pandas", "ipykernel", 
+    "python==3.9", "torch", "cellpose", "pandas", "ipykernel", 
     "mahotas", "scikit-learn", "scikit-image", "numpy==1.24.0", 
     "seaborn", "matplotlib", "timm --no-deps", "xgboost",
     "moviepy", "ipywidgets"
