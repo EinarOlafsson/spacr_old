@@ -1040,18 +1040,20 @@ def remove_intensity_objects(image, mask, intensity_threshold, mode):
 
 def get_avg_object_size(masks):
     object_areas = []
-
-    # loop over each mask
     for mask in masks:
-        # Measure properties of labeled image regions
-        properties = measure.regionprops(mask)
-        # Extract area for each object and append to list
-        object_areas += [prop.area for prop in properties]
+        # Check if the mask is a 2D or 3D array and is not empty
+        if mask.ndim in [2, 3] and np.any(mask):
+            properties = measure.regionprops(mask)
+            object_areas += [prop.area for prop in properties]
+        else:
+            # Handle empty or incorrect mask format
+            print("Mask is empty or not in the correct format.")
+            continue
 
-    # Calculate the average object size
-    avg_object_size = np.mean(object_areas) if object_areas else 0
-
-    return avg_object_size
+    if object_areas:
+        return sum(object_areas) / len(object_areas)
+    else:
+        return 0  # Return 0 if no objects are found
 
 def mask_object_count(mask):
     unique_labels = np.unique(mask)
