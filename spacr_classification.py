@@ -1,32 +1,86 @@
 import subprocess
 import sys
+import os
+import json
+import shutil
 
-# Check if the Python version is not 3.9
-if sys.version_info.major != 3 or sys.version_info.minor != 9:
-    current_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-    print(f"Workflow validated for Python 3.9, current version is {current_version}")
+def create_environment(env_name):
+    print(f"Creating environment {env_name}...")
+    subprocess.run(["conda", "create", "-n", env_name, "python=3.9", "-y"])
+    
+def install_dependencies_in_kernel(dependencies, env_name):
+    """Install dependencies in a specified kernel environment."""
+    
+    # Check if conda is available
+    conda_PATH = shutil.which("conda")
+    if not conda_PATH:
+        raise EnvironmentError("Conda executable not found.")
+    print("conda executable", conda_PATH)
+    
+    pip_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
+    
+    # Update conda
+    print("Updating Conda...")
+    subprocess.run([conda_PATH, "update", "-n", "base", "-c", "defaults", "conda", "-y"])
 
-def install(package):
-    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+    # Add conda-forge to channels
+    subprocess.run([conda_PATH, "config", "--add", "channels", "conda-forge"])
+    print("Added conda-forge to channels.")
 
-dependencies = [
-    "torch", "cellpose", "pandas", "ipykernel", "ipywidgets",
-    "mahotas", "scikit-learn", "scikit-image", "numpy", 
-    "seaborn", "matplotlib", "timm --no-deps", "xgboost",
-    "moviepy"
-]
+    # Install torch, torchvision, torchaudio with pip
+    print("Installing torch")
+    subprocess.run([pip_PATH, "-m", "pip", "install", "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/cu118"])
+                    
+    # Install cellpose
+    #print("Installing cellpose")
+    #subprocess.run([pip_PATH, "-m", "pip", "install", "cellpose"])
 
-for package in dependencies:
-    try:
-        __import__(package)
-    except ImportError:
-        print(f"Installing {package}...")
-        if package == "torch":
-            install(f'torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118')
-        else:
-            install(package)
+    # Install remaining dependencies with conda
+    for package in dependencies:
+        print(f"Installing {package}")
+        subprocess.run([conda_PATH, "install", "-n", env_name, package, "-y"])
+        
+    # Install torchsummary
+    print(f"Installing torchsummary")
+    subprocess.run([pip_PATH, "-m", "pip", "install", "torchsummary"])
 
-print('Dependencies installed')
+    # Install numpy 1.24.0 with pip
+    print(f"Installing numpy==1.24.0")
+    subprocess.run([pip_PATH, "-m", "pip", "install", "numpy==1.24.0"])
+
+    # Reinstall numba 0.58.0
+    print(f"Reinstalling numba")
+    subprocess.run([pip_PATH, "-m", "pip", "install", "numba==0.58.0"])
+
+    print("Dependencies installation complete.")
+
+def add_kernel(env_name, display_name):
+    python_path = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
+    kernel_spec = {
+        "argv": [python_path, "-m", "ipykernel_launcher", "-f", "{connection_file}"],
+        "display_name": display_name,
+        "language": "python"
+    }
+    kernel_spec_path = f"{os.environ['HOME']}/.local/share/jupyter/kernels/{env_name}"
+    os.makedirs(kernel_spec_path, exist_ok=True)
+    with open(os.path.join(kernel_spec_path, "kernel.json"), "w") as f:
+        json.dump(kernel_spec, f)
+
+env_name = "spacr_classification"
+dependencies = ["pandas", "ipykernel", "mahotas","scikit-learn", "scikit-image", "seaborn", "matplotlib", "xgboost", "moviepy", "ipywidgets", "adjustText", "opencv-python"]
+#pip_errors = ["click","platformdirs","decorator"]
+#dependencies = dependencies + pip_errors
+
+env_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}"
+
+if not os.path.exists(env_PATH):
+	create_environment(env_name)
+	install_dependencies_in_kernel(dependencies, env_name)
+	add_kernel(env_name, env_name)
+	print(f"Environment '{env_name}' created and added as a Jupyter kernel.")
+	print(f"Refresh the page, set {env_name} as the kernel and run cell again")
+
+################################################################################################################################################################################
 
 #system dependencies
 import os, re, gc, cv2, sys, csv, time, math, string, shutil, random, sqlite3, datetime, torch, torchvision
