@@ -38,7 +38,7 @@ def add_kernel(env_name, display_name):
         json.dump(kernel_spec, f)
 
 env_name = "spacr_simulation"
-dependencies = ["pandas", "ipykernel", "scikit-learn", "seaborn", "matplotlib", "statsmodels"]
+dependencies = ["pandas", "ipykernel", "scikit-learn", "seaborn", "matplotlib", "statsmodels", "requests"]
 env_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}"
 
 if not os.path.exists(env_PATH):
