@@ -1,52 +1,95 @@
 import subprocess
 import sys
-
-# Check if the Python version is not 3.9
-if sys.version_info.major != 3 or sys.version_info.minor != 9:
-    current_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-    print(f"Workflow validated for Python 3.9, current version is {current_version}")
-
-def install(package):
-    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-
-dependencies = [
-    "matplotlib", "numpy", "opencv-python", "scikit-image", 
-    "scipy", "Pillow", "imageio", "matplotlib", "random",
-    "torch", "warnings", "imageio", "cellpose", "collections"
-]
-
-for package in dependencies:
-    try:
-        __import__(package)
-    except ImportError:
-        print(f"Installing {package}...")
-        install(package)
-
-print('Dependencies installed')
-
 import os
-import gc
-import cv2
-import numpy as np
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import random
-import time
-import torch
-import re
+import json
+import shutil
+
+def create_environment(env_name):
+    print(f"Creating environment {env_name}...")
+    subprocess.run(["conda", "create", "-n", env_name, "python=3.9", "-y"])
+    
+def install_dependencies_in_kernel(dependencies, env_name):
+    """Install dependencies in a specified kernel environment."""
+    
+    # Check if conda is available
+    conda_PATH = shutil.which("conda")
+    if not conda_PATH:
+        raise EnvironmentError("Conda executable not found.")
+    print("conda executable", conda_PATH)
+    
+    pip_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
+    
+    # Update conda
+    print("Updating Conda...")
+    subprocess.run([conda_PATH, "update", "-n", "base", "-c", "defaults", "conda", "-y"])
+
+    # Add conda-forge to channels
+    subprocess.run([conda_PATH, "config", "--add", "channels", "conda-forge"])
+    print("Added conda-forge to channels.")
+
+    # Install torch, torchvision, torchaudio with pip
+    print("Installing torch")
+    subprocess.run([pip_PATH, "-m", "pip", "install", "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/cu118"])
+                    
+    # Install cellpose
+    print("Installing cellpose")
+    subprocess.run([pip_PATH, "-m", "pip", "install", "cellpose"])
+
+    # Install remaining dependencies with conda
+    for package in dependencies:
+        print(f"Installing {package}")
+        subprocess.run([conda_PATH, "install", "-n", env_name, package, "-y"])
+
+    # Install numpy 1.24.0 with pip
+    print(f"Installing numpy==1.24.0")
+    subprocess.run([pip_PATH, "-m", "pip", "install", "numpy==1.24.0"])
+
+    # Reinstall numba 0.58.0
+    print(f"Reinstalling numba")
+    subprocess.run([pip_PATH, "-m", "pip", "install", "numba==0.58.0"])
+
+    print("Dependencies installation complete.")
+
+def add_kernel(env_name, display_name):
+    python_path = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
+    kernel_spec = {
+        "argv": [python_path, "-m", "ipykernel_launcher", "-f", "{connection_file}"],
+        "display_name": display_name,
+        "language": "python"
+    }
+    kernel_spec_path = f"{os.environ['HOME']}/.local/share/jupyter/kernels/{env_name}"
+    os.makedirs(kernel_spec_path, exist_ok=True)
+    with open(os.path.join(kernel_spec_path, "kernel.json"), "w") as f:
+        json.dump(kernel_spec, f)
+
+env_name = "spacr_finetune_cellpose"
+
+dependencies = ["pandas", "ipykernel", "scikit-learn", "scikit-image", "seaborn", "matplotlib", "ipywidgets", "opencv-python"]
+
+env_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}"
+
+if not os.path.exists(env_PATH):
+	create_environment(env_name)
+	install_dependencies_in_kernel(dependencies, env_name)
+	add_kernel(env_name, env_name)
+	print(f"Environment '{env_name}' created and added as a Jupyter kernel.")
+	print(f"Refresh the page, set {env_name} as the kernel and run cell again")
+
+################################################################################################################################################################################
+
+import os, gc, cv2, random, time, torch, re, warnings, imageio
 
 print('Torch available:', torch.cuda.is_available())
 print('CUDA version:',torch.version.cuda)
 
+import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 from cellpose import models, io
 from skimage.exposure import rescale_intensity
 from collections import deque
-import warnings
-import imageio
 from matplotlib.patches import Polygon
 import matplotlib as mpl
-#%matplotlib qt
-import gc
 
 def normalize_to_dtype(array, q1=2, q2=98, percentiles=None):
     # Ensure array is at least 3D
