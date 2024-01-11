@@ -1,19 +1,63 @@
+import subprocess
+import sys
 import os
-import gc
-import random
-import warnings
-import traceback
+import json
+import shutil
+
+def create_environment(env_name):
+    print(f"Creating environment {env_name}...")
+    subprocess.run(["conda", "create", "-n", env_name, "python=3.9", "-y"])
+    
+def install_dependencies_in_kernel(dependencies, env_name):
+    """Install dependencies in a specified kernel environment."""
+    
+    # Check if conda is available
+    conda_PATH = shutil.which("conda")
+    if not conda_PATH:
+        raise EnvironmentError("Conda executable not found.")
+    print("conda executable", conda_PATH)
+    
+    pip_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
+    
+    for package in dependencies:
+    	print(f"Installing {package}")
+    	subprocess.run([pip_PATH, "-m", "pip", "install", package])
+
+    print("Dependencies installation complete.")
+
+def add_kernel(env_name, display_name):
+    python_path = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
+    kernel_spec = {
+        "argv": [python_path, "-m", "ipykernel_launcher", "-f", "{connection_file}"],
+        "display_name": display_name,
+        "language": "python"
+    }
+    kernel_spec_path = f"{os.environ['HOME']}/.local/share/jupyter/kernels/{env_name}"
+    os.makedirs(kernel_spec_path, exist_ok=True)
+    with open(os.path.join(kernel_spec_path, "kernel.json"), "w") as f:
+        json.dump(kernel_spec, f)
+
+env_name = "spacr_simulation"
+dependencies = ["pandas", "ipykernel", "scikit-learn", "seaborn", "matplotlib", "statsmodels"]
+env_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}"
+
+if not os.path.exists(env_PATH):
+	create_environment(env_name)
+	install_dependencies_in_kernel(dependencies, env_name)
+	add_kernel(env_name, env_name)
+	print(f"Environment '{env_name}' created and added as a Jupyter kernel.")
+	print(f"Refresh the page, set {env_name} as the kernel and run cell again")
+
+################################################################################################################################################################################
+
+import os, gc, random, warnings, traceback, itertools, matplotlib, sqlite3
 import time as tm
 from time import time, sleep
 from datetime import datetime
-import itertools
 import numpy as np
 import pandas as pd
-import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
-
-import sqlite3
 import sklearn.metrics as metrics
 from sklearn.metrics import roc_curve, auc, roc_auc_score, confusion_matrix, precision_recall_curve
 import statsmodels.api as sm
