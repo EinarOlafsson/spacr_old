@@ -54,7 +54,7 @@ def add_kernel(env_name, display_name):
 
 env_name = "spacr_sequencing"
 
-dependencies = ["pandas", "ipykernel", "itertools", "scikit-learn", "seaborn", "matplotlib", "ipywidgets"]
+dependencies = ["pandas", "ipykernel", "itertools", "scikit-learn", "seaborn", "matplotlib", "ipywidgets", "lxml"]
 
 env_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}"
 
