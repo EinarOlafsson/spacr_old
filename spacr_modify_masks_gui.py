@@ -19,26 +19,12 @@ def install_dependencies_in_kernel(dependencies, env_name):
     
     pip_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
     
-    # Update conda
-    print("Updating Conda...")
-    subprocess.run([conda_PATH, "update", "-n", "base", "-c", "defaults", "conda", "-y"])
-
-    # Add conda-forge to channels
-    subprocess.run([conda_PATH, "config", "--add", "channels", "conda-forge"])
-    print("Added conda-forge to channels.")
-
-    # Install remaining dependencies with conda
     for package in dependencies:
-        print(f"Installing {package}")
-        subprocess.run([conda_PATH, "install", "-n", env_name, package, "-y"])
-
-    pip_packages = ["opencv-python", "PyQt5"]
-    
-    for package in pip_packages:
     	print(f"Installing {package}")
     	subprocess.run([pip_PATH, "-m", "pip", "install", package])
 
     print("Dependencies installation complete.")
+    
 
 def add_kernel(env_name, display_name):
     python_path = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
@@ -54,7 +40,7 @@ def add_kernel(env_name, display_name):
 
 env_name = "spacr_modify_masks_gui"
 
-dependencies = ["matplotlib", "seaborn", "scikit-image", "scipy", "Pillow", "imageio", "numpy"]
+dependencies = ["matplotlib", "seaborn", "scikit-image", "scipy", "Pillow", "imageio", "opencv-python", "PyQt5", "ipykernel"]
 
 env_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}"
 
@@ -66,6 +52,7 @@ if not os.path.exists(env_PATH):
 	print(f"Refresh the page, set {env_name} as the kernel and run cell again")
 
 ################################################################################################################################################################################
+
 
 import os, time, cv2, warnings, matplotlib
 matplotlib.use('Qt5Agg')
