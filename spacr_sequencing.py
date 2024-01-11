@@ -1,26 +1,84 @@
+import subprocess
+import sys
+import os
+import json
+import shutil
 
+def create_environment(env_name):
+    print(f"Creating environment {env_name}...")
+    subprocess.run(["conda", "create", "-n", env_name, "python=3.9", "-y"])
+    
+def install_dependencies_in_kernel(dependencies, env_name):
+    """Install dependencies in a specified kernel environment."""
+    
+    # Check if conda is available
+    conda_PATH = shutil.which("conda")
+    if not conda_PATH:
+        raise EnvironmentError("Conda executable not found.")
+    print("conda executable", conda_PATH)
+    
+    pip_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
+    
+    # Update conda
+    print("Updating Conda...")
+    subprocess.run([conda_PATH, "update", "-n", "base", "-c", "defaults", "conda", "-y"])
 
-import re
+    # Add conda-forge to channels
+    subprocess.run([conda_PATH, "config", "--add", "channels", "conda-forge"])
+    print("Added conda-forge to channels.")
+                
+    # Install remaining dependencies with conda
+    for package in dependencies:
+        print(f"Installing {package}")
+        subprocess.run([conda_PATH, "install", "-n", env_name, package, "-y"])
+        
+    pip_packages = ["Bio", "opencv-python", "statsmodels"]
+    
+    for package in pip_packages:
+    	print(f"Installing {package}")
+    	subprocess.run([pip_PATH, "-m", "pip", "install", package])
+
+    print("Dependencies installation complete.")
+
+def add_kernel(env_name, display_name):
+    python_path = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
+    kernel_spec = {
+        "argv": [python_path, "-m", "ipykernel_launcher", "-f", "{connection_file}"],
+        "display_name": display_name,
+        "language": "python"
+    }
+    kernel_spec_path = f"{os.environ['HOME']}/.local/share/jupyter/kernels/{env_name}"
+    os.makedirs(kernel_spec_path, exist_ok=True)
+    with open(os.path.join(kernel_spec_path, "kernel.json"), "w") as f:
+        json.dump(kernel_spec, f)
+
+env_name = "spacr_sequencing"
+
+dependencies = ["pandas", "ipykernel", "itertools", "scikit-learn", "seaborn", "matplotlib", "ipywidgets"]
+
+env_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}"
+
+if not os.path.exists(env_PATH):
+	create_environment(env_name)
+	install_dependencies_in_kernel(dependencies, env_name)
+	add_kernel(env_name, env_name)
+	print(f"Environment '{env_name}' created and added as a Jupyter kernel.")
+	print(f"Refresh the page, set {env_name} as the kernel and run cell again")
+
+################################################################################################################################################################################
+
+import os, re, csv, time, math, random
 import numpy as np
 import pandas as pd
-import subprocess
 import matplotlib.pyplot as plt
 import seaborn as sns
 from Bio import pairwise2
 from Bio.pairwise2 import format_alignment
-import os
-import csv
-import time
 from itertools import islice
-import math
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
-import numpy as np
-import pandas as pd
 from sklearn.ensemble import IsolationForest
 from sklearn.covariance import EllipticEnvelope
-import random
-import numpy as np
 from scipy.optimize import curve_fit
 from scipy.stats import gmean
 from statsmodels.regression.mixed_linear_model import MixedLM
