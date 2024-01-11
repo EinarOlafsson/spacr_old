@@ -54,7 +54,7 @@ def add_kernel(env_name, display_name):
 
 env_name = "spacr_modify_masks_gui"
 
-dependencies = ["matplotlib", "seaborn", "scikit-image", "scipy", "Pillow", "imageio", "matplotlib", "PyQt5", "numpy"]
+dependencies = ["matplotlib", "seaborn", "scikit-image", "scipy", "Pillow", "imageio", "PyQt5", "numpy"]
 
 env_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}"
 
