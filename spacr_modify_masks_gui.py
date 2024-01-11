@@ -21,10 +21,10 @@ def install_dependencies_in_kernel(dependencies, env_name):
     
     for package in dependencies:
     	print(f"Installing {package}")
-    	subprocess.run([pip_PATH, "-m", "pip", "install", package])
-
+	subprocess.run([conda_PATH, "install", "-n", env_name, package, "-y"])
     print("Dependencies installation complete.")
-    
+	
+    subprocess.run([pip_PATH, "-m", "pip", "install", "PyQt5"])
 
 def add_kernel(env_name, display_name):
     python_path = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
@@ -40,7 +40,7 @@ def add_kernel(env_name, display_name):
 
 env_name = "spacr_modify_masks_gui"
 
-dependencies = ["matplotlib", "seaborn", "scikit-image", "scipy", "Pillow", "imageio", "opencv-python", "PyQt5", "ipykernel", "requests"]
+dependencies = ["matplotlib", "seaborn", "scikit-image", "scipy", "Pillow", "imageio", "opencv-python", "ipykernel", "requests"]
 
 env_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}"
 
