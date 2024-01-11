@@ -67,6 +67,7 @@ from skimage import feature, morphology
 from skimage.morphology import disk
 from skimage.exposure import rescale_intensity
 from skimage.transform import resize
+from skimage.draw import polygon
 
 from scipy.ndimage import binary_dilation, binary_fill_holes
 
@@ -434,7 +435,12 @@ def freehand_draw(event):
             if len(freehand_points) > 2:
                 # Close the shape and fill
                 poly_points = np.array(freehand_points, dtype=np.int32)
-                cv2.fillPoly(mask, [poly_points], 255)
+                # Flip y-coordinates
+                #poly_points[:, 1] = mask.shape[0] - 1 - poly_points[:, 1]
+                # Generate polygon
+                rr, cc = polygon(poly_points[:, 1], poly_points[:, 0], mask.shape)
+                # Fill polygon with random value
+                mask[rr, cc] = random.randint(1, 65535)
                 overlay.set_data(mask)
                 fig.canvas.draw()
             
@@ -444,8 +450,6 @@ def freehand_draw(event):
                 line.remove()
             freehand_lines = []
             fig.canvas.draw()
-            #is_freehand_drawing = False
-            #check_freehand.set_active(0)
             
 # Adding a short explanation buttons/sliders/boxes
 def add_text_box_annotation(ax, text, x, y):
