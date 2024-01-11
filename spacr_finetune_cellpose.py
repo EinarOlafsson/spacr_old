@@ -40,13 +40,11 @@ def install_dependencies_in_kernel(dependencies, env_name):
         print(f"Installing {package}")
         subprocess.run([conda_PATH, "install", "-n", env_name, package, "-y"])
 
-    # Install numpy 1.24.0 with pip
-    print(f"Installing numpy==1.24.0")
-    subprocess.run([pip_PATH, "-m", "pip", "install", "numpy==1.24.0"])
-
-    # Reinstall numba 0.58.0
-    print(f"Reinstalling numba")
-    subprocess.run([pip_PATH, "-m", "pip", "install", "numba==0.58.0"])
+    pip_packages = ["opencv-python", "numpy==1.24.0", "numba==0.58.0"]
+    
+    for package in pip_packages:
+    	print(f"Installing {package}")
+    	subprocess.run([pip_PATH, "-m", "pip", "install", package])
 
     print("Dependencies installation complete.")
 
@@ -64,7 +62,7 @@ def add_kernel(env_name, display_name):
 
 env_name = "spacr_finetune_cellpose"
 
-dependencies = ["pandas", "ipykernel", "scikit-learn", "scikit-image", "seaborn", "matplotlib", "ipywidgets", "opencv-python"]
+dependencies = ["pandas", "ipykernel", "scikit-learn", "scikit-image", "seaborn", "matplotlib", "ipywidgets"]
 
 env_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}"
 
