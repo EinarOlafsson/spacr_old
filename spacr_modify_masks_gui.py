@@ -32,7 +32,7 @@ def install_dependencies_in_kernel(dependencies, env_name):
         print(f"Installing {package}")
         subprocess.run([conda_PATH, "install", "-n", env_name, package, "-y"])
 
-    pip_packages = ["opencv-python"]
+    pip_packages = ["opencv-python", "PyQt5"]
     
     for package in pip_packages:
     	print(f"Installing {package}")
@@ -54,7 +54,7 @@ def add_kernel(env_name, display_name):
 
 env_name = "spacr_modify_masks_gui"
 
-dependencies = ["matplotlib", "seaborn", "scikit-image", "scipy", "Pillow", "imageio", "PyQt5", "numpy"]
+dependencies = ["matplotlib", "seaborn", "scikit-image", "scipy", "Pillow", "imageio", "numpy"]
 
 env_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}"
 
