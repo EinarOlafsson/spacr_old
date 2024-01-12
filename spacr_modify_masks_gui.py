@@ -33,7 +33,7 @@ def install_dependencies_in_kernel(dependencies, env_name):
     	subprocess.run([conda_PATH, "install", "-n", env_name, package, "-y"])
     	#conda install fastai::opencv-python-headless
     
-    subprocess.run([pip_PATH, "-m", "pip", "install", "opencv-python"])
+    #subprocess.run([pip_PATH, "-m", "pip", "install", "opencv-python"])
     subprocess.run([conda_PATH, "install", "-n", env_name, "opencv-python-headless", "-y"])
     subprocess.run([pip_PATH, "-m", "pip", "install", "PyQt5"])
     	
