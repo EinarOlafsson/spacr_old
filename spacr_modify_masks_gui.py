@@ -10,13 +10,17 @@ def create_environment(env_name):
     
 def install_dependencies_in_kernel(dependencies, env_name):
     """Install dependencies in a specified kernel environment."""
+
+    # Ensure Python version is 3.9 or above
+    if sys.version_info < (3, 9):
+        raise EnvironmentError("Python version 3.9 or higher is required.")
     
     # Check if conda is available
     conda_PATH = shutil.which("conda")
     if not conda_PATH:
         raise EnvironmentError("Conda executable not found.")
     print("conda executable", conda_PATH)
-    
+
     pip_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
 
     # Update conda
@@ -32,7 +36,6 @@ def install_dependencies_in_kernel(dependencies, env_name):
     subprocess.run([pip_PATH, "-m", "pip", "install", "PyQt5"])
     print("Dependencies installation complete.")
     
-
 def add_kernel(env_name, display_name):
     python_path = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
     kernel_spec = {
