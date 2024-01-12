@@ -43,24 +43,25 @@ def install_dependencies_in_kernel(dependencies, env_name):
     subprocess.run([pip_PATH, "-m", "pip", "install", "PyQt5"])
     
     print("Dependencies installation complete.")
-    
+
+# create new kernel
 def add_kernel(env_name, display_name):
-    python_path = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
+    if platform.system() == "Windows":
+        python_path = f"{os.environ['USERPROFILE']}\\anaconda3\\envs\\{env_name}\\bin\\python"
+        env_PATH = f"{os.environ['USERPROFILE']}\\.local\\share\\jupyter\\kernels\\{env_name}"
+    else:
+        python_path = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
+        kernel_spec_path = f"{os.environ['HOME']}/.local/share/jupyter/kernels/{env_name}"
+
     kernel_spec = {
         "argv": [python_path, "-m", "ipykernel_launcher", "-f", "{connection_file}"],
         "display_name": display_name,
         "language": "python"
     }
-    if platform.system() == "Windows":
-        env_PATH = f"{os.environ['USERPROFILE']}\\.local\\share\\jupyter\\kernels\\{env_name}"
-    else:
-        kernel_spec_path = f"{os.environ['HOME']}/.local/share/jupyter/kernels/{env_name}"
-    
     
     os.makedirs(kernel_spec_path, exist_ok=True)
     with open(os.path.join(kernel_spec_path, "kernel.json"), "w") as f:
         json.dump(kernel_spec, f)
-
 env_name = "spacr_modify_masks_gui"
 
 dependencies = ["matplotlib==3.7.1", "scipy", "pillow", "scikit-image", "ipykernel", "requests", "h5py", "pyzmq"]
