@@ -10,7 +10,7 @@ data_generation - Features:
  - Metadata, measurement or manual single object image annotation.
  - visualize measurement data (alpha).
    
-Classefication - Features:
+classefication - Features:
  - Use single object images (e.g. generated in data_generation) to train a torch model.
  - Apply trained models to immage data.
  - Link classefication data to sequencing data and perform regression analasys (alpha).
