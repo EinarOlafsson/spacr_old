@@ -2293,9 +2293,15 @@ def measure_crop(settings):
                 print(f'Progress: {files_processed}/{files_to_process} Time/img {average_time:.3f}sec, Time Remaining {time_left:.3f} min.', end='\r', flush=True)
             result.get()  # This will block until all tasks are finished
 
-def load_and_concatenate_arrays(src, channels):
-    
-    folder_paths = [src+'/stack', src+'/norm_channel_stack/cell_mask_stack', src+'/norm_channel_stack/nuclei_mask_stack', src+'/norm_channel_stack/parasite_mask_stack']
+def load_and_concatenate_arrays(src, channels, cell_chann_dim, nucleus_chann_dim, parasite_chann_dim):
+    folder_paths = [os.path.join(src+'/stack')]
+    if cell_chann_dim is not None:
+        folder_paths = folder_paths + [os.path.join(src+'/norm_channel_stack/cell_mask_stack')]
+    if nucleus_chann_dim is not None:
+        folder_paths = folder_paths + [os.path.join(src+'/norm_channel_stack/nuclei_mask_stack')]
+    if parasite_chann_dim is not None:
+        folder_paths = folder_paths + [os.path.join(src+'/norm_channel_stack/parasite_mask_stack')]
+	
     output_folder = src+'/merged'
     reference_folder = folder_paths[0]
     os.makedirs(output_folder, exist_ok=True)
@@ -2738,7 +2744,7 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
                            timelapse=timelapse,
                            file_type='.npz')
             torch.cuda.empty_cache()
-        load_and_concatenate_arrays(src, channels=channels)
+        load_and_concatenate_arrays(src, channels=channels, cell_chann_dim, nucleus_chann_dim, parasite_chann_dim)
     
     torch.cuda.empty_cache()
     gc.collect()
