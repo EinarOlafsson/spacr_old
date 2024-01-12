@@ -7,10 +7,10 @@ import shutil
 def create_environment(env_name):
     print(f"Creating environment {env_name}...")
     subprocess.run(["conda", "create", "-n", env_name, "python=3.9", "-y"])
-    
-def install_dependencies_in_kernel(dependencies, env_name):
-    """Install dependencies in a specified kernel environment."""
 
+#Install dependencies in a specified kernel environment.
+def install_dependencies_in_kernel(dependencies, env_name):
+    
     # Ensure Python version is 3.9 or above
     if sys.version_info < (3, 9):
         raise EnvironmentError("Python version 3.9 or higher is required.")
@@ -21,23 +21,22 @@ def install_dependencies_in_kernel(dependencies, env_name):
         raise EnvironmentError("Conda executable not found.")
     print("conda executable", conda_PATH)
 
+    #define path to pip
     pip_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
 
     # Update conda
     print("Updating Conda...")
     subprocess.run([conda_PATH, "update", "-n", "base", "-c", "defaults", "conda", "-y"])
-	
-    subprocess.run([pip_PATH, "-m", "pip", "install", "opencv-python"])
-    subprocess.run([pip_PATH, "-m", "pip", "install", "opencv-python-headless==4.8.0.76"])
     
     for package in dependencies:
     	print(f"Installing {package}")
     	subprocess.run([conda_PATH, "install", "-n", env_name, package, "-y"])
-
+    	#conda install fastai::opencv-python-headless
+    
+    subprocess.run([pip_PATH, "-m", "pip", "install", "opencv-python"])
+    subprocess.run([conda_PATH, "install", "-n", env_name, "opencv-python-headless", "-y"])
     subprocess.run([pip_PATH, "-m", "pip", "install", "PyQt5"])
-    #subprocess.run([pip_PATH, "-m", "pip", "install", "opencv-python"])
-    #subprocess.run([pip_PATH, "-m", "pip", "install", "opencv-python-headless"]) #==4.9.0.80
-    #subprocess.run([pip_PATH, "-m", "pip", "install", "PyQt5"])
+    	
     print("Dependencies installation complete.")
     
 def add_kernel(env_name, display_name):
@@ -54,7 +53,7 @@ def add_kernel(env_name, display_name):
 
 env_name = "spacr_modify_masks_gui"
 
-dependencies = ["matplotlib", "scikit-image", "ipykernel", "requests"]
+dependencies = ["matplotlib==3.7.1", "scipy", "pillow", "scikit-image", "ipykernel", "requests", "h5py", "pyzmq"]
 
 env_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}"
 
@@ -67,7 +66,7 @@ if not os.path.exists(env_PATH):
 
 ################################################################################################################################################################################
 
-import os, time, cv2, warnings, matplotlib, random
+import os, time, warnings, matplotlib, random
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 
@@ -583,7 +582,7 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     
     # Slider for radius
     ax_radius = plt.axes([0.85, 0.6, 0.1, 0.02])
-    slider_radius = Slider(ax_radius, 'Radius', 1, 100, valinit=1)
+    slider_radius = Slider(ax_radius, 'Radius', 0, 10, valinit=1)
     
     # Slider for magic wand tolerance
     ax_itol = plt.axes([0.85, 0.575, 0.1, 0.02])
