@@ -26,7 +26,8 @@ def install_dependencies_in_kernel(dependencies, env_name):
     # Update conda
     print("Updating Conda...")
     subprocess.run([conda_PATH, "update", "-n", "base", "-c", "defaults", "conda", "-y"])
-
+	
+    subprocess.run([pip_PATH, "-m", "pip", "install", "opencv-python"])
     subprocess.run([pip_PATH, "-m", "pip", "install", "opencv-python-headless==4.8.0.76"])
     
     for package in dependencies:
