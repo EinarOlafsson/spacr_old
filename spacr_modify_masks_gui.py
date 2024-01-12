@@ -18,6 +18,10 @@ def install_dependencies_in_kernel(dependencies, env_name):
     print("conda executable", conda_PATH)
     
     pip_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
+
+    # Update conda
+    print("Updating Conda...")
+    subprocess.run([conda_PATH, "update", "-n", "base", "-c", "defaults", "conda", "-y"])
     
     for package in dependencies:
     	print(f"Installing {package}")
