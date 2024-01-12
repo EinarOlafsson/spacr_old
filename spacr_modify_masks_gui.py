@@ -583,7 +583,7 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     
     # Slider for radius
     ax_radius = plt.axes([0.85, 0.6, 0.1, 0.02])
-    slider_radius = Slider(ax_radius, 'Radius', 0, 10, valinit=1)
+    slider_radius = Slider(ax_radius, 'Radius', 1, 100, valinit=1)
     
     # Slider for magic wand tolerance
     ax_itol = plt.axes([0.85, 0.575, 0.1, 0.02])
