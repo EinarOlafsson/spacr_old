@@ -23,6 +23,9 @@ def install_dependencies_in_kernel(dependencies, env_name):
 
     pip_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
 
+    subprocess.run([pip_PATH, "-m", "pip", "install", "opencv-python-headless"]) #==4.9.0.80
+    subprocess.run([pip_PATH, "-m", "pip", "install", "PyQt5"])
+
     # Update conda
     print("Updating Conda...")
     subprocess.run([conda_PATH, "update", "-n", "base", "-c", "defaults", "conda", "-y"])
@@ -32,8 +35,8 @@ def install_dependencies_in_kernel(dependencies, env_name):
     	subprocess.run([conda_PATH, "install", "-n", env_name, package, "-y"])
     	
     #subprocess.run([pip_PATH, "-m", "pip", "install", "opencv-python"])
-    subprocess.run([pip_PATH, "-m", "pip", "install", "opencv-python-headless"]) #==4.9.0.80
-    subprocess.run([pip_PATH, "-m", "pip", "install", "PyQt5"])
+    #subprocess.run([pip_PATH, "-m", "pip", "install", "opencv-python-headless"]) #==4.9.0.80
+    #subprocess.run([pip_PATH, "-m", "pip", "install", "PyQt5"])
     print("Dependencies installation complete.")
     
 def add_kernel(env_name, display_name):
