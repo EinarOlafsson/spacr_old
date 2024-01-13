@@ -2333,12 +2333,12 @@ def load_and_concatenate_arrays(src, channels, cell_chann_dim, nucleus_chann_dim
             unique_shapes = {arr.shape[:-1] for arr in stack_ls}
             if len(unique_shapes) > 1:
                 #max_dims = np.max(np.array(list(unique_shapes)), axis=0)
-		# Determine the maximum length of tuples in unique_shapes
-		max_tuple_length = max(len(shape) for shape in unique_shapes)
-		# Pad shorter tuples with zeros to make them all the same length
-		padded_shapes = [shape + (0,) * (max_tuple_length - len(shape)) for shape in unique_shapes]
-		# Now create a NumPy array and find the maximum dimensions
-		max_dims = np.max(np.array(padded_shapes), axis=0)
+                # Determine the maximum length of tuples in unique_shapes
+                max_tuple_length = max(len(shape) for shape in unique_shapes)
+                # Pad shorter tuples with zeros to make them all the same length
+                padded_shapes = [shape + (0,) * (max_tuple_length - len(shape)) for shape in unique_shapes]
+                # Now create a NumPy array and find the maximum dimensions
+                max_dims = np.max(np.array(padded_shapes), axis=0)
                 print(f'Warning: arrays with multiple shapes found. Padding arrays to max X,Y dimentions {max_dims}', end='\r', flush=True)
                 padded_stack_ls = []
                 for arr in stack_ls:
