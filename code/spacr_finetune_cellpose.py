@@ -5,27 +5,76 @@ import json
 import shutil
 import platform
 
+def get_paths(env_name):
+    conda_executable = "conda.exe" if sys.platform == "win32" else "conda"
+    python_executable = "python.exe" if sys.platform == "win32" else "python"
+    pip_executable = "pip.exe" if sys.platform == "win32" else "pip"
+
+    conda_path = shutil.which(conda_executable)
+    if not conda_path:
+        print("Conda is not found in the system PATH")
+        return None, None, None, None
+
+    conda_dir = os.path.dirname(os.path.dirname(conda_path))
+    env_path = os.path.join(conda_dir, 'envs', env_name)
+    python_path = os.path.join(env_path, 'bin', python_executable)
+    pip_path = os.path.join(env_path, 'bin', pip_executable)
+
+    if sys.platform == "win32":
+        python_path = python_path.replace('bin/', 'Scripts/')
+        pip_path = pip_path.replace('bin/', 'Scripts/')
+
+    return conda_path, python_path, pip_path, env_path
+
+# create new kernel
+def add_kernel(env_name, display_name):
+    _, _, python_path, env_path = get_paths(env_name)
+
+    if not python_path or not env_path:
+        print(f"Failed to locate the environment or Python executable for '{env_name}'")
+        return
+
+    kernel_spec_path = os.path.join(env_path, ".local", "share", "jupyter", "kernels", env_name)
+
+    kernel_spec = {
+        "argv": [python_path, "-m", "ipykernel_launcher", "-f", "{connection_file}"],
+        "display_name": display_name,
+        "language": "python"
+    }
+
+    os.makedirs(kernel_spec_path, exist_ok=True)
+    with open(os.path.join(kernel_spec_path, "kernel.json"), "w") as f:
+        json.dump(kernel_spec, f)
+
+    print(f"Kernel for '{env_name}' added successfully.")
+
 def create_environment(env_name):
     print(f"Creating environment {env_name}...")
     subprocess.run(["conda", "create", "-n", env_name, "python=3.9", "-y"])
-    
+
+# Install dependencies in a specified kernel environment.
 def install_dependencies_in_kernel(dependencies, env_name):
-    """Install dependencies in a specified kernel environment."""
     
+    # Ensure Python version is 3.9 or above
+    if sys.version_info < (3, 9):
+        raise EnvironmentError("Python version 3.9 or higher is required.")
+    
+    conda_PATH, _, pip_PATH, _ = get_paths(env_name)
+
     # Check if conda is available
-    conda_PATH = shutil.which("conda")
     if not conda_PATH:
         raise EnvironmentError("Conda executable not found.")
-    print("conda executable", conda_PATH)
     
-    # Determine the operating system
-    if platform.system() == "Windows":
-        # Windows path for pip executable
-        pip_PATH = f"{os.environ['USERPROFILE']}\\Anaconda3\\envs\\{env_name}\\python.exe"
-    else:
-        # Unix/Linux/MacOS path for pip executable
-        pip_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
-	    
+    # Get the current Conda configuration for channels
+    result = subprocess.run([conda_PATH, "config", "--show", "channels"], capture_output=True, text=True)
+    channels = result.stdout
+
+    # Check if 'conda-forge' is in the channels list
+    if 'conda-forge' not in channels:
+        # If 'conda-forge' is not in the channels, add it
+        subprocess.run([conda_PATH, "config", "--add", "channels", "conda-forge"])
+        print("Added conda-forge to channels.")
+    
     # Update conda
     print("Updating Conda...")
     subprocess.run([conda_PATH, "update", "-n", "base", "-c", "defaults", "conda", "-y"])
@@ -36,11 +85,11 @@ def install_dependencies_in_kernel(dependencies, env_name):
 
     # Install torch, torchvision, torchaudio with pip
     print("Installing torch")
-    subprocess.run([pip_PATH, "-m", "pip", "install", "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/cu118"])
+    subprocess.run([pip_PATH, "pip", "install", "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/cu118"])
                     
     # Install cellpose
     print("Installing cellpose")
-    subprocess.run([pip_PATH, "-m", "pip", "install", "cellpose"])
+    subprocess.run([pip_PATH, "pip", "install", "cellpose"])
 
     # Install remaining dependencies with conda
     for package in dependencies:
@@ -51,45 +100,30 @@ def install_dependencies_in_kernel(dependencies, env_name):
     
     for package in pip_packages:
     	print(f"Installing {package}")
-    	subprocess.run([pip_PATH, "-m", "pip", "install", package])
+    	subprocess.run([pip_PATH, "pip", "install", package])
 
     print("Dependencies installation complete.")
 
-# create new kernel
-def add_kernel(env_name, display_name):
-    if platform.system() == "Windows":
-        python_path = f"{os.environ['USERPROFILE']}\\anaconda3\\envs\\{env_name}\\bin\\python"
-        env_PATH = f"{os.environ['USERPROFILE']}\\.local\\share\\jupyter\\kernels\\{env_name}"
-    else:
-        python_path = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
-        kernel_spec_path = f"{os.environ['HOME']}/.local/share/jupyter/kernels/{env_name}"
-
-    kernel_spec = {
-        "argv": [python_path, "-m", "ipykernel_launcher", "-f", "{connection_file}"],
-        "display_name": display_name,
-        "language": "python"
-    }
-    
-    os.makedirs(kernel_spec_path, exist_ok=True)
-    with open(os.path.join(kernel_spec_path, "kernel.json"), "w") as f:
-        json.dump(kernel_spec, f)
-
 env_name = "spacr_finetune_cellpose"
 
-if platform.system() == "Windows":
-	env_PATH = f"{os.environ['USERPROFILE']}\\.local\\share\\jupyter\\kernels\\{env_name}"
-else:
-	env_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}"
+conda_PATH, python_PATH, pip_PATH, env_PATH = get_paths(env_name)
 
 dependencies = ["pandas", "ipykernel", "scikit-learn", "scikit-image", "seaborn", "matplotlib", "ipywidgets"]
 
 if not os.path.exists(env_PATH):
-	create_environment(env_name)
-	install_dependencies_in_kernel(dependencies, env_name)
-	add_kernel(env_name, env_name)
-	print(f"Environment '{env_name}' created and added as a Jupyter kernel.")
-	print(f"Refresh the page, set {env_name} as the kernel and run cell again")
-	sys.exit()
+
+    print(f'System type: {sys.platform}')
+    print(f'PATH to conda: {conda_PATH}')
+    print(f'PATH to python: {python_PATH}')
+    print(f'PATH to pip: {pip_PATH}')
+    print(f'PATH to new environment: {env_PATH}')
+
+    create_environment(env_name)
+    install_dependencies_in_kernel(dependencies, env_name)
+    add_kernel(env_name, env_name)
+    print(f"Environment '{env_name}' created and added as a Jupyter kernel.")
+    print(f"Refresh the page, set {env_name} as the kernel and run cell again")
+    sys.exit()
 
 ################################################################################################################################################################################
 
