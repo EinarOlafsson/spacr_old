@@ -86,7 +86,8 @@ def install_dependencies_in_kernel(dependencies, env_name):
     # Install additional packages
     subprocess.run([pip_PATH, "install", "opencv-python-headless"])
     subprocess.run([pip_PATH, "install", "PyQt5"])
-    
+    subprocess.run([pip_PATH, "install", "screeninfo"])
+
     print("Dependencies installation complete.")
 
 env_name = "spacr_modify_masks_gui"
@@ -135,21 +136,37 @@ import imageio.v2 as imageio
 from collections import deque
 import matplotlib as mpl
 from matplotlib.widgets import CheckButtons, Button, Slider, TextBox
+from screeninfo import get_monitors
 
 warnings.filterwarnings('ignore', category=RuntimeWarning, message='QCoreApplication::exec: The event loop is already running')
 Image.MAX_IMAGE_PIXELS = None
 
 plt.style.use('ggplot')
 
+# Function to determine an appropriate font size based on screen resolution
+def get_font_size():
+    try:
+        monitor = get_monitors()[0]
+        width = monitor.width
+
+        # Define font size based on screen width (you can adjust the conditions and sizes)
+        if width <= 1280:  # Smaller screens
+            return 8
+        elif width <= 1920:  # Medium screens
+            return 10
+        else:  # Larger screens
+            return 12
+    except Exception as e
+
 # Style paramiters
-plt.rcParams['axes.grid'] = False  # Disable grid
-plt.rcParams['axes.facecolor'] = 'white'  # Change axis face color
-plt.rcParams['lines.linewidth'] = 2       # Change line width
-plt.rcParams['font.size'] = 8           # Font size
-plt.rcParams['axes.labelsize'] = 14      # Axis label size
-plt.rcParams['axes.titlesize'] = 16      # Axis title size
-plt.rcParams['axes.spines.top'] = True   # Hide the top spine
-plt.rcParams['axes.spines.right'] = True # Hide the right spine
+plt.rcParams['axes.grid'] = False           # Disable grid
+plt.rcParams['axes.facecolor'] = 'white'    # Change axis face color
+plt.rcParams['lines.linewidth'] = 2         # Change line width
+plt.rcParams['font.size'] = get_font_size() # Font size
+plt.rcParams['axes.labelsize'] = 14         # Axis label size
+plt.rcParams['axes.titlesize'] = 16         # Axis title size
+plt.rcParams['axes.spines.top'] = True      # Hide the top spine
+plt.rcParams['axes.spines.right'] = True    # Hide the right spine
 
 # To display all style paramiters: run the following in jupyter
 #%matplotlib inline
