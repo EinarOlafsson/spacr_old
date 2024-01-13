@@ -5,6 +5,20 @@ import json
 import shutil
 import platform
 
+def has_nvidia_gpu():
+    try:
+        if sys.platform == "win32":
+            # For Windows, use systeminfo
+            result = subprocess.run("systeminfo", capture_output=True, text=True)
+            return "NVIDIA" in result.stdout
+        else:
+            # For Linux and macOS, use nvidia-smi
+            subprocess.run("nvidia-smi", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True
+    except subprocess.CalledProcessError:
+        # nvidia-smi not found or failed, assuming no NVIDIA GPU
+        return False
+
 def get_paths(env_name):
     conda_executable = "conda.exe" if sys.platform == "win32" else "conda"
     python_executable = "python.exe" if sys.platform == "win32" else "python"
@@ -79,13 +93,17 @@ def install_dependencies_in_kernel(dependencies, env_name):
     print("Updating Conda...")
     subprocess.run([conda_PATH, "update", "-n", "base", "-c", "defaults", "conda", "-y"])
 
-    # Add conda-forge to channels
-    subprocess.run([conda_PATH, "config", "--add", "channels", "conda-forge"])
-    print("Added conda-forge to channels.")
-
+    # Check for NVIDIA GPU
+    if has_nvidia_gpu():
+        print("NVIDIA GPU found. Installing PyTorch with GPU support.")
+        subprocess.run([pip_PATH, "install", "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/cu118"])
+    else:
+        print("No NVIDIA GPU found. Installing PyTorch for CPU.")
+        subprocess.run([pip_PATH, "install", "torch", "torchvision", "torchaudio"])
+    
     # Install torch, torchvision, torchaudio with pip
-    print("Installing torch")
-    subprocess.run([pip_PATH, "pip", "install", "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/cu118"])
+    #print("Installing torch")
+    #subprocess.run([pip_PATH, "pip", "install", "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/cu118"])
                     
     # Install cellpose
     print("Installing cellpose")
