@@ -3,6 +3,7 @@ import sys
 import os
 import json
 import shutil
+import platform
 
 def create_environment(env_name):
     print(f"Creating environment {env_name}...")
