@@ -39,7 +39,8 @@ def install_dependencies_in_kernel(dependencies, env_name):
         subprocess.run([conda_PATH, "install", "-n", env_name, package, "-y"])
     
     # Install additional packages
-    subprocess.run([conda_PATH, "install", "-n", env_name, "opencv-python-headless", "-y"])
+    subprocess.run([pip_PATH, "-m", "pip", "install", "opencv-python-headless"])
+    #subprocess.run([conda_PATH, "install", "-n", env_name, "opencv-python-headless", "-y"])
     subprocess.run([pip_PATH, "-m", "pip", "install", "PyQt5"])
     
     print("Dependencies installation complete.")
