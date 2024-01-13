@@ -109,7 +109,8 @@ if not os.path.exists(env_PATH):
     add_kernel(env_name, env_name)
     print(f"Environment '{env_name}' created and added as a Jupyter kernel.")
     print(f"Refresh the page, set {env_name} as the kernel and run cell again")
-    sys.exit()
+    #sys.exit()
+    SystemExit()
 
 ################################################################################################################################################################################
 
@@ -156,7 +157,10 @@ def get_font_size():
             return 10
         else:  # Larger screens
             return 12
-    except Exception as e
+		
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return 10
 
 def get_line_width():
     try:
@@ -170,8 +174,11 @@ def get_line_width():
             return 2
         else:  # Larger screens
             return 3
-    except Exception as e
-
+		
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return 2 
+	    
 # Style paramiters
 plt.rcParams['axes.grid'] = False           		# Disable grid
 plt.rcParams['axes.facecolor'] = 'white'    		# Change axis face color
@@ -835,23 +842,9 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     btn_save.label.set_fontsize(10)
     btn_save.label.set_weight('bold')
     btn_save.label.set_color('white')
-    
-    # Add short text explanations
-    #add_text_box_annotation(ax_freehand, "Left: connect, Right: close", 0.85, 0.625)
-    #add_text_box_annotation(ax_lower_quantile, "Set the radius for drawing", 0.85, 0.7)
-    #add_text_box_annotation(ax_upper_quantile, "Set the radius for drawing", 0.85, 0.675)
-    #add_text_box_annotation(ax_check, "Left: select, Right: deselect", 0.85, 0.625)
-    #add_text_box_annotation(ax_radius, "Set the radius for drawing", 0.85, 0.6)
-    #add_text_box_annotation(ax_itol, "Set the radius for drawing", 0.85, 0.575)
-    #add_text_box_annotation(ax_mpixels, "Set the radius for drawing", 0.85, 0.55)
-    #add_text_box_annotation(ax_min_size, "Set the radius for drawing", 0.85, 0.5)
-    #add_text_box_annotation(ax_remove, "Set the radius for drawing", 0.85, 0.45)
-    #add_text_box_annotation(ax_fill_holes, "Set the radius for drawing", 0.85, 0.4)
-    #add_text_box_annotation(ax_relabel, "Set the radius for drawing", 0.85, 0.35)
-    #add_text_box_annotation(ax_invert, "Set the radius for drawing", 0.85, 0.3)
-    #add_text_box_annotation(ax_clear, "Set the radius for drawing", 0.85, 0.25)
-    #add_text_box_annotation(ax_save, "Set the radius for drawing", 0.85, 0.2)
-    
+
+    #Text here
+
     # Connect the mouse click event
     fig.canvas.mpl_connect('button_press_event', on_click)
     
@@ -862,6 +855,22 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     update_mode('none')
 
     plt.show()
+
+# Add short text explanations
+#add_text_box_annotation(ax_freehand, "Left: connect, Right: close", 0.85, 0.625)
+#add_text_box_annotation(ax_lower_quantile, "Set the radius for drawing", 0.85, 0.7)
+#add_text_box_annotation(ax_upper_quantile, "Set the radius for drawing", 0.85, 0.675)
+#add_text_box_annotation(ax_check, "Left: select, Right: deselect", 0.85, 0.625)
+#add_text_box_annotation(ax_radius, "Set the radius for drawing", 0.85, 0.6)
+#add_text_box_annotation(ax_itol, "Set the radius for drawing", 0.85, 0.575)
+#add_text_box_annotation(ax_mpixels, "Set the radius for drawing", 0.85, 0.55)
+#add_text_box_annotation(ax_min_size, "Set the radius for drawing", 0.85, 0.5)
+#add_text_box_annotation(ax_remove, "Set the radius for drawing", 0.85, 0.45)
+#add_text_box_annotation(ax_fill_holes, "Set the radius for drawing", 0.85, 0.4)
+#add_text_box_annotation(ax_relabel, "Set the radius for drawing", 0.85, 0.35)
+#add_text_box_annotation(ax_invert, "Set the radius for drawing", 0.85, 0.3)
+#add_text_box_annotation(ax_clear, "Set the radius for drawing", 0.85, 0.25)
+#add_text_box_annotation(ax_save, "Set the radius for drawing", 0.85, 0.2)
 
 def modify_masks(img_src, mask_src, rescale_factor):
     global save_clicked, current_file_index, file_list
