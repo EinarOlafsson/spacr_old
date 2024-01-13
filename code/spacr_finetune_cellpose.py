@@ -17,8 +17,14 @@ def install_dependencies_in_kernel(dependencies, env_name):
         raise EnvironmentError("Conda executable not found.")
     print("conda executable", conda_PATH)
     
-    pip_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
-    
+    # Determine the operating system
+    if platform.system() == "Windows":
+        # Windows path for pip executable
+        pip_PATH = f"{os.environ['USERPROFILE']}\\Anaconda3\\envs\\{env_name}\\python.exe"
+    else:
+        # Unix/Linux/MacOS path for pip executable
+        pip_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
+	    
     # Update conda
     print("Updating Conda...")
     subprocess.run([conda_PATH, "update", "-n", "base", "-c", "defaults", "conda", "-y"])
@@ -48,23 +54,33 @@ def install_dependencies_in_kernel(dependencies, env_name):
 
     print("Dependencies installation complete.")
 
+# create new kernel
 def add_kernel(env_name, display_name):
-    python_path = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
+    if platform.system() == "Windows":
+        python_path = f"{os.environ['USERPROFILE']}\\anaconda3\\envs\\{env_name}\\bin\\python"
+        env_PATH = f"{os.environ['USERPROFILE']}\\.local\\share\\jupyter\\kernels\\{env_name}"
+    else:
+        python_path = f"{os.environ['HOME']}/anaconda3/envs/{env_name}/bin/python"
+        kernel_spec_path = f"{os.environ['HOME']}/.local/share/jupyter/kernels/{env_name}"
+
     kernel_spec = {
         "argv": [python_path, "-m", "ipykernel_launcher", "-f", "{connection_file}"],
         "display_name": display_name,
         "language": "python"
     }
-    kernel_spec_path = f"{os.environ['HOME']}/.local/share/jupyter/kernels/{env_name}"
+    
     os.makedirs(kernel_spec_path, exist_ok=True)
     with open(os.path.join(kernel_spec_path, "kernel.json"), "w") as f:
         json.dump(kernel_spec, f)
 
 env_name = "spacr_finetune_cellpose"
 
-dependencies = ["pandas", "ipykernel", "scikit-learn", "scikit-image", "seaborn", "matplotlib", "ipywidgets"]
+if platform.system() == "Windows":
+	env_PATH = f"{os.environ['USERPROFILE']}\\.local\\share\\jupyter\\kernels\\{env_name}"
+else:
+	env_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}"
 
-env_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}"
+dependencies = ["pandas", "ipykernel", "scikit-learn", "scikit-image", "seaborn", "matplotlib", "ipywidgets"]
 
 if not os.path.exists(env_PATH):
 	create_environment(env_name)
