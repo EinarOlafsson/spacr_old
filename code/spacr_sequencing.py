@@ -98,20 +98,24 @@ def install_dependencies_in_kernel(dependencies, env_name):
 
 env_name = "spacr_sequencing"
 
-if platform.system() == "Windows":
-	env_PATH = f"{os.environ['USERPROFILE']}\\.local\\share\\jupyter\\kernels\\{env_name}"
-else:
-	env_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}"
+conda_PATH, python_PATH, pip_PATH, env_PATH = get_paths(env_name)
 
 dependencies = ["pandas", "ipykernel", "itertools", "scikit-learn", "seaborn", "matplotlib", "ipywidgets", "lxml"]
 
 if not os.path.exists(env_PATH):
-	create_environment(env_name)
-	install_dependencies_in_kernel(dependencies, env_name)
-	add_kernel(env_name, env_name)
-	print(f"Environment '{env_name}' created and added as a Jupyter kernel.")
-	print(f"Refresh the page, set {env_name} as the kernel and run cell again")
-	sys.exit()
+
+    print(f'System type: {sys.platform}')
+    print(f'PATH to conda: {conda_PATH}')
+    print(f'PATH to python: {python_PATH}')
+    print(f'PATH to pip: {pip_PATH}')
+    print(f'PATH to new environment: {env_PATH}')
+
+    create_environment(env_name)
+    install_dependencies_in_kernel(dependencies, env_name)
+    add_kernel(env_name, env_name)
+    print(f"Environment '{env_name}' created and added as a Jupyter kernel.")
+    print(f"Refresh the page, set {env_name} as the kernel and run cell again")
+    sys.exit()
 
 ################################################################################################################################################################################
 
