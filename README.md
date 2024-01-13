@@ -1,5 +1,5 @@
 # SpaCr
-**S**patial phenotype analysis of crisp screens (SpaCr). A collection of functions for generating measurement and classification data from microscopy images from high content imaging screens. Each notebook (.ipynb files) comes with an associated (.py) file which is downloaded when the notebook is run in Jupyter. Each notebook requires Jupyter and anaconda to be installed on the system. For notebooks that use torch (classification, finetune_cellpose, data_generation) a CUDA 11.8 compatible GPU is required.
+**S**patial **p**henotype **a**nalysis of **cr**isp screens (SpaCr). A collection of functions for generating measurement and classification data from microscopy images from high content imaging screens. Each notebook (.ipynb files) comes with an associated (.py) file which is downloaded when the notebook is run in Jupyter. Each notebook requires Jupyter and anaconda to be installed on the system. For notebooks that use torch (classification, finetune_cellpose, data_generation) a CUDA 11.8 compatible GPU is required.
 
 Notebooks:
 data_generation - Features:
