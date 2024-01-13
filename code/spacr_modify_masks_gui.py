@@ -28,7 +28,7 @@ def get_paths(env_name):
 
 # create new kernel
 def add_kernel(env_name, display_name):
-    _, _, python_path, env_path = get_paths(env_name)
+   _, python_path, _, env_path = get_paths(env_name)
 
     if not python_path or not env_path:
         print(f"Failed to locate the environment or Python executable for '{env_name}'")
