@@ -146,6 +146,27 @@ def normalize_to_dtype(array, lower_quantile, upper_quantile):
         new_stack = np.squeeze(new_stack, axis=-1)
 
     return new_stack
+    
+# Edge detection and overlay
+def overlay_edges(mask, normalized_image):
+    global displayed_image  # Make sure this is necessary for your function logic
+
+    # Detect edges in the mask
+    edges = feature.canny(mask.astype(float), sigma=1)
+
+    # If normalized_image is in the range [0, 255], normalize it to [0, 1]
+    if normalized_image.max() > 1:
+        normalized_image = normalized_image / 255.0
+
+    # Create an RGB version of the image for overlay
+    rgb_image = np.repeat(normalized_image[:, :, np.newaxis], 3, axis=2)
+
+    # Overlay red color on the edges
+    rgb_image[edges, 0] = 1  # Red channel (assuming normalized_image is now in [0, 1] range)
+    rgb_image[edges, 1] = 0  # Green channel
+    rgb_image[edges, 2] = 0  # Blue channel
+
+    return rgb_image
 
 def find_nearest_nonzero_pixel(mask, seed_point):
     y, x = seed_point
@@ -161,7 +182,6 @@ def find_nearest_nonzero_pixel(mask, seed_point):
     
     if nearest_pixel_value == 0:
         nearest_pixel_value = 255  # Change to 255 if the nearest pixel value is 0
-
 
     return nearest_pixel_value
 
@@ -195,11 +215,17 @@ def magic_wand(image, mask, seed_point, intensity_tolerance=25, max_pixels=1000,
                         to_check.append((nx, ny))
 
     return mask
-    
+
+def clear_freehand_lines():
+    global freehand_lines
+    for line in freehand_lines:
+        line.remove()
+    freehand_lines = []
+    fig.canvas.draw_idle()
+
 # Mouse click event handler
 def on_click(event):
-    global mask, slider_itol, slider_mpixels, slider_radius, check_magic_wand
-    global save_clicked
+    global save_clicked, mask, slider_itol, slider_mpixels, slider_radius, mode_magic_wand, mode_remove_object
     save_clicked = False
     if fig.canvas.toolbar.mode != '':
         return
@@ -208,9 +234,26 @@ def on_click(event):
         intensity_tolerance = slider_itol.val
         max_pixels = slider_mpixels.val
         radius = int(slider_radius.val)
-        use_magic_wand = check_magic_wand.get_status()[0]
 
-        if use_magic_wand:
+        if mode_remove_object and event.xdata is not None and event.ydata is not None:
+            
+            # Relabel the mask
+            binary_mask = mask > 0
+            labeled_mask = label(binary_mask)
+            mask = labeled_mask
+
+            if mask[y, x] != 0:
+                mask[mask == mask[y, x]] = 0  # Set all pixels of the clicked object to 0
+                overlay.set_data(mask)
+                clear_freehand_lines()  # Function to clear freehand lines
+                
+                # Update displayed image without the edges
+                displayed_image_with_edges = overlay_edges(mask, normalized_image)
+                displayed_image.set_data(displayed_image_with_edges)
+
+                fig.canvas.draw()
+
+        elif mode_magic_wand:
             if event.button == 1:  # Left mouse button
                 mask = magic_wand(image, mask, (x, y), slider_itol.val, slider_mpixels.val)
             elif event.button == 3:  # Right mouse button
@@ -219,23 +262,23 @@ def on_click(event):
             overlay.set_data(mask)
             overlay.set_cmap(random_cmap)
             fig.canvas.draw()
-        else:
-            # Define the area to be modified based on the radius
+        
+        elif not (mode_freehand or mode_magic_wand or mode_remove_object):
+            # Radius selection mode
             y_min, y_max = max(y - radius, 0), min(y + radius + 1, mask.shape[0])
             x_min, x_max = max(x - radius, 0), min(x + radius + 1, mask.shape[1])
             if event.button == 1:  # Left mouse button
-                mask[y_min:y_max, x_min:x_max] = 255
+                mask[y_min:y_max, x_min:x_max] = 255  # Set pixels to 255
             elif event.button == 3:  # Right mouse button
-                mask[y_min:y_max, x_min:x_max] = 0
+                mask[y_min:y_max, x_min:x_max] = 0  # Set pixels to 0
 
-        overlay.set_data(mask)
-        overlay.set_cmap(random_cmap)
-        fig.canvas.draw()
-
+            overlay.set_data(mask)
+            overlay.set_cmap(random_cmap)
+            fig.canvas.draw()
 
 # Function to remove small objects
 def remove_small_objects(event):
-    global mask, slider_min_size, random_cmap, overlay, normalized_image#, image, lower_q, upper_q
+    global mask, slider_min_size, random_cmap, overlay, normalized_image
     min_size = slider_min_size.val
     mask = morph.remove_small_objects(mask > 0, min_size)
     
@@ -251,7 +294,7 @@ def remove_small_objects(event):
 
 ## Function to relabel objects and add red outlines
 def relabel_objects(event):
-    global mask, overlay, fig, ax, random_cmap, displayed_image, normalized_image#, image, lower_q, upper_q
+    global mask, overlay, fig, ax, random_cmap, displayed_image, normalized_image
 
     # Relabel the mask
     binary_mask = mask > 0
@@ -264,7 +307,6 @@ def relabel_objects(event):
     # Ensure a unique color for each label
     random_colors = np.random.rand(n_labels + 1, 4)  # n_labels + 1 for background color
     random_colors[0, :] = [0, 0, 0, 0]  # Background color (label 0)
-
     random_cmap = mpl.colors.ListedColormap(random_colors)
 
     # Remove the old overlay and create a new one
@@ -272,7 +314,6 @@ def relabel_objects(event):
     overlay = ax.imshow(mask, cmap=random_cmap, alpha=0.5)
 
     # Update the displayed image with red outlines
-    #normalized_image = normalize_to_dtype(image, lower_q, upper_q)
     displayed_image_with_edges = overlay_edges(mask, normalized_image)
     displayed_image.set_data(displayed_image_with_edges)
 
@@ -281,7 +322,7 @@ def relabel_objects(event):
 
 # Function to fill holes in objects and add red outlines
 def fill_holes(event):
-    global mask, overlay, fig, ax, displayed_image, normalized_image
+    global mask, overlay, fig, ax, random_cmap, displayed_image, normalized_image
 
     # Fill holes in the binary mask
     binary_mask = mask > 0
@@ -289,17 +330,38 @@ def fill_holes(event):
 
     # Update the original mask
     mask = filled_mask.astype(mask.dtype) * 255
-
-    # Update the overlay
-    overlay.set_data(mask)
+    
+    # Relabel the mask
+    binary_mask = mask > 0
+    labeled_mask = label(binary_mask)
+    mask = labeled_mask
+    
+    # Ensure a unique color for each label
+    n_labels = np.max(mask)
+    random_colors = np.random.rand(n_labels + 1, 4)  # n_labels + 1 for background color
+    random_colors[0, :] = [0, 0, 0, 0]  # Background color (label 0)
+    random_cmap = mpl.colors.ListedColormap(random_colors)
+    
+    # Remove the old overlay and create a new one
+    overlay.remove()
+    overlay = ax.imshow(mask, cmap=random_cmap, alpha=0.5)
 
     # Update the displayed image with red outlines
-    #normalized_image = normalize_to_dtype(image, lower_q, upper_q)
     displayed_image_with_edges = overlay_edges(mask, normalized_image)
     displayed_image.set_data(displayed_image_with_edges)
 
     # Redraw the figure
     fig.canvas.draw_idle()
+
+    # Update the overlay
+    #overlay.set_data(mask)
+
+    # Update the displayed image with red outlines
+    #displayed_image_with_edges = overlay_edges(mask, normalized_image)
+    #displayed_image.set_data(displayed_image_with_edges)
+
+    # Redraw the figure
+    #fig.canvas.draw_idle()
 
 # Function to save the modified mask
 def save_mask(event, mask_path, image_path, img_src, mask_src, rescale_factor, original_dimensions):
@@ -381,27 +443,6 @@ def downsample_tiff(image_path, scale_factor):
 
         return resized_img, original_dimensions
     
-# Edge detection and overlay
-def overlay_edges(mask, normalized_image):
-    global displayed_image  # Make sure this is necessary for your function logic
-
-    # Detect edges in the mask
-    edges = feature.canny(mask.astype(float), sigma=1)
-
-    # If normalized_image is in the range [0, 255], normalize it to [0, 1]
-    if normalized_image.max() > 1:
-        normalized_image = normalized_image / 255.0
-
-    # Create an RGB version of the image for overlay
-    rgb_image = np.repeat(normalized_image[:, :, np.newaxis], 3, axis=2)
-
-    # Overlay red color on the edges
-    rgb_image[edges, 0] = 1  # Red channel (assuming normalized_image is now in [0, 1] range)
-    rgb_image[edges, 1] = 0  # Green channel
-    rgb_image[edges, 2] = 0  # Blue channel
-
-    return rgb_image
-    
 def invert_mask(event):
     global mask, overlay, displayed_image, normalized_image
 
@@ -432,9 +473,9 @@ def clear_mask(event):
     
 # Function for freehand drawing
 def freehand_draw(event):
-    global freehand_points, is_freehand_drawing, mask, freehand_lines
+    global freehand_points, mask, freehand_lines, mode_freehand
 
-    if check_freehand.get_status()[0]:  # Check if Freehand is enabled
+    if mode_freehand:  # Check if Freehand mode is active
         if event.inaxes != ax:
             return
 
@@ -454,13 +495,13 @@ def freehand_draw(event):
             if len(freehand_points) > 2:
                 # Close the shape and fill
                 poly_points = np.array(freehand_points, dtype=np.int32)
-                # Flip y-coordinates
-                #poly_points[:, 1] = mask.shape[0] - 1 - poly_points[:, 1]
-                # Generate polygon
                 rr, cc = polygon(poly_points[:, 1], poly_points[:, 0], mask.shape)
-                # Fill polygon with random value
                 mask[rr, cc] = random.randint(1, 65535)
                 overlay.set_data(mask)
+                
+                # Update displayed image with the edges
+                displayed_image_with_edges = overlay_edges(mask, normalized_image)
+                displayed_image.set_data(displayed_image_with_edges)
                 fig.canvas.draw()
             
             # Reset points, remove lines
@@ -470,26 +511,90 @@ def freehand_draw(event):
             freehand_lines = []
             fig.canvas.draw()
             
+def update_overlay():
+    global mask, overlay, displayed_image, normalized_image
+    # Update the overlay
+    overlay.set_data(mask)
+
+    # Update the displayed image with edges or other features
+    displayed_image_with_edges = overlay_edges(mask, normalized_image)
+    displayed_image.set_data(displayed_image_with_edges)
+
+    # Redraw the figure
+    fig.canvas.draw_idle()
+            
 # Adding a short explanation buttons/sliders/boxes
 def add_text_box_annotation(ax, text, x, y):
     ax.annotate(text, xy=(x, y), xycoords='axes fraction', ha='center', va='center',
                 fontsize=8, color='gray')
 
-def handle_checkbox_change(label):
-    global check_freehand, check_magic_wand
-    if label == 'Freehand':
-        if check_freehand.get_status()[0]:
-            check_magic_wand.set_active(0)
-    elif label == 'Magic Wand':
-        if check_magic_wand.get_status()[0]:
-            check_freehand.set_active(0)
+def update_mode(new_mode):
+    global mode_freehand, mode_magic_wand, mode_remove_object
+    mode_freehand = (new_mode == 'freehand')
+    mode_magic_wand = (new_mode == 'magic_wand')
+    mode_remove_object = (new_mode == 'remove_object')
+
+    # Update button colors or styles here to reflect the current mode
+    if new_mode == 'freehand':
+        highlight_selected_button(btn_freehand)
+    elif new_mode == 'magic_wand':
+        highlight_selected_button(btn_magic_wand)
+    elif new_mode == 'remove_object':
+        highlight_selected_button(btn_remove_object)
+    else:
+        highlight_selected_button(None)  # This will reset the "Deselect All" button
+
+
+def on_deselect_all_clicked(event):
+    # Reset all modes to False
+    global mode_freehand, mode_magic_wand, mode_remove_object
+    mode_freehand = False
+    mode_magic_wand = False
+    mode_remove_object = False
+
+    # Highlight the "Deselect All" button
+    highlight_selected_button(btn_deselect_all)
+
+# Button callback functions
+def on_freehand_clicked(event):
+    update_mode('freehand')
+    # Rest of the freehand functionality
+
+def on_magic_wand_clicked(event):
+    update_mode('magic_wand')
+    # Rest of the magic wand functionality
+
+def on_remove_object_clicked(event):
+    update_mode('remove_object')
+    # Rest of the remove object functionality
+    
+def highlight_selected_button(selected_button):
+    # Reset all buttons to default color
+    btn_freehand.color = default_button_color
+    btn_magic_wand.color = default_button_color
+    btn_remove_object.color = default_button_color
+    btn_deselect_all.color = default_button_color
+
+    # Highlight the selected button
+    if selected_button is not None:
+        selected_button.color = 'red'
+
 
 def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_src, mask_src, rescale_factor):
     global image, mask, overlay, fig, ax, random_cmap, displayed_image, normalized_image
-    global slider_itol, slider_mpixels, slider_min_size, slider_radius, check_magic_wand
-    global slider_lower_quantile, slider_upper_quantile
-    global btn_remove, btn_relabel, btn_fill_holes, btn_save, btn_invert, btn_clear, check_freehand, freehand_points, freehand_lines
+    global slider_itol, slider_mpixels, slider_min_size, slider_radius
+    global freehand_points, freehand_lines, mode_freehand, mode_magic_wand, mode_remove_object, btn_remove_object, btn_freehand, btn_magic_wand, default_button_color, btn_deselect_all
+    global btn_remove, btn_relabel, btn_fill_holes, btn_save, btn_invert, btn_clear, slider_lower_quantile, slider_upper_quantile
+    
+    # Initialize mode variables
+    default_button_color = 'lightgrey'
+    mode_freehand = False
+    mode_magic_wand = False
+    mode_remove_object = False
+    
     save_clicked = False
+    freehand_points = []
+    freehand_lines = []
     
     # Modified _wrapper function
     def save_mask_wrapper(event):
@@ -511,7 +616,6 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     image, original_dimensions = downsample_tiff(image_path, scale_factor=rescale_factor)
     
     # Calculate image area and max intensity
-    #width, height = image.size
     height, width = image.shape[:2]
     image_area = height * width
     max_intensity = image.max()
@@ -527,22 +631,22 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     if np.max(mask) == 0:
         # If the mask is empty, initialize with a distinct value in a small area
         mask[0:2, 0:2] = 1  # Example initialization
+        
+    # Create a custom color map for the mask
+    unique_labels = np.unique(mask)
+    num_objects = len(unique_labels[unique_labels != 0])
+    random_colors = np.random.rand(num_objects + 1, 4)
+    random_colors[:, 3] = 1  # Set alpha to 1
+    random_colors[0, :] = [0, 0, 0, 1]  # Background color
+    random_cmap = mpl.colors.ListedColormap(random_colors)
 
     # Create a figure and display the image with the mask overlay
     fig, ax = plt.subplots(figsize=(8, 6))
     fig.canvas.manager.set_window_title("SpaCr: modify mask")
+    
     # Make the window full screen
     mng = plt.get_current_fig_manager()
     mng.window.showMaximized()
-
-    # Freehand
-    freehand_points = []
-    freehand_lines = []
-    is_freehand_drawing = False
-    
-    # Add a checkbox for toggling Freehand drawing
-    ax_freehand = plt.axes([0.85, 0.75, 0.1, 0.02])
-    check_freehand = CheckButtons(ax_freehand, ['Freehand'], [False])
     
     fig.canvas.mpl_connect('button_press_event', freehand_draw)
 
@@ -563,14 +667,6 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     upper_q = slider_upper_quantile.val
     normalized_image = normalize_to_dtype(image, lower_q, upper_q)
 
-    # Create a custom color map for the mask
-    unique_labels = np.unique(mask)
-    num_objects = len(unique_labels[unique_labels != 0])
-    random_colors = np.random.rand(num_objects + 1, 4)
-    random_colors[:, 3] = 1  # Set alpha to 1
-    random_colors[0, :] = [0, 0, 0, 1]  # Background color
-    random_cmap = mpl.colors.ListedColormap(random_colors)
-
     displayed_image = ax.imshow(normalized_image, cmap='gray')  # Store reference to the displayed image
     displayed_image_with_edges = overlay_edges(mask, normalized_image)  # Pass the required arguments
     displayed_image.set_data(displayed_image_with_edges)
@@ -581,13 +677,23 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     button_color_1 = rgb_to_mpl_color(155, 55, 155)
     button_color_2 = rgb_to_mpl_color(55, 155, 155)
     
-    # Checkbox for toggling Magic Wand
-    ax_check = plt.axes([0.85, 0.625, 0.1, 0.02])
-    check_magic_wand = CheckButtons(ax_check, ['Magic Wand'], [True])
-    
-    # Make sure freehand and magic wand are not selected simultaniously
-    check_freehand.on_clicked(handle_checkbox_change)
-    check_magic_wand.on_clicked(handle_checkbox_change)
+    # Define the button for deselecting all modes
+    ax_deselect_all = plt.axes([0.75, 0.8, 0.05, 0.05]) 
+    btn_deselect_all = Button(ax_deselect_all, 'Radius', color=default_button_color)
+    btn_deselect_all.on_clicked(on_deselect_all_clicked)
+
+    # Create buttons
+    ax_freehand_btn = plt.axes([0.8, 0.8, 0.05, 0.05])
+    btn_freehand = Button(ax_freehand_btn, 'Freehand')
+    btn_freehand.on_clicked(on_freehand_clicked)
+
+    ax_magic_wand_btn = plt.axes([0.85, 0.8, 0.05, 0.05])
+    btn_magic_wand = Button(ax_magic_wand_btn, 'Magic Wand')
+    btn_magic_wand.on_clicked(on_magic_wand_clicked)
+
+    ax_remove_object_btn = plt.axes([0.9, 0.8, 0.05, 0.05])
+    btn_remove_object = Button(ax_remove_object_btn, 'Remove Object')
+    btn_remove_object.on_clicked(on_remove_object_clicked)
     
     # Slider for radius
     ax_radius = plt.axes([0.85, 0.6, 0.1, 0.02])
@@ -642,7 +748,6 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     btn_invert.label.set_weight('bold')
     btn_invert.label.set_color('white')
     
-    
     # Define the button for clearing the mask
     ax_clear = plt.axes([0.85, 0.25, 0.1, 0.05])  # Adjust the position and size as needed
     btn_clear = Button(ax_clear, 'Clear Mask', color=button_color_1)
@@ -661,10 +766,10 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     btn_save.label.set_color('white')
     
     # Add short text explanations
-    add_text_box_annotation(ax_freehand, "Left: connect, Right: close", 0.85, 0.625)
+    #add_text_box_annotation(ax_freehand, "Left: connect, Right: close", 0.85, 0.625)
     #add_text_box_annotation(ax_lower_quantile, "Set the radius for drawing", 0.85, 0.7)
     #add_text_box_annotation(ax_upper_quantile, "Set the radius for drawing", 0.85, 0.675)
-    add_text_box_annotation(ax_check, "Left: select, Right: deselect", 0.85, 0.625)
+    #add_text_box_annotation(ax_check, "Left: select, Right: deselect", 0.85, 0.625)
     #add_text_box_annotation(ax_radius, "Set the radius for drawing", 0.85, 0.6)
     #add_text_box_annotation(ax_itol, "Set the radius for drawing", 0.85, 0.575)
     #add_text_box_annotation(ax_mpixels, "Set the radius for drawing", 0.85, 0.55)
@@ -676,13 +781,14 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     #add_text_box_annotation(ax_clear, "Set the radius for drawing", 0.85, 0.25)
     #add_text_box_annotation(ax_save, "Set the radius for drawing", 0.85, 0.2)
     
-    
-    
     # Connect the mouse click event
     fig.canvas.mpl_connect('button_press_event', on_click)
     
     # Connect the mouse hover event
     fig.canvas.mpl_connect('motion_notify_event', hover)
+    
+    # Initialize default mode
+    update_mode('none')
 
     plt.show()
 
@@ -731,6 +837,7 @@ def load_next_image(img_src, mask_src, rescale_factor):
     if current_file_index < len(file_list):
         file = file_list[current_file_index]
         image_path = os.path.join(img_src, file)
+        print(f'Filename: {image_path}')
         if mask_src is not None and os.path.exists(mask_path):
             mask_path = os.path.join(mask_src, file)
         else:
