@@ -42,19 +42,23 @@ def get_paths(env_name):
 
 # create new kernel
 def add_kernel(env_name, display_name):
-    _, python_path, _, env_path = get_paths(env_name)
-    if not python_path or not env_path:
-        print(f"Failed to locate the environment or Python executable for '{env_name}'")
+    _, python_path, _, _ = get_paths(env_name)
+    if not python_path:
+        print(f"Failed to locate the Python executable for '{env_name}'")
         return
-    kernel_spec_path = os.path.join(env_path, ".local", "share", "jupyter", "kernels", env_name)
+
+    # Standard path for Jupyter kernels
+    kernel_spec_path = os.path.join(os.path.expanduser('~'), '.local', 'share', 'jupyter', 'kernels', env_name)
     kernel_spec = {
         "argv": [python_path, "-m", "ipykernel_launcher", "-f", "{connection_file}"],
         "display_name": display_name,
         "language": "python"
     }
+
     os.makedirs(kernel_spec_path, exist_ok=True)
     with open(os.path.join(kernel_spec_path, "kernel.json"), "w") as f:
         json.dump(kernel_spec, f)
+
     print(f"Kernel for '{env_name}' added successfully.")
 
 def create_environment(env_name):
