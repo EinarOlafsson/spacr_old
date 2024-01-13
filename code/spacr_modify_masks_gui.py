@@ -78,6 +78,7 @@ if not os.path.exists(env_PATH):
 	add_kernel(env_name, env_name)
 	print(f"Environment '{env_name}' created and added as a Jupyter kernel.")
 	print(f"Refresh the page, set {env_name} as the kernel and run cell again")
+	sys.exit()
 
 ################################################################################################################################################################################
 
