@@ -64,7 +64,16 @@ def install_dependencies_in_kernel(dependencies, env_name):
     # Check if conda is available
     if not conda_PATH:
         raise EnvironmentError("Conda executable not found.")
-    print("conda executable", conda_PATH)
+
+    # Get the current Conda configuration for channels
+    result = subprocess.run([conda_PATH, "config", "--show", "channels"], capture_output=True, text=True)
+    channels = result.stdout
+
+    # Check if 'conda-forge' is in the channels list
+    if 'conda-forge' not in channels:
+        # If 'conda-forge' is not in the channels, add it
+        subprocess.run([conda_PATH, "config", "--add", "channels", "conda-forge"])
+        print("Added conda-forge to channels.")
 
     # Update conda
     print("Updating Conda...")
