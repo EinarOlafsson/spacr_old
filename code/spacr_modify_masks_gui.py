@@ -158,15 +158,29 @@ def get_font_size():
             return 12
     except Exception as e
 
+def get_line_width():
+    try:
+        monitor = get_monitors()[0]
+        width = monitor.width
+
+        # Define font size based on screen width (you can adjust the conditions and sizes)
+        if width <= 1280:  # Smaller screens
+            return 1
+        elif width <= 1920:  # Medium screens
+            return 2
+        else:  # Larger screens
+            return 3
+    except Exception as e
+
 # Style paramiters
-plt.rcParams['axes.grid'] = False           # Disable grid
-plt.rcParams['axes.facecolor'] = 'white'    # Change axis face color
-plt.rcParams['lines.linewidth'] = 2         # Change line width
-plt.rcParams['font.size'] = get_font_size() # Font size
-plt.rcParams['axes.labelsize'] = 14         # Axis label size
-plt.rcParams['axes.titlesize'] = 16         # Axis title size
-plt.rcParams['axes.spines.top'] = True      # Hide the top spine
-plt.rcParams['axes.spines.right'] = True    # Hide the right spine
+plt.rcParams['axes.grid'] = False           		# Disable grid
+plt.rcParams['axes.facecolor'] = 'white'    		# Change axis face color
+plt.rcParams['lines.linewidth'] = get_line_width()     	# Change line width
+plt.rcParams['font.size'] = get_font_size() 		# Font size
+plt.rcParams['axes.labelsize'] = get_font_size() + 2   	# Axis label size
+plt.rcParams['axes.titlesize'] = get_font_size() + 4   	# Axis title size
+plt.rcParams['axes.spines.top'] = True      		# Hide the top spine
+plt.rcParams['axes.spines.right'] = True    		# Hide the right spine
 
 # To display all style paramiters: run the following in jupyter
 #%matplotlib inline
