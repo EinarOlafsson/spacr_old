@@ -62,8 +62,14 @@ def add_kernel(env_name, display_name):
     os.makedirs(kernel_spec_path, exist_ok=True)
     with open(os.path.join(kernel_spec_path, "kernel.json"), "w") as f:
         json.dump(kernel_spec, f)
+
 env_name = "spacr_modify_masks_gui"
 
+if platform.system() == "Windows":
+	env_PATH = f"{os.environ['USERPROFILE']}\\.local\\share\\jupyter\\kernels\\{env_name}"
+else:
+	env_PATH = f"{os.environ['HOME']}/anaconda3/envs/{env_name}"
+	
 dependencies = ["matplotlib==3.7.1", "scipy", "pillow", "scikit-image", "ipykernel", "requests", "h5py", "pyzmq"]
 
 if not os.path.exists(env_PATH):
