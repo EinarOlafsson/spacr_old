@@ -76,8 +76,8 @@ def install_dependencies_in_kernel(dependencies, env_name):
         print("Added conda-forge to channels.")
 
     # Update conda
-    print("Updating Conda...")
-    subprocess.run([conda_PATH, "update", "-n", "base", "-c", "defaults", "conda", "-y"])
+    #print("Updating Conda...")
+    #subprocess.run([conda_PATH, "update", "-n", "base", "-c", "defaults", "conda", "-y"])
     
     for package in dependencies:
         print(f"Installing {package}")
