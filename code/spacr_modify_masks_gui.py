@@ -684,7 +684,7 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
 
     max_px = int(image_area/4*rescale_factor)
     min_px = int(image_area/1000*rescale_factor)
-    #min_intensity = int(max_intensity*0.1)
+    min_intensity = int(max_intensity*0.1)
 
     if mask_path != None:
         mask = imageio.imread(mask_path)
@@ -716,75 +716,63 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     
     fig.canvas.mpl_connect('button_press_event', freehand_draw)
 
-    #Set btn and sldr location [x,y, width,height]
+    #Set btn and slider locations [x,y, width,height]
     w = 0.05
+    w_slider = 0.075
     s = 0.01
-    x1,x2,y1,y2 = 0.8, 0.9, 0.9, 0.925
+    x1,x2,y1,y2 = 0.8, 0.855, 0.8, 0.825
     ax_deselect_all = plt.axes([x1, y1, w, w])
-    ax_radius = plt.axes([x2, y2, w, s])
-    fig.text(x2-0.1, y1+0.055, 'Red: Mode selected; Grey: Mode unselected')
-    fig.text(x2-0.025, y1+0.01, 'Select px based on radius') #, fontsize=10)
-
-    y1 = y1 - 0.05
-    y2 = y2 - 0.05
+    ax_radius = plt.axes([x2, y2, w_slider, s])
+    fig.text(x2-0.055, y1+0.0625, 'Red: Mode selected; Grey: Mode unselected')
+    fig.text(x2, y1+0.01, 'Select px based on radius') #, fontsize=10)
+    y1 = y1 - 0.08
+    y2 = y2 - 0.08
     ax_freehand_btn = plt.axes([x1, y1, w, w])
-    fig.text(x2-0.025, y1+0.025, 'Click to draw object')
-
-    y1 = y1 - 0.05
+    fig.text(x2, y1+0.025, 'Click to draw object')
+    y1 = y1 - 0.08
     ax_magic_wand_btn = plt.axes([x1, y1, w, w])
-    y2 = y2 - 0.035
-    ax_itol = plt.axes([x2, y2, w, s])
-    y2 = y2 - 0.015
-    ax_mpixels = plt.axes([x2, y2, w, s])
-    fig.text(x2-0.04, y1+0.012, 'Tolerance: Intensity threshold for px selection ')
-    fig.text(x2-0.04, y1+0.0016, 'Max: Threshold for max px selection ')
-
-    y1 = y1 - 0.05
-    y2 = y2 - 0.05
+    y2 = y2 - 0.055
+    ax_itol = plt.axes([x2, y2, w_slider, s])
+    fig.text(x2, y2-0.015, 'intensity tolerace')
+    y2 = y2 - 0.045
+    ax_mpixels = plt.axes([x2, y2, w_slider, s])
+    fig.text(x2, y2-0.015, 'px2 threshold')
+    y1 = y1 - 0.08
+    y2 = y2 - 0.08
     ax_remove_object_btn = plt.axes([x1, y1, w, w])
-    fig.text(x2-0.025, y1+0.025, 'Remove single object')
-
-    y1 = y1 - 0.175
-    y2 = y2 - 0.167
+    fig.text(x2, y1+0.025, 'Remove single object')
+    
+    y1,y2 = 0.35,0.35
+    fig.text(x2-0.055, y1+0.06, 'Click to perform function')
     ax_remove = plt.axes([x1, y1, w, w])
-    ax_min_size = plt.axes([x2, y2, w, s])
-    fig.text(x2-0.025, y1+0.02, 'Remove objects below radius threshold')
-    fig.text(x2-0.1, y1+0.055, 'Click to perform function')
-
+    ax_min_size = plt.axes([x2, y2+0.025, w_slider, s])
+    fig.text(x2, y2+0.01, 'px2 threshold')
     y1 = y1 - 0.05
     ax_fill_holes = plt.axes([x1, y1, w, w])
-    fig.text(x2-0.025, y1+0.025, 'Fill holes in objects')
+    fig.text(x2, y1+0.025, 'Fill holes in objects')
     y1 = y1 - 0.05
     ax_relabel = plt.axes([x1, y1, w, w])
-    fig.text(x2-0.025, y1+0.025, 'Reset object labels')
+    fig.text(x2, y1+0.025, 'Reset object labels')
     y1 = y1 - 0.05
     ax_invert = plt.axes([x1, y1, w, w])
-    fig.text(x2-0.025, y1+0.025, 'Invert mask')
+    fig.text(x2, y1+0.025, 'Invert mask')
     y1 = y1 - 0.05
     ax_clear = plt.axes([x1, y1, w, w])
-    fig.text(x2-0.025, y1+0.025, 'Remove all objects')
+    fig.text(x2, y1+0.025, 'Remove all objects')
     y1 = y1 - 0.05
     ax_save = plt.axes([x1, y1, w, w])
-    fig.text(x2-0.025, y1+0.025, 'save mask and load new image')
+    fig.text(x2, y1+0.025, 'save mask and load next image')
+    y1 = y1 - 0.075
+    ax_lower_quantile = plt.axes([x2, y1, w_slider, s], figure=fig)
+    ax_upper_quantile = plt.axes([x2, y1+0.02, w_slider, s], figure=fig)
+    fig.text(x2-0.055, y1+0.045, 'Select upper and lower image quntiles for viewing')
 
-    ax_lower_quantile = plt.axes([x2-0.075, 0.1, w, s], figure=fig)
-    ax_upper_quantile = plt.axes([x2-0.075, 0.12, w, s], figure=fig)
-    fig.text(x2-0.15, 0.08, 'Select upper and lower image quntiles for viewing')
-
-    slider_lower_quantile = Slider(ax_lower_quantile, 'Lower Quantile', 0, 25, valinit=2)
-    slider_upper_quantile = Slider(ax_upper_quantile, 'Upper Quantile', 75, 100, valinit=98)    
-    slider_radius = Slider(ax_radius, 'Radius', 0, 2000, valinit=2)
-    slider_itol = Slider(ax_itol, 'Tolerance', 0, 65000, valinit=5000)
-    slider_mpixels = Slider(ax_mpixels, 'Max Pixels', 0, image_area, valinit=max_px)
-    slider_min_size = Slider(ax_min_size, 'Min Size', 0, 2000, valinit=min_px)
-
-    sliders = [slider_lower_quantile, slider_upper_quantile, slider_radius, slider_itol, slider_mpixels, slider_min_size]
-
-    for slider in sliders:
-        # Adjust the label position (move to the right)
-        label = slider.label
-        xx, yy = label.get_position()
-        label.set_position((xx - 0.1, yy))
+    slider_lower_quantile = Slider(ax_lower_quantile, 'Lower Quantile', 0, 25, valinit=2, valfmt='%d')
+    slider_upper_quantile = Slider(ax_upper_quantile, 'Upper Quantile', 75, 100, valinit=98, valfmt='%d')    
+    slider_radius = Slider(ax_radius, '', 0, int(image_area/10), valinit=2, valfmt='%d')
+    slider_itol = Slider(ax_itol, '', 0, max_intensity, valinit=min_intensity, valfmt='%d')
+    slider_mpixels = Slider(ax_mpixels, '', 0, image_area, valinit=max_px, valfmt='%d')
+    slider_min_size = Slider(ax_min_size, '', 0, int(image_area), valinit=min_px, valfmt='%d')
     
     # Normalize the image using default quantile values
     lower_q = slider_lower_quantile.val
@@ -801,7 +789,7 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     button_color_1 = rgb_to_mpl_color(155, 55, 155)
     button_color_2 = rgb_to_mpl_color(55, 155, 155)
 
-    btn_deselect_all = Button(ax_deselect_all, 'Radius', color=default_button_color)
+    btn_deselect_all = Button(ax_deselect_all, 'px', color=default_button_color)
     btn_freehand = Button(ax_freehand_btn, 'Freehand')
     btn_magic_wand = Button(ax_magic_wand_btn, 'Magic Wand')
     btn_remove_object = Button(ax_remove_object_btn, 'Remove Object')
