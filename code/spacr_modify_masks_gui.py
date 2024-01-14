@@ -111,7 +111,7 @@ if not os.path.exists(env_PATH):
     sys.exit()
     #SystemExit()
 
-################################################################################################################################################################################
+#######################################################################################################################
 
 import os, time, warnings, matplotlib, random
 matplotlib.use('Qt5Agg')
@@ -151,11 +151,11 @@ def get_font_size():
 
         # Define font size based on screen width (you can adjust the conditions and sizes)
         if width <= 1280:  # Smaller screens
-            return 8
+            return 4
         elif width <= 1920:  # Medium screens
-            return 10
+            return 6
         else:  # Larger screens
-            return 12
+            return 8
 		
     except Exception as e:
         print(f"Error occurred: {e}")
@@ -226,24 +226,33 @@ def normalize_to_dtype(array, lower_quantile, upper_quantile):
     
 # Edge detection and overlay
 def overlay_edges(mask, normalized_image):
-    global displayed_image  # Make sure this is necessary for your function logic
+    # Check if mask is not 2D, and if so, use only the first two dimensions
+    if mask.ndim != 2:
+        mask_2d = mask[:, :, 0]  # Using the first channel of the mask
+    else:
+        mask_2d = mask
 
-    # Detect edges in the mask
-    edges = feature.canny(mask.astype(float), sigma=1)
+    # Detect edges in the 2D mask
+    edges = feature.canny(mask_2d.astype(float), sigma=1)
 
     # If normalized_image is in the range [0, 255], normalize it to [0, 1]
     if normalized_image.max() > 1:
         normalized_image = normalized_image / 255.0
 
-    # Create an RGB version of the image for overlay
-    rgb_image = np.repeat(normalized_image[:, :, np.newaxis], 3, axis=2)
+    # Check if normalized_image already has 3 channels
+    if normalized_image.ndim == 3 and normalized_image.shape[-1] == 3:
+        rgb_image = normalized_image
+    else:
+        # Create an RGB version of the image for overlay
+        rgb_image = np.repeat(normalized_image[:, :, np.newaxis], 3, axis=2)
 
     # Overlay red color on the edges
-    rgb_image[edges, 0] = 1  # Red channel (assuming normalized_image is now in [0, 1] range)
+    rgb_image[edges, 0] = 1  # Red channel
     rgb_image[edges, 1] = 0  # Green channel
     rgb_image[edges, 2] = 0  # Blue channel
 
     return rgb_image
+
 
 def find_nearest_nonzero_pixel(mask, seed_point):
     y, x = seed_point
@@ -355,7 +364,7 @@ def on_click(event):
 
 # Function to remove small objects
 def remove_small_objects(event):
-    global mask, slider_min_size, random_cmap, overlay, normalized_image
+    global mask, slider_min_size, random_cmap, overlay, normalized_image, displayed_image
     min_size = slider_min_size.val
     mask = morph.remove_small_objects(mask > 0, min_size)
     
@@ -363,10 +372,8 @@ def remove_small_objects(event):
     overlay = ax.imshow(mask, cmap=random_cmap, alpha=0.5)
     
     # Update the displayed image with red outlines
-    #normalized_image = normalize_to_dtype(image, lower_q, upper_q)
     displayed_image_with_edges = overlay_edges(mask, normalized_image)
     displayed_image.set_data(displayed_image_with_edges)
-    
     fig.canvas.draw_idle()
 
 ## Function to relabel objects and add red outlines
@@ -430,15 +437,6 @@ def fill_holes(event):
     # Redraw the figure
     fig.canvas.draw_idle()
 
-    # Update the overlay
-    #overlay.set_data(mask)
-
-    # Update the displayed image with red outlines
-    #displayed_image_with_edges = overlay_edges(mask, normalized_image)
-    #displayed_image.set_data(displayed_image_with_edges)
-
-    # Redraw the figure
-    #fig.canvas.draw_idle()
 
 # Function to save the modified mask
 def save_mask(event, mask_path, image_path, img_src, mask_src, rescale_factor, original_dimensions):
@@ -506,6 +504,7 @@ def downsample_tiff(image_path, scale_factor):
 
         # Convert image to numpy array
         img_array = np.array(img)
+        max_value = np.max(img_array)
 
         # Check the image mode and resize accordingly
         if img.mode in ['RGB', 'RGBA']:
@@ -518,7 +517,18 @@ def downsample_tiff(image_path, scale_factor):
             # For other modes, raise an error or handle as needed
             raise ValueError(f"Unsupported image mode: {img.mode}")
 
-        return resized_img, original_dimensions
+        return resized_img, original_dimensions, max_value
+
+
+def downsample_tiff(image_path, scale_factor):
+    img = imageio.imread(image_path)
+    original_dimensions = img.shape[:2]
+
+    resized_img = resize(img, (int(original_dimensions[0] * scale_factor), int(original_dimensions[1] * scale_factor)), anti_aliasing=True, preserve_range=True)
+
+    max_value = np.max(img)
+
+    return resized_img, original_dimensions, max_value
     
 def invert_mask(event):
     global mask, overlay, displayed_image, normalized_image
@@ -679,7 +689,7 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
         
     # Callback function for updating the image based on slider values
     def update_image(val):
-        global displayed_image, overlay
+        global displayed_image, overlay, image
 
         lower_q = slider_lower_quantile.val
         upper_q = slider_upper_quantile.val
@@ -690,12 +700,11 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
         fig.canvas.draw_idle()
 	
     # Assign values to global variables
-    image, original_dimensions = downsample_tiff(image_path, scale_factor=rescale_factor)
+    image, original_dimensions, max_intensity = downsample_tiff(image_path, scale_factor=rescale_factor)
     
     # Calculate image area and max intensity
-    height, width = image.shape[:2]
+    height, width = original_dimensions
     image_area = height * width
-    max_intensity = image.max()
 
     if mask_path != None:
         mask = imageio.imread(mask_path)
@@ -727,17 +736,56 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     
     fig.canvas.mpl_connect('button_press_event', freehand_draw)
 
-    # Slider for lower quantile
-    ax_lower_quantile = plt.axes([0.85, 0.7, 0.1, 0.02], figure=fig)
-    slider_lower_quantile = Slider(ax_lower_quantile, 'Lower Quantile', 0, 25, valinit=0)
+    #Set btn and sldr location [x,y, width,height]
+    w = 0.05
+    s = 0.01
+    x,x2,y,y2 = 0.8, 0.9, 0.9, 0.925
+    ax_deselect_all = plt.axes([x, y, w, w])
+    ax_radius = plt.axes([x2, y2, w, s])
 
-    # Slider for upper quantile
-    ax_upper_quantile = plt.axes([0.85, 0.675, 0.1, 0.02], figure=fig)
-    slider_upper_quantile = Slider(ax_upper_quantile, 'Upper Quantile', 75, 100, valinit=100)
+    y = y - 0.05
+    y2 = y2 - 0.05
+    ax_freehand_btn = plt.axes([x, y, w, w])
+
+    y = y - 0.05
     
-    # Define quntile sliders
+    ax_magic_wand_btn = plt.axes([x, y, w, w])
+    y2 = y2 - 0.04
+    ax_itol = plt.axes([x2, y2, w, s])
+    y2 = y2 - 0.02
+    ax_mpixels = plt.axes([x2, y2, w, s])
+
+    y = y - 0.05
+    y2 = y2 - 0.05
+    ax_remove_object_btn = plt.axes([x, y, w, w])
+
+    y = y - 0.15
+    y2 = y2 - 0.125
+    ax_remove = plt.axes([x, y, w, w])
+    ax_min_size = plt.axes([x2, y2, w, s])
+
+    y = y - 0.05
+    ax_lower_quantile = plt.axes([x2, 0.1, w, s], figure=fig)
+    ax_upper_quantile = plt.axes([x2, 0.12, w, s], figure=fig)
+
+    ax_fill_holes = plt.axes([x, y, w, w])
+    y = y - 0.05
+    ax_relabel = plt.axes([x, y, w, w])
+    y = y - 0.05
+    ax_invert = plt.axes([x, y, w, w])
+    y = y - 0.05
+    ax_clear = plt.axes([x, y, w, w]) 
+    y = y - 0.05
+    ax_save = plt.axes([x, y, w, w])
+
+
+    #qunatile sliders
+    slider_lower_quantile = Slider(ax_lower_quantile, 'Lower Quantile', 0, 25, valinit=0)
+    slider_upper_quantile = Slider(ax_upper_quantile, 'Upper Quantile', 75, 100, valinit=100)
     slider_lower_quantile.on_changed(update_image)
     slider_upper_quantile.on_changed(update_image)
+    #add_text_box_annotation(ax_lower_quantile, "Set the radius for drawing", 0.85, 0.7)
+    
 
     # Normalize the image using default quantile values
     lower_q = slider_lower_quantile.val
@@ -753,123 +801,47 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     # Define the button color
     button_color_1 = rgb_to_mpl_color(155, 55, 155)
     button_color_2 = rgb_to_mpl_color(55, 155, 155)
-    
-    # Define the button for deselecting all modes
-    ax_deselect_all = plt.axes([0.75, 0.8, 0.05, 0.05]) 
+
     btn_deselect_all = Button(ax_deselect_all, 'Radius', color=default_button_color)
-    btn_deselect_all.on_clicked(on_deselect_all_clicked)
-
-    # Create buttons
-    ax_freehand_btn = plt.axes([0.8, 0.8, 0.05, 0.05])
     btn_freehand = Button(ax_freehand_btn, 'Freehand')
-    btn_freehand.on_clicked(on_freehand_clicked)
-
-    ax_magic_wand_btn = plt.axes([0.85, 0.8, 0.05, 0.05])
     btn_magic_wand = Button(ax_magic_wand_btn, 'Magic Wand')
-    btn_magic_wand.on_clicked(on_magic_wand_clicked)
-
-    ax_remove_object_btn = plt.axes([0.9, 0.8, 0.05, 0.05])
     btn_remove_object = Button(ax_remove_object_btn, 'Remove Object')
-    btn_remove_object.on_clicked(on_remove_object_clicked)
-    
-    # Slider for radius
-    ax_radius = plt.axes([0.85, 0.6, 0.1, 0.02])
+
+    btns_mode = [btn_remove_object, btn_magic_wand, btn_freehand, btn_deselect_all]
+    btn_mode_names = [on_remove_object_clicked, on_magic_wand_clicked, on_freehand_clicked, on_deselect_all_clicked]
+
+    for i, btn in enumerate(btns_mode):
+        btn.label.set_weight('bold')
+        btn.label.set_color('white')
+        btn.on_clicked(btn_mode_names[i])
+
     slider_radius = Slider(ax_radius, 'Radius', 0, 10, valinit=1)
-    
-    # Slider for magic wand tolerance
-    ax_itol = plt.axes([0.85, 0.575, 0.1, 0.02])
     slider_itol = Slider(ax_itol, 'Tolerance', 0, max_intensity, valinit=25)
-    #ax_text_itol = plt.axes([0.975, 0.575, 0.01, 0.015])  # Adjust position and size
-    #text_box_itol = TextBox(ax_text_itol, '', initial=str(slider_itol.val))
-    #def submit_itol(text):
-    #	slider_itol.set_val(float(text))
-    #text_box_itol.on_submit(submit_itol)
 
-    # Slider for magic wand max selection
-    ax_mpixels = plt.axes([0.85, 0.55, 0.1, 0.02])
     slider_mpixels = Slider(ax_mpixels, 'Max Pixels', 0, image_area, valinit=500)
-    
-    # Slider for minimum size
-    ax_min_size = plt.axes([0.85, 0.5, 0.1, 0.02])
     slider_min_size = Slider(ax_min_size, 'Min Size', 0, 2000, valinit=50)
-    
-    # Button to remove small objects
-    ax_remove = plt.axes([0.85, 0.45, 0.1, 0.05])
     btn_remove = Button(ax_remove, 'Remove Small', color=button_color_1)
-    btn_remove.on_clicked(remove_small_objects)
-    btn_remove.label.set_fontsize(10)
-    btn_remove.label.set_weight('bold')
-    btn_remove.label.set_color('white')
-    
-    # Button for filling holes
-    ax_fill_holes = plt.axes([0.85, 0.4, 0.1, 0.05])
     btn_fill_holes = Button(ax_fill_holes, 'Fill Holes', color=button_color_1)
-    btn_fill_holes.on_clicked(fill_holes)
-    btn_fill_holes.label.set_fontsize(10)
-    btn_fill_holes.label.set_weight('bold')
-    btn_fill_holes.label.set_color('white')
-    
-    # Button to relable objects
-    ax_relabel = plt.axes([0.85, 0.35, 0.1, 0.05])
     btn_relabel = Button(ax_relabel, 'Relabel', color=button_color_1)
-    btn_relabel.on_clicked(relabel_objects)
-    btn_relabel.label.set_fontsize(10)
-    btn_relabel.label.set_weight('bold')
-    btn_relabel.label.set_color('white')
-    
-    # Button for inverting the mask
-    ax_invert = plt.axes([0.85, 0.3, 0.1, 0.05])
     btn_invert = Button(ax_invert, 'Invert Mask', color=button_color_1)
-    btn_invert.on_clicked(invert_mask)
-    btn_invert.label.set_fontsize(10)
-    btn_invert.label.set_weight('bold')
-    btn_invert.label.set_color('white')
-    
-    # Define the button for clearing the mask
-    ax_clear = plt.axes([0.85, 0.25, 0.1, 0.05])  # Adjust the position and size as needed
     btn_clear = Button(ax_clear, 'Clear Mask', color=button_color_1)
-    btn_clear.on_clicked(clear_mask)
-    btn_clear.label.set_fontsize(10)
-    btn_clear.label.set_weight('bold')
-    btn_clear.label.set_color('white')
-
-
-    # Add a button for saving the mask
-    ax_save = plt.axes([0.85, 0.2, 0.1, 0.05])
     btn_save = Button(ax_save, 'Save Mask', color=button_color_2)
-    btn_save.on_clicked(save_mask_wrapper)
-    btn_save.label.set_fontsize(10)
-    btn_save.label.set_weight('bold')
-    btn_save.label.set_color('white')
 
-    #Text here
+    btns = [btn_save, btn_clear, btn_invert, btn_relabel, btn_fill_holes, btn_remove]
+    btn_names = [save_mask_wrapper, clear_mask, invert_mask, relabel_objects, fill_holes, remove_small_objects]
+    
+    for i, btn in enumerate(btns):
+        btn.label.set_weight('bold')
+        btn.label.set_color('white')
+        btn.on_clicked(btn_names[i])
 
     # Connect the mouse click event
     fig.canvas.mpl_connect('button_press_event', on_click)
-    
     # Connect the mouse hover event
     fig.canvas.mpl_connect('motion_notify_event', hover)
-    
     # Initialize default mode
     update_mode('none')
-
     plt.show()
-
-# Add short text explanations
-#add_text_box_annotation(ax_freehand, "Left: connect, Right: close", 0.85, 0.625)
-#add_text_box_annotation(ax_lower_quantile, "Set the radius for drawing", 0.85, 0.7)
-#add_text_box_annotation(ax_upper_quantile, "Set the radius for drawing", 0.85, 0.675)
-#add_text_box_annotation(ax_check, "Left: select, Right: deselect", 0.85, 0.625)
-#add_text_box_annotation(ax_radius, "Set the radius for drawing", 0.85, 0.6)
-#add_text_box_annotation(ax_itol, "Set the radius for drawing", 0.85, 0.575)
-#add_text_box_annotation(ax_mpixels, "Set the radius for drawing", 0.85, 0.55)
-#add_text_box_annotation(ax_min_size, "Set the radius for drawing", 0.85, 0.5)
-#add_text_box_annotation(ax_remove, "Set the radius for drawing", 0.85, 0.45)
-#add_text_box_annotation(ax_fill_holes, "Set the radius for drawing", 0.85, 0.4)
-#add_text_box_annotation(ax_relabel, "Set the radius for drawing", 0.85, 0.35)
-#add_text_box_annotation(ax_invert, "Set the radius for drawing", 0.85, 0.3)
-#add_text_box_annotation(ax_clear, "Set the radius for drawing", 0.85, 0.25)
-#add_text_box_annotation(ax_save, "Set the radius for drawing", 0.85, 0.2)
 
 def modify_masks(img_src, mask_src, rescale_factor):
     global save_clicked, current_file_index, file_list
