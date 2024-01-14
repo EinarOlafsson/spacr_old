@@ -116,6 +116,8 @@ if not os.path.exists(env_PATH):
 import os, time, warnings, matplotlib, random
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.widgets import RadioButtons
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -124,10 +126,11 @@ import numpy as np
 from skimage.measure import label
 import skimage.morphology as morph
 from skimage import feature, morphology
-from skimage.morphology import disk
+from skimage.morphology import disk, dilation
 from skimage.exposure import rescale_intensity
 from skimage.transform import resize
 from skimage.draw import polygon
+from skimage.draw import line
 
 from scipy.ndimage import binary_dilation, binary_fill_holes
 
@@ -311,9 +314,12 @@ def clear_freehand_lines():
 
 # Mouse click event handler
 def on_click(event):
-    global save_clicked, mask, slider_itol, slider_mpixels, slider_radius, mode_magic_wand, mode_remove_object
+    global mask, displayed_image, normalized_image, overlay
+    global save_clicked, slider_itol, slider_mpixels, slider_radius
+    global mode_magic_wand, mode_remove_object, mode_lines
+
     save_clicked = False
-    if fig.canvas.toolbar.mode != '':
+    if fig.canvas.toolbar.mode != '' or mode_lines:
         return
     if event.xdata is not None and event.ydata is not None and event.inaxes == ax:
         x, y = int(event.xdata), int(event.ydata)
@@ -347,6 +353,9 @@ def on_click(event):
 
             overlay.set_data(mask)
             overlay.set_cmap(random_cmap)
+            # Update displayed image with the edges
+            displayed_image_with_edges = overlay_edges(mask, normalized_image)
+            displayed_image.set_data(displayed_image_with_edges)
             fig.canvas.draw()
         
         elif not (mode_freehand or mode_magic_wand or mode_remove_object):
@@ -592,7 +601,8 @@ def add_text_box_annotation(ax, text, x, y):
                 fontsize=8, color='gray')
 
 def update_mode(new_mode):
-    global mode_freehand, mode_magic_wand, mode_remove_object
+    global mode_lines, mode_freehand, mode_magic_wand, mode_remove_object
+    mode_lines = (new_mode == 'lines')
     mode_freehand = (new_mode == 'freehand')
     mode_magic_wand = (new_mode == 'magic_wand')
     mode_remove_object = (new_mode == 'remove_object')
@@ -604,9 +614,72 @@ def update_mode(new_mode):
         highlight_selected_button(btn_magic_wand)
     elif new_mode == 'remove_object':
         highlight_selected_button(btn_remove_object)
+    elif new_mode == 'lines':
+        highlight_selected_button(btn_lines)
     else:
         highlight_selected_button(None)  # This will reset the "Deselect All" button
 
+# Functions to handle mouse events for line drawing
+def draw_thick_line(mask, y0, x0, y1, x1, thickness, mask_value):
+    # Find the highest value in the mask and add 1
+    new_value = mask.max() + 1
+
+    # Draw a 1-pixel thick line
+    rr, cc = line(x0, y0, x1, y1)
+    mask_line = np.zeros_like(mask)
+    mask_line[rr, cc] = new_value
+
+    # Dilate only the line
+    selem = disk(thickness)  # Create a disk-shaped structuring element with the given radius
+    dilated_line = dilation(mask_line, selem)
+
+    # Apply the dilation to the original mask
+    mask[dilated_line == new_value] = new_value if mask_value != 'Erase' else 0
+
+    return mask
+
+def line_draw(event):
+    global mask, normalized_image, displayed_image
+    global line_points, lines, temp_points, radio_mask_value
+    if event.inaxes != ax or not mode_lines:
+        return
+
+    thickness = slider_thickness.val
+    mask_value = radio_mask_value.value_selected
+
+    if event.button == 1:  # Left mouse click
+        # Add point and visualize it
+        x, y = int(event.xdata), int(event.ydata)
+        line_points.append((x, y))
+        temp_point, = ax.plot(x, y, 'ro')  # Draw temporary anchor point
+        temp_points.append(temp_point)  # Store the point to remove it later
+
+        if len(line_points) > 1:
+            # Draw line between the last two points
+            y0, x0 = line_points[-2]
+            y1, x1 = line_points[-1]
+            mask = draw_thick_line(mask, y0, x0, y1, x1, thickness, mask_value)
+            overlay.set_data(mask)
+
+        fig.canvas.draw()
+
+    elif event.button == 3 and len(line_points) > 1:  # Right mouse click
+        # Remove temporary points and reset
+        for point in temp_points:
+            point.remove()
+        temp_points = []
+        line_points = []  # Reset points for next line
+        # Update displayed image with the edges
+        displayed_image_with_edges = overlay_edges(mask, normalized_image)
+        displayed_image.set_data(displayed_image_with_edges)
+        fig.canvas.draw()
+
+# Button callback function for 'Lines' mode
+def on_lines_clicked(event):
+    global mode_lines
+    update_mode('lines')
+    highlight_selected_button(btn_lines)
+    mode_lines = True
 
 def on_deselect_all_clicked(event):
     # Reset all modes to False
@@ -621,15 +694,12 @@ def on_deselect_all_clicked(event):
 # Button callback functions
 def on_freehand_clicked(event):
     update_mode('freehand')
-    # Rest of the freehand functionality
 
 def on_magic_wand_clicked(event):
     update_mode('magic_wand')
-    # Rest of the magic wand functionality
 
 def on_remove_object_clicked(event):
     update_mode('remove_object')
-    # Rest of the remove object functionality
     
 def highlight_selected_button(selected_button):
     # Reset all buttons to default color
@@ -637,20 +707,26 @@ def highlight_selected_button(selected_button):
     btn_magic_wand.color = default_button_color
     btn_remove_object.color = default_button_color
     btn_deselect_all.color = default_button_color
+    btn_lines.color = default_button_color
 
     # Highlight the selected button
     if selected_button is not None:
         selected_button.color = 'red'
 
-
 def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_src, mask_src, rescale_factor):
     global image, mask, overlay, fig, ax, random_cmap, displayed_image, normalized_image
-    global slider_itol, slider_mpixels, slider_min_size, slider_radius
-    global freehand_points, freehand_lines, mode_freehand, mode_magic_wand, mode_remove_object, btn_remove_object, btn_freehand, btn_magic_wand, default_button_color, btn_deselect_all
-    global btn_remove, btn_relabel, btn_fill_holes, btn_save, btn_invert, btn_clear, slider_lower_quantile, slider_upper_quantile
-    
+    global slider_itol, slider_mpixels, slider_min_size, slider_radius, slider_lower_quantile, slider_upper_quantile
+    global default_button_color, btn_deselect_all
+    global mode_remove_object, btn_remove_object
+    global mode_magic_wand, btn_magic_wand
+    global mode_freehand, btn_freehand, freehand_points, freehand_lines
+    global btn_lines, mode_lines, line_points, lines, temp_points, slider_thickness, radio_mask_value
+    global btn_remove, btn_relabel, btn_fill_holes, btn_save, btn_invert, btn_clear
+
     # Initialize mode variables
     default_button_color = 'lightgrey'
+
+    mode_lines = False
     mode_freehand = False
     mode_magic_wand = False
     mode_remove_object = False
@@ -658,6 +734,9 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     save_clicked = False
     freehand_points = []
     freehand_lines = []
+    line_points = []
+    lines = []
+    temp_points = []
     
     # Modified _wrapper function
     def save_mask_wrapper(event):
@@ -741,7 +820,13 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     y2 = y2 - 0.08
     ax_remove_object_btn = plt.axes([x1, y1, w, w])
     fig.text(x2, y1+0.025, 'Remove single object')
-    
+    y1 = y1 - 0.08
+    y2 = y2 - 0.08
+    ax_lines_btn = plt.axes([x1, y1, w, w])
+    fig.text(x2, y1+0.025, 'Draw lines')
+    ax_radius_slider = plt.axes([x2, y2, w_slider, s])
+    ax_radio = plt.axes([x2+0.09, y2, 0.05, 0.05])  # Adjust the position and size as needed
+
     y1,y2 = 0.35,0.35
     fig.text(x2-0.055, y1+0.06, 'Click to perform function')
     ax_remove = plt.axes([x1, y1, w, w])
@@ -767,12 +852,22 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     ax_upper_quantile = plt.axes([x2, y1+0.02, w_slider, s], figure=fig)
     fig.text(x2-0.055, y1+0.045, 'Select upper and lower image quntiles for viewing')
 
+    height_re = height*rescale_factor
+    width_re = width*rescale_factor
+    max_px = int(width_re*height_re)
+
+    max_px_val = int(max_px/100)
+    min_px_val = int(max_px/10000)
+    min_intensity_val = int(max_intensity*0.5)
+
+    radio_mask_value = RadioButtons(ax_radio, ('Erase', 'Draw'))
+    slider_thickness = Slider(ax_radius_slider, '', 1, 10, valinit=1, valfmt='%1.1f')
     slider_lower_quantile = Slider(ax_lower_quantile, 'Lower Quantile', 0, 25, valinit=2, valfmt='%d')
     slider_upper_quantile = Slider(ax_upper_quantile, 'Upper Quantile', 75, 100, valinit=98, valfmt='%d')    
     slider_radius = Slider(ax_radius, '', 0, int(image_area/10), valinit=2, valfmt='%d')
-    slider_itol = Slider(ax_itol, '', 0, max_intensity, valinit=min_intensity, valfmt='%d')
-    slider_mpixels = Slider(ax_mpixels, '', 0, image_area, valinit=max_px, valfmt='%d')
-    slider_min_size = Slider(ax_min_size, '', 0, int(image_area), valinit=min_px, valfmt='%d')
+    slider_itol = Slider(ax_itol, '', 0, max_intensity, valinit=min_intensity_val, valfmt='%d')
+    slider_mpixels = Slider(ax_mpixels, '', 0, max_px, valinit=max_px_val, valfmt='%d')
+    slider_min_size = Slider(ax_min_size, '', 0, max_px_val, valinit=min_px_val, valfmt='%d') #int(image_area)
     
     # Normalize the image using default quantile values
     lower_q = slider_lower_quantile.val
@@ -789,13 +884,16 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     button_color_1 = rgb_to_mpl_color(155, 55, 155)
     button_color_2 = rgb_to_mpl_color(55, 155, 155)
 
+    # Button for 'Lines' mode
+    btn_lines = Button(ax_lines_btn, 'Lines')
+
     btn_deselect_all = Button(ax_deselect_all, 'px', color=default_button_color)
     btn_freehand = Button(ax_freehand_btn, 'Freehand')
     btn_magic_wand = Button(ax_magic_wand_btn, 'Magic Wand')
     btn_remove_object = Button(ax_remove_object_btn, 'Remove Object')
 
-    btns_mode = [btn_remove_object, btn_magic_wand, btn_freehand, btn_deselect_all]
-    btn_mode_names = [on_remove_object_clicked, on_magic_wand_clicked, on_freehand_clicked, on_deselect_all_clicked]
+    btns_mode = [btn_remove_object, btn_magic_wand, btn_freehand, btn_deselect_all, btn_lines]
+    btn_mode_names = [on_remove_object_clicked, on_magic_wand_clicked, on_freehand_clicked, on_deselect_all_clicked, on_lines_clicked]
 
     for i, btn in enumerate(btns_mode):
         btn.label.set_weight('bold')
@@ -822,8 +920,13 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     slider_upper_quantile.on_changed(update_image)
     #add_text_box_annotation(ax_lower_quantile, "Set the radius for drawing", 0.85, 0.7)
 
+
     # Connect the mouse click event
     fig.canvas.mpl_connect('button_press_event', on_click)
+
+    # Connect the mouse event for line drawing
+    fig.canvas.mpl_connect('button_press_event', line_draw)
+
     # Connect the mouse hover event
     fig.canvas.mpl_connect('motion_notify_event', hover)
     # Initialize default mode
