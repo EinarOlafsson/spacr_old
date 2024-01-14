@@ -496,30 +496,6 @@ def hover(event):
             # Redraw the figure
             fig.canvas.draw_idle()
 
-# Function to loade and optionally rescale the origional image
-def downsample_tiff(image_path, scale_factor):
-    with Image.open(image_path) as img:
-        # Store original dimensions
-        original_dimensions = (img.width, img.height)
-
-        # Convert image to numpy array
-        img_array = np.array(img)
-        max_value = np.max(img_array)
-
-        # Check the image mode and resize accordingly
-        if img.mode in ['RGB', 'RGBA']:
-            # For RGB and RGBA images, use PIL's resize
-            resized_img = img.resize((int(img.width * scale_factor), int(img.height * scale_factor)), Image.Resampling.LANCZOS)
-        elif img.mode == 'I;16':
-            # For 16-bit grayscale images, use skimage's resize
-            resized_img = resize(img_array, (int(img.height * scale_factor), int(img.width * scale_factor)), anti_aliasing=True, preserve_range=True)
-        else:
-            # For other modes, raise an error or handle as needed
-            raise ValueError(f"Unsupported image mode: {img.mode}")
-
-        return resized_img, original_dimensions, max_value
-
-
 def downsample_tiff(image_path, scale_factor):
     img = imageio.imread(image_path)
     original_dimensions = img.shape[:2]
@@ -701,10 +677,14 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
 	
     # Assign values to global variables
     image, original_dimensions, max_intensity = downsample_tiff(image_path, scale_factor=rescale_factor)
-    
+
     # Calculate image area and max intensity
     height, width = original_dimensions
     image_area = height * width
+
+    max_px = int(image_area/4)
+    min_px = int(image_area/1000)
+    #min_intensity = int(max_intensity*0.1)
 
     if mask_path != None:
         mask = imageio.imread(mask_path)
@@ -739,54 +719,73 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     #Set btn and sldr location [x,y, width,height]
     w = 0.05
     s = 0.01
-    x,x2,y,y2 = 0.8, 0.9, 0.9, 0.925
-    ax_deselect_all = plt.axes([x, y, w, w])
+    x1,x2,y1,y2 = 0.8, 0.9, 0.9, 0.925
+    ax_deselect_all = plt.axes([x1, y1, w, w])
     ax_radius = plt.axes([x2, y2, w, s])
+    fig.text(x2-0.1, y1+0.055, 'Red: Mode selected; Grey: Mode unselected')
+    fig.text(x2-0.025, y1+0.01, 'Select px based on radius') #, fontsize=10)
 
-    y = y - 0.05
+    y1 = y1 - 0.05
     y2 = y2 - 0.05
-    ax_freehand_btn = plt.axes([x, y, w, w])
+    ax_freehand_btn = plt.axes([x1, y1, w, w])
+    fig.text(x2-0.025, y1+0.025, 'Click to draw object')
 
-    y = y - 0.05
-    
-    ax_magic_wand_btn = plt.axes([x, y, w, w])
-    y2 = y2 - 0.04
+    y1 = y1 - 0.05
+    ax_magic_wand_btn = plt.axes([x1, y1, w, w])
+    y2 = y2 - 0.035
     ax_itol = plt.axes([x2, y2, w, s])
-    y2 = y2 - 0.02
+    y2 = y2 - 0.015
     ax_mpixels = plt.axes([x2, y2, w, s])
+    fig.text(x2-0.04, y1+0.012, 'Tolerance: Intensity threshold for px selection ')
+    fig.text(x2-0.04, y1+0.0016, 'Max: Threshold for max px selection ')
 
-    y = y - 0.05
+    y1 = y1 - 0.05
     y2 = y2 - 0.05
-    ax_remove_object_btn = plt.axes([x, y, w, w])
+    ax_remove_object_btn = plt.axes([x1, y1, w, w])
+    fig.text(x2-0.025, y1+0.025, 'Remove single object')
 
-    y = y - 0.15
-    y2 = y2 - 0.125
-    ax_remove = plt.axes([x, y, w, w])
+    y1 = y1 - 0.175
+    y2 = y2 - 0.167
+    ax_remove = plt.axes([x1, y1, w, w])
     ax_min_size = plt.axes([x2, y2, w, s])
+    fig.text(x2-0.025, y1+0.02, 'Remove objects below radius threshold')
+    fig.text(x2-0.1, y1+0.055, 'Click to perform function')
 
-    y = y - 0.05
-    ax_lower_quantile = plt.axes([x2, 0.1, w, s], figure=fig)
-    ax_upper_quantile = plt.axes([x2, 0.12, w, s], figure=fig)
+    y1 = y1 - 0.05
+    ax_fill_holes = plt.axes([x1, y1, w, w])
+    fig.text(x2-0.025, y1+0.025, 'Fill holes in objects')
+    y1 = y1 - 0.05
+    ax_relabel = plt.axes([x1, y1, w, w])
+    fig.text(x2-0.025, y1+0.025, 'Reset object labels')
+    y1 = y1 - 0.05
+    ax_invert = plt.axes([x1, y1, w, w])
+    fig.text(x2-0.025, y1+0.025, 'Invert mask')
+    y1 = y1 - 0.05
+    ax_clear = plt.axes([x1, y1, w, w])
+    fig.text(x2-0.025, y1+0.025, 'Remove all objects')
+    y1 = y1 - 0.05
+    ax_save = plt.axes([x1, y1, w, w])
+    fig.text(x2-0.025, y1+0.025, 'save mask and load new image')
 
-    ax_fill_holes = plt.axes([x, y, w, w])
-    y = y - 0.05
-    ax_relabel = plt.axes([x, y, w, w])
-    y = y - 0.05
-    ax_invert = plt.axes([x, y, w, w])
-    y = y - 0.05
-    ax_clear = plt.axes([x, y, w, w]) 
-    y = y - 0.05
-    ax_save = plt.axes([x, y, w, w])
+    ax_lower_quantile = plt.axes([x2-0.075, 0.1, w, s], figure=fig)
+    ax_upper_quantile = plt.axes([x2-0.075, 0.12, w, s], figure=fig)
+    fig.text(x2-0.15, 0.08, 'Select upper and lower image quntiles for viewing')
 
+    slider_lower_quantile = Slider(ax_lower_quantile, 'Lower Quantile', 0, 25, valinit=2)
+    slider_upper_quantile = Slider(ax_upper_quantile, 'Upper Quantile', 75, 100, valinit=98)    
+    slider_radius = Slider(ax_radius, 'Radius', 0, 2000, valinit=2)
+    slider_itol = Slider(ax_itol, 'Tolerance', 0, 65000, valinit=5000)
+    slider_mpixels = Slider(ax_mpixels, 'Max Pixels', 0, image_area, valinit=max_px)
+    slider_min_size = Slider(ax_min_size, 'Min Size', 0, 2000, valinit=min_px)
 
-    #qunatile sliders
-    slider_lower_quantile = Slider(ax_lower_quantile, 'Lower Quantile', 0, 25, valinit=0)
-    slider_upper_quantile = Slider(ax_upper_quantile, 'Upper Quantile', 75, 100, valinit=100)
-    slider_lower_quantile.on_changed(update_image)
-    slider_upper_quantile.on_changed(update_image)
-    #add_text_box_annotation(ax_lower_quantile, "Set the radius for drawing", 0.85, 0.7)
+    sliders = [slider_lower_quantile, slider_upper_quantile, slider_radius, slider_itol, slider_mpixels, slider_min_size]
+
+    for slider in sliders:
+        # Adjust the label position (move to the right)
+        label = slider.label
+        x, y = label.get_position()
+        label.set_position((x - 0.1, y))
     
-
     # Normalize the image using default quantile values
     lower_q = slider_lower_quantile.val
     upper_q = slider_upper_quantile.val
@@ -815,11 +814,6 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
         btn.label.set_color('white')
         btn.on_clicked(btn_mode_names[i])
 
-    slider_radius = Slider(ax_radius, 'Radius', 0, 10, valinit=1)
-    slider_itol = Slider(ax_itol, 'Tolerance', 0, max_intensity, valinit=25)
-
-    slider_mpixels = Slider(ax_mpixels, 'Max Pixels', 0, image_area, valinit=500)
-    slider_min_size = Slider(ax_min_size, 'Min Size', 0, 2000, valinit=50)
     btn_remove = Button(ax_remove, 'Remove Small', color=button_color_1)
     btn_fill_holes = Button(ax_fill_holes, 'Fill Holes', color=button_color_1)
     btn_relabel = Button(ax_relabel, 'Relabel', color=button_color_1)
@@ -834,6 +828,11 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
         btn.label.set_weight('bold')
         btn.label.set_color('white')
         btn.on_clicked(btn_names[i])
+
+    #qunatile sliders
+    slider_lower_quantile.on_changed(update_image)
+    slider_upper_quantile.on_changed(update_image)
+    #add_text_box_annotation(ax_lower_quantile, "Set the radius for drawing", 0.85, 0.7)
 
     # Connect the mouse click event
     fig.canvas.mpl_connect('button_press_event', on_click)
@@ -888,13 +887,12 @@ def load_next_image(img_src, mask_src, rescale_factor):
     if current_file_index < len(file_list):
         file = file_list[current_file_index]
         image_path = os.path.join(img_src, file)
-        print(f'Filename: {image_path}')
+        print(f'index: {current_file_index}; Filename: {image_path}')
         if mask_src is not None and os.path.exists(mask_path):
             mask_path = os.path.join(mask_src, file)
         else:
             mask_path = None
+            print(f"No corresponding mask found for {file}")
         modify_mask(image_path, mask_path, itol=1000, mpixels=1000, min_size_for_removal=100, img_src=img_src, mask_src=mask_src, rescale_factor=rescale_factor)
     else:
-        print(f"No corresponding mask found for {file}")
-        current_file_index += 1
-        load_next_image(img_src, mask_src, rescale_factor)
+        print(f'Finished generating/modefying masks for {len(file_list)} images')
