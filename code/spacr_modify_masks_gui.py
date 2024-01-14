@@ -682,8 +682,8 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     height, width = original_dimensions
     image_area = height * width
 
-    max_px = int(image_area/4)
-    min_px = int(image_area/1000)
+    max_px = int(image_area/4*rescale_factor)
+    min_px = int(image_area/1000*rescale_factor)
     #min_intensity = int(max_intensity*0.1)
 
     if mask_path != None:
@@ -783,8 +783,8 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     for slider in sliders:
         # Adjust the label position (move to the right)
         label = slider.label
-        x, y = label.get_position()
-        label.set_position((x - 0.1, y))
+        xx, yy = label.get_position()
+        label.set_position((xx - 0.1, yy))
     
     # Normalize the image using default quantile values
     lower_q = slider_lower_quantile.val
@@ -811,7 +811,7 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
 
     for i, btn in enumerate(btns_mode):
         btn.label.set_weight('bold')
-        btn.label.set_color('white')
+        btn.label.set_color('black')
         btn.on_clicked(btn_mode_names[i])
 
     btn_remove = Button(ax_remove, 'Remove Small', color=button_color_1)
