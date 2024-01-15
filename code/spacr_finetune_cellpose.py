@@ -4,6 +4,55 @@ import os
 import json
 import shutil
 import platform
+import getpass
+
+def get_paths(env_name):
+    conda_executable = "conda.exe" if sys.platform == "win32" else "conda"
+    python_executable = "python.exe" if sys.platform == "win32" else "python"
+    pip_executable = "pip.exe" if sys.platform == "win32" else "pip"
+
+    conda_path = shutil.which(conda_executable)
+    
+    if not conda_path and sys.platform == "win32":
+        conda_path = "C:\\ProgramData\\Anaconda3\\Scripts\\conda.exe"
+
+    if not os.path.exists(conda_path):
+        username = getpass.getuser()
+        conda_path = f"C:\\Users\\{username}\\Anaconda3\\Scripts\\conda.exe"
+
+    if not conda_path or not os.path.exists(conda_path):
+        print("Conda is not found in the system PATH")
+        return None, None, None, None
+
+    conda_dir = os.path.dirname(os.path.dirname(conda_path))
+    env_path = os.path.join(conda_dir, 'envs', env_name)
+    
+    if sys.platform == "win32":
+        pip_path = os.path.join(env_path, 'Scripts', pip_executable)
+        python_path = os.path.join(env_path, python_executable)
+    else:
+        python_path = os.path.join(env_path, 'bin', python_executable)
+        pip_path = os.path.join(env_path, 'bin', pip_executable)
+
+    return conda_path, python_path, pip_path, env_path
+
+# create new kernel
+def add_kernel(env_name, display_name):
+    _, python_path, _, _ = get_paths(env_name)
+    if not python_path:
+        print(f"Failed to locate the Python executable for '{env_name}'")
+        return
+
+    try:
+        subprocess.run([python_path, '-m', 'ipykernel', 'install', '--user', '--name', env_name, '--display-name', display_name])
+        print(f"Kernel for '{env_name}' with display name '{display_name}' added successfully.")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to add kernel. Error: {e}")
+        print(f"kernel can be added manualy with: python -m ipykernel install --user --name {env_name} --display-name {display_name}")
+
+def create_environment(conda_PATH, env_name):
+    print(f"Creating environment {env_name}...")
+    subprocess.run([conda_PATH, "create", "-n", env_name, "python=3.9", "-y"])
 
 def has_nvidia_gpu():
     try:
@@ -18,52 +67,6 @@ def has_nvidia_gpu():
     except subprocess.CalledProcessError:
         # nvidia-smi not found or failed, assuming no NVIDIA GPU
         return False
-
-def get_paths(env_name):
-    conda_executable = "conda.exe" if sys.platform == "win32" else "conda"
-    python_executable = "python.exe" if sys.platform == "win32" else "python"
-    pip_executable = "pip.exe" if sys.platform == "win32" else "pip"
-
-    conda_path = shutil.which(conda_executable)
-    if not conda_path:
-        print("Conda is not found in the system PATH")
-        return None, None, None, None
-
-    conda_dir = os.path.dirname(os.path.dirname(conda_path))
-    env_path = os.path.join(conda_dir, 'envs', env_name)
-    python_path = os.path.join(env_path, 'bin', python_executable)
-    pip_path = os.path.join(env_path, 'bin', pip_executable)
-
-    if sys.platform == "win32":
-        python_path = python_path.replace('bin/', 'Scripts/')
-        pip_path = pip_path.replace('bin/', 'Scripts/')
-
-    return conda_path, python_path, pip_path, env_path
-
-# create new kernel
-def add_kernel(env_name, display_name):
-    _, python_path, _, _ = get_paths(env_name)
-    if not python_path:
-        print(f"Failed to locate the Python executable for '{env_name}'")
-        return
-
-    # Standard path for Jupyter kernels
-    kernel_spec_path = os.path.join(os.path.expanduser('~'), '.local', 'share', 'jupyter', 'kernels', env_name)
-    kernel_spec = {
-        "argv": [python_path, "-m", "ipykernel_launcher", "-f", "{connection_file}"],
-        "display_name": display_name,
-        "language": "python"
-    }
-
-    os.makedirs(kernel_spec_path, exist_ok=True)
-    with open(os.path.join(kernel_spec_path, "kernel.json"), "w") as f:
-        json.dump(kernel_spec, f)
-
-    print(f"Kernel for '{env_name}' added successfully.")
-
-def create_environment(env_name):
-    print(f"Creating environment {env_name}...")
-    subprocess.run(["conda", "create", "-n", env_name, "python=3.9", "-y"])
 
 # Install dependencies in a specified kernel environment.
 def install_dependencies_in_kernel(dependencies, env_name):
