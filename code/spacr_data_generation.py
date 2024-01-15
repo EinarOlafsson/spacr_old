@@ -64,9 +64,9 @@ def has_nvidia_gpu():
         # nvidia-smi not found or failed, assuming no NVIDIA GPU
         return False
 
-def create_environment(env_name):
+def create_environment(conda_PATH, env_name):
     print(f"Creating environment {env_name}...")
-    subprocess.run(["conda", "create", "-n", env_name, "python=3.9", "-y"])
+    subprocess.run([conda_PATH, "create", "-n", env_name, "python=3.9", "-y"])
 
 # Install dependencies in a specified kernel environment.
 def install_dependencies_in_kernel(dependencies, env_name):
