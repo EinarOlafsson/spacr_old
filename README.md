@@ -18,8 +18,13 @@ classification - Features:
 
 finetune_cellpose - Features:
  - Generate masks with an existing cellpose model.
- - Manually generate/modify object masks.
  - Fine-tune or train from scratch cellpose models (alpha).
+
+modify_masks_gui - Features:
+ - Manually generate/modify object masks.
+ - magic wand tool.
+ - freehand draw tool.
+ - lline tool for cytoskeleton.
 
 simulate_screen - Features:
  -  simulate  the parameters of a CRISPR/Cas9 spatial phenotype screen (alpha).
