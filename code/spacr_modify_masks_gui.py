@@ -4,6 +4,7 @@ import os
 import json
 import shutil
 import platform
+import getpass
 
 def get_paths(env_name):
     conda_executable = "conda.exe" if sys.platform == "win32" else "conda"
@@ -11,7 +12,15 @@ def get_paths(env_name):
     pip_executable = "pip.exe" if sys.platform == "win32" else "pip"
 
     conda_path = shutil.which(conda_executable)
-    if not conda_path:
+    
+    if not conda_path and sys.platform == "win32":
+        conda_path = "C:\\ProgramData\\Anaconda3\\Scripts\\conda.exe"
+
+    if not os.path.exists(conda_path):
+        username = getpass.getuser()
+        conda_path = f"C:\\Users\\{username}\\Anaconda3\\Scripts\\conda.exe"
+
+    if not conda_path or not os.path.exists(conda_path):
         print("Conda is not found in the system PATH")
         return None, None, None, None
 
@@ -47,9 +56,9 @@ def add_kernel(env_name, display_name):
 
     print(f"Kernel for '{env_name}' added successfully.")
 
-def create_environment(env_name):
+def create_environment(conda_PATH, env_name):
     print(f"Creating environment {env_name}...")
-    subprocess.run(["conda", "create", "-n", env_name, "python=3.9", "-y"])
+    subprocess.run([conda_PATH, "create", "-n", env_name, "python=3.9", "-y"])
 
 # Install dependencies in a specified kernel environment.
 def install_dependencies_in_kernel(dependencies, env_name):
@@ -103,7 +112,7 @@ if not os.path.exists(env_PATH):
     print(f'PATH to pip: {pip_PATH}')
     print(f'PATH to new environment: {env_PATH}')
 
-    create_environment(env_name)
+    create_environment(conda_PATH, env_name)
     install_dependencies_in_kernel(dependencies, env_name)
     add_kernel(env_name, env_name)
     print(f"Environment '{env_name}' created and added as a Jupyter kernel.")
