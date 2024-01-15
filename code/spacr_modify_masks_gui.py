@@ -864,13 +864,13 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
 
     #slider scales
     radio_mask_value = RadioButtons(ax_radio, ('Erase', 'Draw'))
-    slider_thickness = Slider(ax_radius_slider, '', 0.1, 10, valinit=1, valstep=1, valfmt='%1.1f')
+    slider_thickness = Slider(ax_radius_slider, '', 1, 100, valinit=2, valstep=1, valfmt='%1.1f')
     slider_lower_quantile = Slider(ax_lower_quantile, 'Lower Quantile', 0, 25, valinit=2, valstep=1, valfmt='%d')
     slider_upper_quantile = Slider(ax_upper_quantile, 'Upper Quantile', 75, 100, valinit=98, valstep=1, valfmt='%d')    
-    slider_radius = Slider(ax_radius, '', 0, int(image_area/10), valinit=2, valstep=1, valfmt='%d')
-    slider_itol = Slider(ax_itol, '', 0, max_intensity, valinit=min_intensity_val, valstep=10, valfmt='%d')
-    slider_mpixels = Slider(ax_mpixels, '', 0, max_px, valinit=max_px_val, valstep=10, valfmt='%d')
-    slider_min_size = Slider(ax_min_size, '', 0, max_px_val, valinit=min_px_val,valstep=10, valfmt='%d') #int(image_area)
+    slider_radius = Slider(ax_radius, '', 0, 100000, valinit=2, valstep=1, valfmt='%d')
+    slider_itol = Slider(ax_itol, '', 1, 65500, valinit=2000, valstep=10, valfmt='%d')
+    slider_mpixels = Slider(ax_mpixels, '', 10, 1000000, valinit=10000, valstep=10, valfmt='%d')
+    slider_min_size = Slider(ax_min_size, '', 1, 1000000, valinit=1000,valstep=10, valfmt='%d')
     
     # Normalize the image using default quantile values
     lower_q = slider_lower_quantile.val
