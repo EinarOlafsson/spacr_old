@@ -138,7 +138,7 @@ if not os.path.exists(env_PATH):
     print(f'PATH to pip: {pip_PATH}')
     print(f'PATH to new environment: {env_PATH}')
 
-    create_environment(env_name)
+    create_environment(conda_PATH, env_name)
     install_dependencies_in_kernel(dependencies, env_name)
     add_kernel(env_name, env_name)
     print(f"Environment '{env_name}' created and added as a Jupyter kernel.")
