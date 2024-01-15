@@ -105,11 +105,11 @@ def install_dependencies_in_kernel(dependencies, env_name):
     
     # Install torch, torchvision, torchaudio with pip
     #print("Installing torch")
-    #subprocess.run([pip_PATH, "pip", "install", "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/cu118"])
+    #subprocess.run([pip_PATH, "install", "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/cu118"])
                     
     # Install cellpose
     print("Installing cellpose")
-    subprocess.run([pip_PATH, "pip", "install", "cellpose"])
+    subprocess.run([pip_PATH, "install", "cellpose"])
 
     # Install remaining dependencies with conda
     for package in dependencies:
@@ -120,7 +120,7 @@ def install_dependencies_in_kernel(dependencies, env_name):
     
     for package in pip_packages:
     	print(f"Installing {package}")
-    	subprocess.run([pip_PATH, "pip", "install", package])
+    	subprocess.run([pip_PATH, "install", package])
 
     print("Dependencies installation complete.")
 
