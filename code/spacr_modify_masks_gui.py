@@ -101,7 +101,7 @@ env_name = "spacr_modify_masks_gui"
 
 conda_PATH, python_PATH, pip_PATH, env_PATH = get_paths(env_name)
 
-dependencies = ["matplotlib==3.7.1", "scipy", "pillow", "scikit-image", "ipykernel", "requests", "h5py", "pyzmq"]
+dependencies = ["matplotlib==3.7.1", "imageio==2.33.1", "scipy", "pillow", "scikit-image", "ipykernel", "requests", "h5py", "pyzmq"]
 
 if not os.path.exists(env_PATH):
 
