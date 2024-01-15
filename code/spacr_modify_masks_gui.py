@@ -26,12 +26,13 @@ def get_paths(env_name):
 
     conda_dir = os.path.dirname(os.path.dirname(conda_path))
     env_path = os.path.join(conda_dir, 'envs', env_name)
-    python_path = os.path.join(env_path, 'bin', python_executable)
-    pip_path = os.path.join(env_path, 'bin', pip_executable)
-
+    
     if sys.platform == "win32":
-        python_path = python_path.replace('bin/', 'Scripts/')
-        pip_path = pip_path.replace('bin/', 'Scripts/')
+        pip_path = os.path.join(env_path, 'Scripts', pip_executable)
+        python_path = os.path.join(env_path, python_executable)
+    else:
+        python_path = os.path.join(env_path, 'bin', python_executable)
+        pip_path = os.path.join(env_path, 'bin', pip_executable)
 
     return conda_path, python_path, pip_path, env_path
 
@@ -42,19 +43,12 @@ def add_kernel(env_name, display_name):
         print(f"Failed to locate the Python executable for '{env_name}'")
         return
 
-    # Standard path for Jupyter kernels
-    kernel_spec_path = os.path.join(os.path.expanduser('~'), '.local', 'share', 'jupyter', 'kernels', env_name)
-    kernel_spec = {
-        "argv": [python_path, "-m", "ipykernel_launcher", "-f", "{connection_file}"],
-        "display_name": display_name,
-        "language": "python"
-    }
-
-    os.makedirs(kernel_spec_path, exist_ok=True)
-    with open(os.path.join(kernel_spec_path, "kernel.json"), "w") as f:
-        json.dump(kernel_spec, f)
-
-    print(f"Kernel for '{env_name}' added successfully.")
+    try:
+        subprocess.run([python_path, '-m', 'ipykernel', 'install', '--user', '--name', env_name, '--display-name', display_name])
+        print(f"Kernel for '{env_name}' with display name '{display_name}' added successfully.")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to add kernel. Error: {e}")
+        print(f"kernel can be added manualy with: python -m ipykernel install --user --name {env_name} --display-name {display_name}")
 
 def create_environment(conda_PATH, env_name):
     print(f"Creating environment {env_name}...")
@@ -868,6 +862,7 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     min_px_val = int(max_px/10000)
     min_intensity_val = int(max_intensity*0.5)
 
+    #slider scales
     radio_mask_value = RadioButtons(ax_radio, ('Erase', 'Draw'))
     slider_thickness = Slider(ax_radius_slider, '', 0.1, 10, valinit=1, valstep=1, valfmt='%1.1f')
     slider_lower_quantile = Slider(ax_lower_quantile, 'Lower Quantile', 0, 25, valinit=2, valstep=1, valfmt='%d')
