@@ -126,7 +126,7 @@ import numpy as np
 from skimage.measure import label
 import skimage.morphology as morph
 from skimage import feature, morphology
-from skimage.morphology import disk, dilation
+from skimage.morphology import square, dilation
 from skimage.exposure import rescale_intensity
 from skimage.transform import resize
 from skimage.draw import polygon
@@ -629,7 +629,7 @@ def draw_thick_line(mask, y0, x0, y1, x1, thickness, mask_value):
     mask_line[rr, cc] = new_value
 
     # Dilate only the line
-    selem = disk(thickness)  # Create a disk-shaped structuring element with the given radius
+    selem = square(thickness)  # Create a disk-shaped structuring element with the given radius
     dilated_line = dilation(mask_line, selem)
 
     # Apply the dilation to the original mask
