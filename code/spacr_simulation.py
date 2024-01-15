@@ -83,7 +83,7 @@ def install_dependencies_in_kernel(dependencies, env_name):
     
     for package in dependencies:
     	print(f"Installing {package}")
-    	subprocess.run([pip_PATH, "pip", "install", package])
+    	subprocess.run([pip_PATH, "install", package])
 
     print("Dependencies installation complete.")
 
