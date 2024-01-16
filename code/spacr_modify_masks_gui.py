@@ -330,8 +330,8 @@ def on_click(event):
         return
     if event.xdata is not None and event.ydata is not None and event.inaxes == ax:
         x, y = int(event.xdata), int(event.ydata)
-        intensity_tolerance = slider_itol.val
-        max_pixels = slider_mpixels.val
+        intensity_tolerance = int(slider_itol.val)
+        max_pixels = int(slider_mpixels.val)
         radius = int(slider_radius.val)
 
         if mode_remove_object and event.xdata is not None and event.ydata is not None:
@@ -354,9 +354,9 @@ def on_click(event):
 
         elif mode_magic_wand:
             if event.button == 1:  # Left mouse button
-                mask = magic_wand(image, mask, (x, y), slider_itol.val, slider_mpixels.val)
+                mask = magic_wand(image, mask, (x, y), int(slider_itol.val), int(slider_mpixels.val))
             elif event.button == 3:  # Right mouse button
-                mask = magic_wand(image, mask, (x, y), slider_itol.val, slider_mpixels.val, remove=True)
+                mask = magic_wand(image, mask, (x, y), int(slider_itol.val), int(slider_mpixels.val), remove=True)
 
             overlay.set_data(mask)
             overlay.set_cmap(random_cmap)
