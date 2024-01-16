@@ -1120,7 +1120,7 @@ def get_avg_object_size(masks):
             object_areas += [prop.area for prop in properties]
         else:
             # Handle empty or incorrect mask format
-            print("Mask is empty or not in the correct format.")
+            print(f"Mask is empty or not in the correct format. dim: {mask.ndim}")
             continue
 
     if object_areas:
