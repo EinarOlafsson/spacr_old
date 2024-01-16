@@ -340,8 +340,8 @@ def on_click(event):
         intensity_tolerance = int(itol_text.text)
         max_pixels = int(mpixels_text.text)
         radius = int(radius_text.text)
-        lower_q = int(lower_quantile_text.text)
-        upper_q = int(upper_quantile_text.text)
+        lower_q = lower_quantile_text.text
+        upper_q = upper_quantile_text.text
 
         if mode_remove_object and event.xdata is not None and event.ydata is not None:
             
@@ -734,8 +734,8 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     def update_image(val):
         global displayed_image, overlay, image
     
-        lower_q = int(lower_quantile_text.text)
-        upper_q = int(upper_quantile_text.text)
+        lower_q = lower_quantile_text.text
+        upper_q = upper_quantile_text.text
         normalized_image = normalize_to_dtype(image, lower_q, upper_q)
     
         # Update only the displayed intensity image, not the overlay
@@ -862,8 +862,8 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     slider_min_size = TextBox(ax_min_size, 'min size:', initial="0")
     
     # Normalize the image using default quantile values
-    lower_q = int(lower_quantile_text.text)
-    upper_q = int(upper_quantile_text.text)
+    lower_q = lower_quantile_text.text
+    upper_q = upper_quantile_text.text
     normalized_image = normalize_to_dtype(image, lower_q, upper_q)
 
     displayed_image = ax.imshow(normalized_image, cmap='gray')  # Store reference to the displayed image
