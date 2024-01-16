@@ -2167,7 +2167,10 @@ def generate_dataset_from_lists(dst, class_data, classes, test_split=0.1):
 
     return
 
-def generate_training_dataset(db_path, dst, mode='annotation', annotation_column='test', annotated_classes=[1,2], classes=['nc','pc'], size=200, test_split=0.1, class_metadata=[['c1'],['c2']], metadata_type_by='col', channel_of_interest=3):
+def generate_training_dataset(src, mode='annotation', annotation_column='test', annotated_classes=[1,2], classes=['nc','pc'], size=200, test_split=0.1, class_metadata=[['c1'],['c2']], metadata_type_by='col', channel_of_interest=3):
+    
+    db_path = os.path.join(src, 'measurements','measurements.db')
+    dst = os.path.join(src, 'datasets', 'training')
     
     if mode == 'annotation':
         class_paths_ls_2 = []
