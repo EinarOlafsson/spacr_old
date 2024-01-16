@@ -1,3 +1,7 @@
+#Input and outputs in the redm
+#doc strings for help
+#doxsygen
+
 import subprocess
 import sys
 import os
