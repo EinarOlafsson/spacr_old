@@ -2631,7 +2631,10 @@ def add_images_to_tar(args):
                 print(f"File not found: {img_path}")
     return tar_path
 
-def generate_dataset(db_path, dst, file_type=None, experiment='TSG101_screen', sample=None):
+def generate_dataset(src, file_type=None, experiment='TSG101_screen', sample=None):
+    db_path = os.path.join(src, '/measurements/measurements.db')
+    dst = os.path.join(src, 'datasets')
+	
     global total_images
     all_paths = []
     
