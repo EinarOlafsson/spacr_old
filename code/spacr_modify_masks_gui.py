@@ -330,9 +330,9 @@ def on_click(event):
         return
     if event.xdata is not None and event.ydata is not None and event.inaxes == ax:
         x, y = int(event.xdata), int(event.ydata)
-        intensity_tolerance = int(slider_itol.val)
-        max_pixels = int(slider_mpixels.val)
-        radius = int(slider_radius.val)
+        intensity_tolerance = int(slider_itol.text)
+        max_pixels = int(slider_mpixels.text)
+        radius = int(slider_radius.text)
 
         if mode_remove_object and event.xdata is not None and event.ydata is not None:
             
@@ -354,9 +354,9 @@ def on_click(event):
 
         elif mode_magic_wand:
             if event.button == 1:  # Left mouse button
-                mask = magic_wand(image, mask, (x, y), int(slider_itol.val), int(slider_mpixels.val))
+                mask = magic_wand(image, mask, (x, y), int(slider_itol.text), int(slider_mpixels.text))
             elif event.button == 3:  # Right mouse button
-                mask = magic_wand(image, mask, (x, y), int(slider_itol.val), int(slider_mpixels.val), remove=True)
+                mask = magic_wand(image, mask, (x, y), int(slider_itol.text), int(slider_mpixels.text), remove=True)
 
             overlay.set_data(mask)
             overlay.set_cmap(random_cmap)
@@ -381,7 +381,7 @@ def on_click(event):
 # Function to remove small objects
 def remove_small_objects(event):
     global mask, slider_min_size, random_cmap, overlay, normalized_image, displayed_image
-    min_size = slider_min_size.val
+    min_size = int(slider_min_size.text)
     mask = morph.remove_small_objects(mask > 0, min_size)
     
     overlay.remove()
@@ -651,7 +651,7 @@ def line_draw(event):
     if event.inaxes != ax or not mode_lines:
         return
 
-    thickness = slider_thickness.val
+    thickness = int(slider_thickness.text)
     mask_value = radio_mask_value.value_selected
 
     if event.button == 1:  # Left mouse click
