@@ -804,12 +804,12 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
 
     #Set btn and slider locations [x,y, width,height]
     w = 0.05
-    w_slider = 0.075
+    w_slider = 0.025
     s = 0.01
-    x1,x2,y1,y2 = 0.8, 0.855, 0.8, 0.825
+    x1,x2,y1,y2 = 0.8, 0.865, 0.8, 0.825
     ax_deselect_all = plt.axes([x1, y1, w, w])
-    ax_radius = plt.axes([x2, y2, w_slider, s])
-    fig.text(x2-0.055, y1+0.0625, 'Red: Mode selected; Grey: Mode unselected')
+    ax_radius = plt.axes([x2+0.02, y2, w_slider, s])
+    fig.text(x2-0.065, y1+0.0624, 'Red: Mode selected; Grey: Mode unselected')
     fig.text(x2, y1+0.01, 'Select px based on radius') #, fontsize=10)
     y1 = y1 - 0.08
     y2 = y2 - 0.08
@@ -817,28 +817,28 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     fig.text(x2, y1+0.025, 'Click to draw object')
     y1 = y1 - 0.08
     ax_magic_wand_btn = plt.axes([x1, y1, w, w])
-    y2 = y2 - 0.055
-    ax_itol = plt.axes([x2, y2, w_slider, s])
-    fig.text(x2, y2-0.015, 'intensity tolerace')
-    y2 = y2 - 0.045
-    ax_mpixels = plt.axes([x2, y2, w_slider, s])
-    fig.text(x2, y2-0.015, 'px2 threshold')
+    y2 = y2 - 0.07
+    ax_itol = plt.axes([x2+0.02, y2, w_slider, s])
+    #fig.text(x2, y2-0.015, 'intensity tolerace')
+    y2 = y2 - 0.015
+    ax_mpixels = plt.axes([x2+0.02, y2, w_slider, s])
+    #fig.text(x2, y2-0.015, 'px2 threshold')
     y1 = y1 - 0.08
     y2 = y2 - 0.08
     ax_remove_object_btn = plt.axes([x1, y1, w, w])
     fig.text(x2, y1+0.025, 'Remove single object')
-    y1 = y1 - 0.08
-    y2 = y2 - 0.08
+    y1 = y1 - 0.07
+    y2 = y2 - 0.07
     ax_lines_btn = plt.axes([x1, y1, w, w])
-    fig.text(x2, y1+0.025, 'Draw lines')
-    ax_radius_slider = plt.axes([x2, y2, w_slider, s])
-    ax_radio = plt.axes([x2+0.09, y2, 0.05, 0.05])  # Adjust the position and size as needed
+    #fig.text(x2, y1+0.01, 'Draw lines')
+    ax_radius_slider = plt.axes([x2+0.025, y2, w_slider, s])
+    ax_radio = plt.axes([x2+0.06, y2-0.015, 0.05, 0.05])  # Adjust the position and size as needed
 
     y1,y2 = 0.35,0.35
-    fig.text(x2-0.055, y1+0.06, 'Click to perform function')
+    fig.text(x2-0.065, y1+0.06, 'Click to perform function')
     ax_remove = plt.axes([x1, y1, w, w])
-    ax_min_size = plt.axes([x2, y2+0.025, w_slider, s])
-    fig.text(x2, y2+0.01, 'px2 threshold')
+    ax_min_size = plt.axes([x2+0.025, y2+0.025, w_slider, s])
+    #fig.text(x2, y2+0.01, 'px2 threshold')
     y1 = y1 - 0.05
     ax_fill_holes = plt.axes([x1, y1, w, w])
     fig.text(x2, y1+0.025, 'Fill holes in objects')
@@ -855,8 +855,8 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     ax_save = plt.axes([x1, y1, w, w])
     fig.text(x2, y1+0.025, 'save mask and load next image')
     y1 = y1 - 0.075
-    ax_lower_quantile = plt.axes([x2, y1, w_slider, s], figure=fig)
-    ax_upper_quantile = plt.axes([x2, y1+0.02, w_slider, s], figure=fig)
+    ax_lower_quantile = plt.axes([x2-0.01, y1, w_slider+0.05, s], figure=fig)
+    ax_upper_quantile = plt.axes([x2-0.01, y1+0.02, w_slider+0.05, s], figure=fig)
     fig.text(x2-0.055, y1+0.045, 'Select upper and lower image quntiles for viewing')
 
     height_re = height*rescale_factor
@@ -869,13 +869,26 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
 
     #slider scales
     radio_mask_value = RadioButtons(ax_radio, ('Erase', 'Draw'))
-    slider_thickness = Slider(ax_radius_slider, '', 1, 100, valinit=2, valstep=1, valfmt='%1.1f')
+
+    slider_thickness = TextBox(ax_radius_slider, 'thickness:', initial="0")
+    #slider_thickness = Slider(ax_radius_slider, '', 1, 100, valinit=2, valstep=1, valfmt='%1.1f')
+    
+    #slider_lower_quantile = TextBox(ax_lower_quantile, 'Lower Quantile:', initial="0")
+    #slider_upper_quantile = TextBox(ax_upper_quantile, 'Upper Quantile:', initial="0")
     slider_lower_quantile = Slider(ax_lower_quantile, 'Lower Quantile', 0, 25, valinit=2, valstep=1, valfmt='%d')
     slider_upper_quantile = Slider(ax_upper_quantile, 'Upper Quantile', 75, 100, valinit=98, valstep=1, valfmt='%d')    
-    slider_radius = Slider(ax_radius, '', 0, 100000, valinit=2, valstep=1, valfmt='%d')
-    slider_itol = Slider(ax_itol, '', 1, 65500, valinit=2000, valstep=10, valfmt='%d')
-    slider_mpixels = Slider(ax_mpixels, '', 10, 1000000, valinit=10000, valstep=10, valfmt='%d')
-    slider_min_size = Slider(ax_min_size, '', 1, 1000000, valinit=1000,valstep=10, valfmt='%d')
+    
+    slider_radius = TextBox(ax_radius, 'radius:', initial="0")
+    #slider_radius = Slider(ax_radius, '', 0, 100000, valinit=2, valstep=1, valfmt='%d')
+    
+    slider_itol = TextBox(ax_itol, 'tolerance:', initial="0")
+    #slider_itol = Slider(ax_itol, '', 1, 65500, valinit=2000, valstep=10, valfmt='%d')
+    
+    slider_mpixels = TextBox(ax_mpixels, 'max px:', initial="0")
+    #slider_mpixels = Slider(ax_mpixels, '', 10, 1000000, valinit=10000, valstep=10, valfmt='%d')
+    
+    slider_min_size = TextBox(ax_min_size, 'min size:', initial="0")
+    #slider_min_size = Slider(ax_min_size, '', 1, 500000, valinit=1000,valstep=10, valfmt='%d')
     
     # Normalize the image using default quantile values
     lower_q = slider_lower_quantile.val
