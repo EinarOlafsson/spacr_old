@@ -2632,9 +2632,9 @@ def add_images_to_tar(args):
     return tar_path
 
 def generate_dataset(src, file_type=None, experiment='TSG101_screen', sample=None):
-    db_path = os.path.join(src, '/measurements/measurements.db')
+	
+    db_path = os.path.join(src, 'measurements','measurements.db')
     dst = os.path.join(src, 'datasets')
-    print(db_path)
 	
     global total_images
     all_paths = []
