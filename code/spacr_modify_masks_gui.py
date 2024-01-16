@@ -322,17 +322,18 @@ def clear_freehand_lines():
 # Mouse click event handler
 def on_click(event):
     global mask, displayed_image, normalized_image, overlay
-    global save_clicked, slider_itol, slider_mpixels, slider_radius
+    global save_clicked, itol_text, mpixels_text, radius_text
     global mode_magic_wand, mode_remove_object, mode_lines
 
     save_clicked = False
     if fig.canvas.toolbar.mode != '' or mode_lines:
         return
+	    
     if event.xdata is not None and event.ydata is not None and event.inaxes == ax:
         x, y = int(event.xdata), int(event.ydata)
-        intensity_tolerance = int(slider_itol.text)
-        max_pixels = int(slider_mpixels.text)
-        radius = int(slider_radius.text)
+        intensity_tolerance = int(itol_text.text)
+        max_pixels = int(mpixels_text.text)
+        radius = int(radius_text.text)
 
         if mode_remove_object and event.xdata is not None and event.ydata is not None:
             
@@ -354,9 +355,9 @@ def on_click(event):
 
         elif mode_magic_wand:
             if event.button == 1:  # Left mouse button
-                mask = magic_wand(image, mask, (x, y), int(slider_itol.text), int(slider_mpixels.text))
+                mask = magic_wand(image, mask, (x, y), int(itol_text.text), int(mpixels_text.text))
             elif event.button == 3:  # Right mouse button
-                mask = magic_wand(image, mask, (x, y), int(slider_itol.text), int(slider_mpixels.text), remove=True)
+                mask = magic_wand(image, mask, (x, y), int(itol_text.text), int(mpixels_text.text), remove=True)
 
             overlay.set_data(mask)
             overlay.set_cmap(random_cmap)
@@ -722,7 +723,7 @@ def highlight_selected_button(selected_button):
 
 def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_src, mask_src, rescale_factor):
     global image, mask, overlay, fig, ax, random_cmap, displayed_image, normalized_image
-    global slider_itol, slider_mpixels, slider_min_size, slider_radius, slider_lower_quantile, slider_upper_quantile
+    global itol_text, mpixels_text, slider_min_size, radius_text, slider_lower_quantile, slider_upper_quantile
     global default_button_color, btn_deselect_all
     global mode_remove_object, btn_remove_object
     global mode_magic_wand, btn_magic_wand
@@ -878,14 +879,14 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     slider_lower_quantile = Slider(ax_lower_quantile, 'Lower Quantile', 0, 25, valinit=2, valstep=1, valfmt='%d')
     slider_upper_quantile = Slider(ax_upper_quantile, 'Upper Quantile', 75, 100, valinit=98, valstep=1, valfmt='%d')    
     
-    slider_radius = TextBox(ax_radius, 'radius:', initial="0")
-    #slider_radius = Slider(ax_radius, '', 0, 100000, valinit=2, valstep=1, valfmt='%d')
+    radius_text = TextBox(ax_radius, 'radius:', initial="0")
+    #radius_text = Slider(ax_radius, '', 0, 100000, valinit=2, valstep=1, valfmt='%d')
     
-    slider_itol = TextBox(ax_itol, 'tolerance:', initial="0")
-    #slider_itol = Slider(ax_itol, '', 1, 65500, valinit=2000, valstep=10, valfmt='%d')
+    itol_text = TextBox(ax_itol, 'tolerance:', initial="0")
+    #itol_text = Slider(ax_itol, '', 1, 65500, valinit=2000, valstep=10, valfmt='%d')
     
-    slider_mpixels = TextBox(ax_mpixels, 'max px:', initial="0")
-    #slider_mpixels = Slider(ax_mpixels, '', 10, 1000000, valinit=10000, valstep=10, valfmt='%d')
+    mpixels_text = TextBox(ax_mpixels, 'max px:', initial="0")
+    #mpixels_text = Slider(ax_mpixels, '', 10, 1000000, valinit=10000, valstep=10, valfmt='%d')
     
     slider_min_size = TextBox(ax_min_size, 'min size:', initial="0")
     #slider_min_size = Slider(ax_min_size, '', 1, 500000, valinit=1000,valstep=10, valfmt='%d')
