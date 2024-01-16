@@ -731,16 +731,16 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
         save_mask(event, mask_path, image_path, img_src, mask_src, rescale_factor, original_dimensions)
         
     # Callback function for updating the image based on slider values
-    #def update_image(val):
-    #    global displayed_image, overlay, image
-    #
-    #    lower_q = int(lower_quantile_text.text)
-    #    upper_q = int(upper_quantile_text.text)
-    #    normalized_image = normalize_to_dtype(image, lower_q, upper_q)
-    #
-    #    # Update only the displayed intensity image, not the overlay
-    #    displayed_image.set_data(normalized_image)
-    #    fig.canvas.draw_idle()
+    def update_image(val):
+        global displayed_image, overlay, image
+    
+        lower_q = int(lower_quantile_text.text)
+        upper_q = int(upper_quantile_text.text)
+        normalized_image = normalize_to_dtype(image, lower_q, upper_q)
+    
+        # Update only the displayed intensity image, not the overlay
+        displayed_image.set_data(normalized_image)
+        fig.canvas.draw_idle()
 	
     # Assign values to global variables
     image, original_dimensions, max_intensity = downsample_tiff(image_path, scale_factor=rescale_factor)
@@ -910,6 +910,8 @@ def modify_mask(image_path, mask_path, itol, mpixels, min_size_for_removal, img_
     #qunatile sliders
     #lower_quantile_text.on_changed(update_image)
     #upper_quantile_text.on_changed(update_image)
+    lower_quantile_text.on_submit(update_image)
+    upper_quantile_text.on_submit(update_image)
 
     # Connect the mouse click event
     fig.canvas.mpl_connect('button_press_event', on_click)
