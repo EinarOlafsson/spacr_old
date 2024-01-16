@@ -210,6 +210,16 @@ plt.rcParams['axes.spines.right'] = True    		# Hide the right spine
 #for param, value in plt.rcParams.items():
 #    print(f"{param}: {value}")
 
+
+#performance paramiters
+#plt.rcParams['agg.path.chunksize'] = 1000000
+#plt.rcParams['figure.dpi'] = 50
+#plt.rcParams['figure.autolayout'] = True
+#plt.rcParams['path.simplify'] = True
+#plt.rcParams['path.simplify_threshold'] = 1.0
+#plt.rcParams['image.resample'] = True
+#plt.rcParams['svg.fonttype'] = 'none'
+
 # Function to normalize the image
 def normalize_to_dtype(array, lower_quantile, upper_quantile):
     if len(array.shape) == 2:
@@ -323,7 +333,7 @@ def update_figure_image():
 	normalized_image = normalize_to_dtype(image, lower_q, upper_q)
 	displayed_image_with_edges = overlay_edges(mask, normalized_image)
 	displayed_image.set_data(displayed_image_with_edges)
-	fig.canvas.draw()
+	fig.canvas.draw_idle()
 
 # Mouse click event handler
 def on_click(event):
@@ -568,7 +578,7 @@ def freehand_draw(event):
                                 [freehand_points[-2][1], freehand_points[-1][1]],
                                 color='red')
                 freehand_lines.append(line)
-                fig.canvas.draw()
+                fig.canvas.draw_idle()
 
         elif event.button == 3:  # Right mouse click to end drawing
             if len(freehand_points) > 2:
@@ -583,7 +593,7 @@ def freehand_draw(event):
             for line in freehand_lines:
                 line.remove()
             freehand_lines = []
-            fig.canvas.draw()
+            fig.canvas.draw_idle()
 
 def update_mode(new_mode):
     global mode_lines, mode_freehand, mode_magic_wand, mode_remove_object
@@ -648,7 +658,7 @@ def line_draw(event):
             mask = draw_thick_line(mask, y0, x0, y1, x1, thickness, mask_value)
             overlay.set_data(mask)
 
-        fig.canvas.draw()
+        fig.canvas.draw_idle()
 
     elif event.button == 3 and len(line_points) > 1:  # Right mouse click
         # Remove temporary points and reset
@@ -661,7 +671,7 @@ def line_draw(event):
         normalized_image = normalize_to_dtype(image, lower_q, upper_q)
         displayed_image_with_edges = overlay_edges(mask, normalized_image)
         displayed_image.set_data(displayed_image_with_edges)
-        fig.canvas.draw()
+        fig.canvas.draw_idle()
 
 # Button callback function for 'Lines' mode
 def on_lines_clicked(event):
