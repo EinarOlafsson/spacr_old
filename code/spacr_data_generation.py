@@ -1119,8 +1119,10 @@ def get_avg_object_size(masks):
             properties = measure.regionprops(mask)
             object_areas += [prop.area for prop in properties]
         else:
-            # Handle empty or incorrect mask format
-            print(f"Mask is empty or not in the correct format. dim: {mask.ndim}")
+            if not np.any(mask):
+                print(f"Mask is empty. ")
+            if not mask.ndim in [2, 3]:
+                print(f"Mask is not in the correct format. dim: {mask.ndim}")
             continue
 
     if object_areas:
