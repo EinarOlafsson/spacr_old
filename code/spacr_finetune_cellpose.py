@@ -6,17 +6,6 @@ import shutil
 import platform
 import getpass
 
-def generate_cellpose_dataset(src, dst, channel, number):
-    if channel == 1:
-        channel = '01'
-    os.makedirs(dst, exist_ok=True)
-    folder = os.path.join(src,channel)
-    files = random.sample(os.listdir(folder), number)
-    for file in files:
-        path = os.path.join(folder, file)
-        new_path = os.path.join(dst,file)
-        shutil.copy(path,new_path)
-
 def get_paths(env_name):
     conda_executable = "conda.exe" if sys.platform == "win32" else "conda"
     python_executable = "python.exe" if sys.platform == "win32" else "python"
@@ -171,6 +160,17 @@ from skimage.exposure import rescale_intensity
 from collections import deque
 from matplotlib.patches import Polygon
 import matplotlib as mpl
+
+def generate_cellpose_dataset(src, dst, channel, number):
+    if channel == 1:
+        channel = '01'
+    os.makedirs(dst, exist_ok=True)
+    folder = os.path.join(src,channel)
+    files = random.sample(os.listdir(folder), number)
+    for file in files:
+        path = os.path.join(folder, file)
+        new_path = os.path.join(dst,file)
+        shutil.copy(path,new_path)
 
 def normalize_to_dtype(array, q1=2, q2=98, percentiles=None):
     # Ensure array is at least 3D
