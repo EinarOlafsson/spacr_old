@@ -2272,18 +2272,18 @@ def measure_crop_core(index, time_ls, file, settings):
                             else:
                                 cv2.imwrite(img_path, png_channels)
 
-                            #if settings['save_measurements']:
-		            img_paths.append(img_path)
-		            if len(img_paths) == len(objects_in_image):
-		                png_df = pd.DataFrame(img_paths, columns=['png_path'])
-		                png_df['file_name'] = png_df['png_path'].apply(lambda x: os.path.basename(x))
-		                png_df[['plate', 'row', 'col', 'field', 'cell_id', 'prcfo']] = png_df['file_name'].apply(lambda x: pd.Series(map_wells_png(x)))
-		            try:
-		                conn = sqlite3.connect(f'{source_folder}/measurements/measurements.db', timeout=5)
-		                png_df.to_sql('png_list', conn, if_exists='append', index=False)
-		                conn.commit()
-		            except sqlite3.OperationalError as e:
-		                print(f"SQLite error: {e}", flush=True)
+                        	#if settings['save_measurements']:
+                            img_paths.append(img_path)
+                            if len(img_paths) == len(objects_in_image):
+                                png_df = pd.DataFrame(img_paths, columns=['png_path'])
+                                png_df['file_name'] = png_df['png_path'].apply(lambda x: os.path.basename(x))
+                                png_df[['plate', 'row', 'col', 'field', 'cell_id', 'prcfo']] = png_df['file_name'].apply(lambda x: pd.Series(map_wells_png(x)))
+                            try:
+                                conn = sqlite3.connect(f'{source_folder}/measurements/measurements.db', timeout=5)
+                                png_df.to_sql('png_list', conn, if_exists='append', index=False)
+                                conn.commit()
+                            except sqlite3.OperationalError as e:
+                                print(f"SQLite error: {e}", flush=True)
                             
                             if settings['plot']:
                                 plot_cropped_arrays(png_channels)
