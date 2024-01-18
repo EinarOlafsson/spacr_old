@@ -2239,7 +2239,6 @@ def measure_crop_core(index, time_ls, file, settings):
                             region = find_bounding_box(crop_mask, _id, buffer=10)
                         
                         img_name, fldr, table_name = generate_names(file_name=file_name, cell_id=region_cell_ids, cell_nuclei_ids=region_nuclei_ids, cell_parasite_ids=region_parasite_ids, source_folder=source_folder, crop_mode=crop_mode)
-                        
                         if dialate_png:
                             region_area = np.sum(region)
                             approximate_diameter = np.sqrt(region_area)
@@ -2263,10 +2262,7 @@ def measure_crop_core(index, time_ls, file, settings):
                                     png_channels = normalize_to_dtype(png_channels, q1=settings['normalize'][0],q2=settings['normalize'][1])
                                 if settings['normalize_by'] == 'fov':
                                     png_channels = normalize_to_dtype(png_channels, q1=settings['normalize'][0],q2=settings['normalize'][1], percentiles=percentiles_list)
-                            
-                            
-                            
-                            
+					
                             os.makedirs(png_folder, exist_ok=True)
 
                             if png_channels.shape[2] == 2:
@@ -2276,18 +2272,18 @@ def measure_crop_core(index, time_ls, file, settings):
                             else:
                                 cv2.imwrite(img_path, png_channels)
 
-                            if settings['save_measurements']:
-                                img_paths.append(img_path)
-                                if len(img_paths) == len(objects_in_image):
-                                    png_df = pd.DataFrame(img_paths, columns=['png_path'])
-                                    png_df['file_name'] = png_df['png_path'].apply(lambda x: os.path.basename(x))
-                                    png_df[['plate', 'row', 'col', 'field', 'cell_id', 'prcfo']] = png_df['file_name'].apply(lambda x: pd.Series(map_wells_png(x)))
-                                    try:
-                                        conn = sqlite3.connect(f'{source_folder}/measurements/measurements.db', timeout=5)
-                                        png_df.to_sql('png_list', conn, if_exists='append', index=False)
-                                        conn.commit()
-                                    except sqlite3.OperationalError as e:
-                                        print(f"SQLite error: {e}", flush=True)
+                            #if settings['save_measurements']:
+		            img_paths.append(img_path)
+		            if len(img_paths) == len(objects_in_image):
+		                png_df = pd.DataFrame(img_paths, columns=['png_path'])
+		                png_df['file_name'] = png_df['png_path'].apply(lambda x: os.path.basename(x))
+		                png_df[['plate', 'row', 'col', 'field', 'cell_id', 'prcfo']] = png_df['file_name'].apply(lambda x: pd.Series(map_wells_png(x)))
+		            try:
+		                conn = sqlite3.connect(f'{source_folder}/measurements/measurements.db', timeout=5)
+		                png_df.to_sql('png_list', conn, if_exists='append', index=False)
+		                conn.commit()
+		            except sqlite3.OperationalError as e:
+		                print(f"SQLite error: {e}", flush=True)
                             
                             if settings['plot']:
                                 plot_cropped_arrays(png_channels)
