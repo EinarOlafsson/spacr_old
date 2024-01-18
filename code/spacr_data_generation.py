@@ -1898,26 +1898,54 @@ def map_wells_png(file_name):
         plate, row, column, field, cell_id, prcfo = 'error','error','error','error','error','error'
     return plate, row, column, field, cell_id, prcfo
 
-def merge_and_save_to_database(morph_df, intensity_df, table_type, source_folder, file_name, experiment):
+#def merge_and_save_to_database(morph_df, intensity_df, table_type, source_folder, file_name, experiment):
+#    morph_df = check_integrity(morph_df)
+#    intensity_df = check_integrity(intensity_df)
+#    if len(morph_df) > 0 and len(intensity_df) > 0:
+#        merged_df = pd.merge(morph_df, intensity_df, on='object_label', how='outer')
+#        merged_df = merged_df.rename(columns={"label_list_x": "label_list_morphology", "label_list_y": "label_list_intensity"})
+#        merged_df['file_name'] = file_name
+#        merged_df['path_name'] = os.path.join(source_folder,file_name+'.npy')
+#        merged_df[['plate', 'row', 'col', 'field', 'prcf']] = merged_df['file_name'].apply(lambda x: pd.Series(map_wells(x)))
+#        cols = merged_df.columns.tolist()  # get the list of all columns
+#        if table_type == 'cell' or table_type == 'cytoplasm':
+#            column_list = ['object_label', 'plate', 'row', 'col', 'field', 'prcf', 'file_name', 'path_name']
+#            for i, col in enumerate(column_list):
+#                cols.insert(i, cols.pop(cols.index(col)))
+#        if table_type == 'nucleus' or table_type == 'parasite':
+#            column_list = ['object_label', 'cell_id', 'plate', 'row', 'col', 'field', 'prcf', 'file_name', 'path_name']
+#            for i, col in enumerate(column_list):
+#                cols.insert(i, cols.pop(cols.index(col)))
+#        merged_df = merged_df[cols]  # rearrange the columns
+#        if len(merged_df) > 0:
+#            try:
+#                conn = sqlite3.connect(f'{source_folder}/measurements/measurements.db', timeout=5)
+#                merged_df.to_sql(table_type, conn, if_exists='append', index=False)
+#            except sqlite3.OperationalError as e:
+#                print("SQLite error:", e)
 
+def merge_and_save_to_database(morph_df, intensity_df, table_type, source_folder, file_name, experiment):
     morph_df = check_integrity(morph_df)
     intensity_df = check_integrity(intensity_df)
     if len(morph_df) > 0 and len(intensity_df) > 0:
         merged_df = pd.merge(morph_df, intensity_df, on='object_label', how='outer')
         merged_df = merged_df.rename(columns={"label_list_x": "label_list_morphology", "label_list_y": "label_list_intensity"})
         merged_df['file_name'] = file_name
-        merged_df['path_name'] = os.path.join(source_folder,file_name+'.npy')
+        merged_df['path_name'] = os.path.join(source_folder, file_name + '.npy')
         merged_df[['plate', 'row', 'col', 'field', 'prcf']] = merged_df['file_name'].apply(lambda x: pd.Series(map_wells(x)))
-
         cols = merged_df.columns.tolist()  # get the list of all columns
         if table_type == 'cell' or table_type == 'cytoplasm':
             column_list = ['object_label', 'plate', 'row', 'col', 'field', 'prcf', 'file_name', 'path_name']
-            for i, col in enumerate(column_list):
-                cols.insert(i, cols.pop(cols.index(col)))
-        if table_type == 'nucleus' or table_type == 'parasite':
+        elif table_type == 'nucleus' or table_type == 'parasite':
             column_list = ['object_label', 'cell_id', 'plate', 'row', 'col', 'field', 'prcf', 'file_name', 'path_name']
-            for i, col in enumerate(column_list):
-                cols.insert(i, cols.pop(cols.index(col)))
+        else:
+            raise ValueError(f"Invalid table_type: {table_type}")
+        # Check if all columns in column_list are in cols
+        missing_columns = [col for col in column_list if col not in cols]
+        if missing_columns:
+            raise ValueError(f"Columns missing in DataFrame: {missing_columns}")
+        for i, col in enumerate(column_list):
+            cols.insert(i, cols.pop(cols.index(col)))
         merged_df = merged_df[cols]  # rearrange the columns
         if len(merged_df) > 0:
             try:
