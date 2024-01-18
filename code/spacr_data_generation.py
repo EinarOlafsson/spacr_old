@@ -2825,6 +2825,7 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
                            timelapse=timelapse,
                            file_type='.npz')
             torch.cuda.empty_cache()
+	#Concatinate stack with masks
         load_and_concatenate_arrays(src, channels, cell_chann_dim, nucleus_chann_dim, parasite_chann_dim)
     
     torch.cuda.empty_cache()
