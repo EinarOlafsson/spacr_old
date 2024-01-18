@@ -2316,7 +2316,7 @@ def measure_crop(settings):
     settings['radial_dist'] = True
     settings['calculate_correlation'] = True
     settings['manders_thresholds'] = [15,85,95]
-    settings['include_uninfected'] = False
+    #settings['include_uninfected'] = False
     settings['homogeneity'] = True
     settings['homogeneity_distances'] = [8,16,32]
     settings['save_arrays'] = False
