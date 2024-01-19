@@ -1607,38 +1607,60 @@ def calculate_zernike(mask, df, degree=8):
     else:
         return df
 
-def morphological_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask, zernike=True, degree=8):
+def morphological_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask, settings, zernike=True, degree=8):
     
     morphological_props = ['label', 'area', 'area_filled', 'area_bbox', 'convex_area', 'major_axis_length', 'minor_axis_length', 
                            'eccentricity', 'solidity', 'extent', 'perimeter', 'euler_number', 'equivalent_diameter_area', 'feret_diameter_max']
     
-    # Create mappings from each cell to its nuclei, parasites, and cytoplasms
-    cell_to_nucleus, cell_to_parasite = get_components(cell_mask, nuclei_mask, parasite_mask)
-
-    # Calculate morphological properties
-    cell_props = pd.DataFrame(regionprops_table(cell_mask, properties=morphological_props))
-    nucleus_props = pd.DataFrame(regionprops_table(nuclei_mask, properties=morphological_props))
-    parasite_props = pd.DataFrame(regionprops_table(parasite_mask, properties=morphological_props))
-    cytoplasm_props = pd.DataFrame(regionprops_table(cytoplasm_mask, properties=morphological_props))
+    prop_ls = []
+    ls = []
     
-    if zernike:
+    # Create mappings from each cell to its nuclei, parasites, and cytoplasms
+    if settings['cell_mask_dim'] is not None:
+        cell_to_nucleus, cell_to_parasite = get_components(cell_mask, nuclei_mask, parasite_mask)
+        cell_props = pd.DataFrame(regionprops_table(cell_mask, properties=morphological_props))
         cell_props = calculate_zernike(cell_mask, cell_props, degree=degree)
+        prop_ls = prop_ls + [cell_props]
+        ls = ls + ['cell']
+
+    if settings['nuclei_mask_dim'] is not None:
+        nucleus_props = pd.DataFrame(regionprops_table(nuclei_mask, properties=morphological_props))
         nucleus_props = calculate_zernike(nuclei_mask, nucleus_props, degree=degree)
+        if settings['cell_mask_dim'] is not None:
+            nucleus_props = pd.merge(nucleus_props, cell_to_nucleus, left_on='label', right_on='nucleus', how='left')
+        prop_ls = prop_ls + [nucleus_props]
+        ls = ls + ['nucleus']
+    
+    if settings['parasite_mask_dim'] is not None:
+        parasite_props = pd.DataFrame(regionprops_table(parasite_mask, properties=morphological_props))
         parasite_props = calculate_zernike(parasite_mask, parasite_props, degree=degree)
+        if settings['cell_mask_dim'] is not None:
+            parasite_props = pd.merge(parasite_props, cell_to_parasite, left_on='label', right_on='parasite', how='left')
+        prop_ls = prop_ls + [parasite_props]
+        ls = ls + ['parasite']
+
+    if settings['cytoplasm']:
+        cytoplasm_props = pd.DataFrame(regionprops_table(cytoplasm_mask, properties=morphological_props))
+        prop_ls = prop_ls + [cytoplasm_props]
+        ls = ls + ['cytoplasm']
         #cytoplasm_props = calculate_zernike(cytoplasm_mask, cytoplasm_props, degree=degree)
-        
-    # Merge the mapping dataframes into the main dataframes
-    nucleus_props = pd.merge(nucleus_props, cell_to_nucleus, left_on='label', right_on='nucleus', how='left')
-    parasite_props = pd.merge(parasite_props, cell_to_parasite, left_on='label', right_on='parasite', how='left')
-        
-    prop_ls = [cell_props, nucleus_props, parasite_props, cytoplasm_props]
-    ls = ['cell', 'nucleus', 'parasite', 'cytoplasm']
+    
+    #prop_ls = [cell_props, nucleus_props, parasite_props, cytoplasm_props]
+    #ls = ['cell', 'nucleus', 'parasite', 'cytoplasm']
     df_ls = []
     for i,df in enumerate(prop_ls):
         df.columns = [f'{ls[i]}_{col}' for col in df.columns]
         df = df.rename(columns={col: 'label' for col in df.columns if 'label' in col})
         df_ls.append(df)
-    return df_ls[0], df_ls[1], df_ls[2], df_ls[3]
+    
+    if len(df_ls) == 1:
+    	return df_ls[0], pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+    if len(df_ls) == 2:
+    	return df_ls[0], df_ls[1], pd.DataFrame(), pd.DataFrame()
+    if len(df_ls) == 3:
+    	return df_ls[0], df_ls[1], df_ls[2], pd.DataFrame()
+    if len(df_ls) == 4:
+    	return df_ls[0], df_ls[1], df_ls[2], df_ls[3]
 
 def intensity_percentiles(region):
     percentiles = np.percentile(region.intensity_image.flatten(), [5, 10, 25, 50, 75, 85, 95])
@@ -1798,7 +1820,6 @@ def calculate_homogeneity(label, channel, distances=[2,4,8,16,32,64]):
     return homogeneity_df
 
 def intensity_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask, channel_arrays, settings, sizes=[3, 6, 12, 24], periphery=True, outside=True):
-    #radial_dist=True, calculate_correlation=True, homogeneity=True, distances=[2,4,8,16,32,64]
     
     radial_dist=settings['radial_dist']
     calculate_correlation=settings['calculate_correlation']
@@ -1904,32 +1925,6 @@ def map_wells_png(file_name):
         plate, row, column, field, cell_id, prcfo = 'error','error','error','error','error','error'
     return plate, row, column, field, cell_id, prcfo
 
-#def merge_and_save_to_database(morph_df, intensity_df, table_type, source_folder, file_name, experiment):
-#    morph_df = check_integrity(morph_df)
-#    intensity_df = check_integrity(intensity_df)
-#    if len(morph_df) > 0 and len(intensity_df) > 0:
-#        merged_df = pd.merge(morph_df, intensity_df, on='object_label', how='outer')
-#        merged_df = merged_df.rename(columns={"label_list_x": "label_list_morphology", "label_list_y": "label_list_intensity"})
-#        merged_df['file_name'] = file_name
-#        merged_df['path_name'] = os.path.join(source_folder,file_name+'.npy')
-#        merged_df[['plate', 'row', 'col', 'field', 'prcf']] = merged_df['file_name'].apply(lambda x: pd.Series(map_wells(x)))
-#        cols = merged_df.columns.tolist()  # get the list of all columns
-#        if table_type == 'cell' or table_type == 'cytoplasm':
-#            column_list = ['object_label', 'plate', 'row', 'col', 'field', 'prcf', 'file_name', 'path_name']
-#            for i, col in enumerate(column_list):
-#                cols.insert(i, cols.pop(cols.index(col)))
-#        if table_type == 'nucleus' or table_type == 'parasite':
-#            column_list = ['object_label', 'cell_id', 'plate', 'row', 'col', 'field', 'prcf', 'file_name', 'path_name']
-#            for i, col in enumerate(column_list):
-#                cols.insert(i, cols.pop(cols.index(col)))
-#        merged_df = merged_df[cols]  # rearrange the columns
-#        if len(merged_df) > 0:
-#            try:
-#                conn = sqlite3.connect(f'{source_folder}/measurements/measurements.db', timeout=5)
-#                merged_df.to_sql(table_type, conn, if_exists='append', index=False)
-#            except sqlite3.OperationalError as e:
-#                print("SQLite error:", e)
-
 def merge_and_save_to_database(morph_df, intensity_df, table_type, source_folder, file_name, experiment):
     morph_df = check_integrity(morph_df)
     intensity_df = check_integrity(intensity_df)
@@ -1993,27 +1988,6 @@ def filter_object(mask, min_value):
     to_remove = np.where(count < min_value)
     mask[np.isin(mask, to_remove)] = 0
     return mask
-
-def merge_overlapping_objects(mask1, mask2):
-    # Label unique objects in parasite_mask
-    labeled_1 = label(mask1)
-    # Determine the number of unique parasites
-    num_1 = np.max(labeled_1)
-    # Iterate over unique objects in parasite_mask
-    for m1_id in range(1, num_1 + 1):
-        # Create a mask for the current parasite object
-        current_1_mask = labeled_1 == m1_id
-        # Identify the overlapping cell labels
-        overlapping_2_labels = np.unique(mask2[current_1_mask])
-        # Ignore background (label 0) and filter out unique labels
-        overlapping_2_labels = overlapping_2_labels[overlapping_2_labels != 0]
-        
-        # Check if the current parasite object overlaps with more than one cell object
-        if len(overlapping_2_labels) > 1:
-            # If so, merge the overlapping cell objects into one
-            for m2_label in overlapping_2_labels[1:]:
-                mask2[mask2 == m2_label] = overlapping_2_labels[0]
-    return mask2
 
 def merge_overlapping_objects(mask1, mask2):
     # Label unique objects in parasite_mask
@@ -2138,14 +2112,16 @@ def measure_crop_core(index, time_ls, file, settings):
         cell_mask = data[:, :, settings['cell_mask_dim']].astype(data_type)
         if settings['nuclei_mask_dim'] is not None:
             nuclei_mask = data[:, :, settings['nuclei_mask_dim']].astype(data_type)
-            nuclei_mask, cell_mask = merge_overlapping_objects(mask1=nuclei_mask, mask2=cell_mask)
+            if settings['cell_mask_dim'] is not None:
+            	nuclei_mask, cell_mask = merge_overlapping_objects(mask1=nuclei_mask, mask2=cell_mask)
         else:
             nuclei_mask = np.zeros_like(cell_mask)
 
         if settings['parasite_mask_dim'] is not None:
             parasite_mask = data[:, :, settings['parasite_mask_dim']].astype(data_type)
             if settings['merge_edge_parasite_cells']:
-                parasite_mask, cell_mask = merge_overlapping_objects(mask1=parasite_mask, mask2=cell_mask)
+            	if settings['cell_mask_dim'] is not None:
+                	parasite_mask, cell_mask = merge_overlapping_objects(mask1=parasite_mask, mask2=cell_mask)
         else:
             parasite_mask = np.zeros_like(cell_mask)
             
@@ -2158,7 +2134,13 @@ def measure_crop_core(index, time_ls, file, settings):
 
         # Create cytoplasm mask
         if settings['cytoplasm']:
-            cytoplasm_mask = np.where(np.logical_or(nuclei_mask != 0, parasite_mask != 0), 0, cell_mask)
+            if settings['cell_mask_dim'] is not None:
+                if settings['nucleus_min_size'] is not None and settings['parasite_min_size'] is not None:
+                    cytoplasm_mask = np.where(np.logical_or(nuclei_mask != 0, parasite_mask != 0), 0, cell_mask)
+                elif settings['nucleus_min_size'] is not None:
+                    cytoplasm_mask = np.where(np.logical_or(nuclei_mask != 0), 0, cell_mask)
+                elif settings['parasite_min_size'] is not None:
+                    cytoplasm_mask = np.where(np.logical_or(parasite_mask != 0), 0, cell_mask)
         else:
             cytoplasm_mask = np.zeros_like(cell_mask)
         
@@ -2175,19 +2157,21 @@ def measure_crop_core(index, time_ls, file, settings):
             cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask = exclude_objects(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask, include_uninfected=False)
         
         # Update data with the new masks
-        data[:, :, settings['cell_mask_dim']] = cell_mask.astype(data_type)
+        if settings['cell_mask_dim'] is not None:
+            data[:, :, settings['cell_mask_dim']] = cell_mask.astype(data_type)
         if settings['nuclei_mask_dim'] is not None:
             data[:, :, settings['nuclei_mask_dim']] = nuclei_mask.astype(data_type)
         if settings['parasite_mask_dim'] is not None:
             data[:, :, settings['parasite_mask_dim']] = parasite_mask.astype(data_type)
-        data = np.concatenate((data, cytoplasm_mask[:, :, np.newaxis]), axis=2)
+        if settings['cytoplasm']:
+            data = np.concatenate((data, cytoplasm_mask[:, :, np.newaxis]), axis=2)
         
         if settings['plot_filtration']:
             #after = data[:, :, len(settings['channels'])+1:]
             plot_cropped_arrays(data)
 
         if settings['save_measurements']:
-            cell_df, nucleus_df, parasite_df, cytoplasm_df = morphological_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask)
+            cell_df, nucleus_df, parasite_df, cytoplasm_df = morphological_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask, settings)
             cell_intensity_df, nucleus_intensity_df, parasite_intensity_df, cytoplasm_intensity_df = intensity_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask, channel_arrays, settings, sizes=[1, 2, 3, 4, 5], periphery=True, outside=True)
             cell_merged_df = merge_and_save_to_database(cell_df, cell_intensity_df, 'cell', source_folder, file_name, settings['experiment'])
             nucleus_merged_df = merge_and_save_to_database(nucleus_df, nucleus_intensity_df, 'nucleus', source_folder, file_name, settings['experiment'])
@@ -2350,7 +2334,14 @@ def measure_crop(settings):
     settings['homogeneity'] = True
     settings['homogeneity_distances'] = [8,16,32]
     settings['save_arrays'] = False
-    settings['cytoplasm'] = True
+    
+    if settings['cell_mask_dim'] is not None and settings['parasite_min_size'] is not None:
+    	settings['cytoplasm'] = True
+    elif settings['cell_mask_dim'] is not None and settings['nucleus_min_size'] is not None:
+    	settings['cytoplasm'] = True
+    else:
+    	settings['cytoplasm'] = False
+    
     settings['dialate_pngs'] = False
     settings['dialate_png_ratios'] = 0.2
     settings['center_crop'] = True
@@ -2365,7 +2356,7 @@ def measure_crop(settings):
         print("Warning: normalize_by should be either 'png' to notmalize each png to its own percentiles or 'fov' to normalize each png to the fov percentiles ")
         return
 
-    if not all(isinstance(settings[key], int) for key in int_setting_keys):
+    if not all(isinstance(settings[key], int) or settings[key] is None for key in int_setting_keys):
         print(f"WARNING: {int_setting_keys} must all be integers")
         return
 
@@ -2780,7 +2771,7 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
     if isinstance(backgrounds, list):
         backgrounds = backgrounds
         min_highs = backgrounds*signal_to_noise    
-        
+    
     if preprocess: 
         preprocess_img_data(src,
                             metadata_type=metadata_type,
