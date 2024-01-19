@@ -700,27 +700,32 @@ def merge_channels(src, plot=False):
     return
 
 def plot_4D_arrays(src, figuresize=10, cmap='inferno', nr_npz=1, nr=1):
-    paths = []
-    for file in os.listdir(src):
-        if file.endswith('.npz'):
-            path = os.path.join(src, file)
-            paths.append(path) 
-    paths = random.sample(paths, nr_npz)
+    paths = [os.path.join(src, file) for file in os.listdir(src) if file.endswith('.npz')]
+    paths = random.sample(paths, min(nr_npz, len(paths)))
+    
     for path in paths:
         with np.load(path) as data:
             stack = data['data']
         num_images = stack.shape[0]
         num_channels = stack.shape[3]
-        for i in range(num_images):
-            if i < nr:
-                img = stack[i]
+
+        for i in range(min(nr, num_images)):
+            img = stack[i]
+            
+            # Create subplots
+            if num_channels == 1:
+                fig, axs = plt.subplots(1, 1, figsize=(figuresize, figuresize))
+                axs = [axs]  # Make axs a list to use axs[c] later
+            else:
                 fig, axs = plt.subplots(1, num_channels, figsize=(num_channels * figuresize, figuresize))
-                for c in range(num_channels):
-                    axs[c].imshow(img[:, :, c], cmap=cmap)
-                    axs[c].set_title('Channel ' + str(c), size=24)
-                    axs[c].axis('off')
-                fig.tight_layout()
-                plt.show()
+            
+            for c in range(num_channels):
+                axs[c].imshow(img[:, :, c], cmap=cmap)
+                axs[c].set_title(f'Channel {c}', size=24)
+                axs[c].axis('off')
+
+            fig.tight_layout()
+            plt.show()
     return
 
 def plot_stack(stack):
