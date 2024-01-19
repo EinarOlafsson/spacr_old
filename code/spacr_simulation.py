@@ -13,12 +13,17 @@ def get_paths(env_name):
 
     conda_path = shutil.which(conda_executable)
     
-    if not conda_path and sys.platform == "win32":
-        conda_path = "C:\\ProgramData\\Anaconda3\\Scripts\\conda.exe"
+    if not conda_path:
+        if sys.platform == "win32":
+            conda_path = "C:\\ProgramData\\Anaconda3\\Scripts\\conda.exe"
+        else:
+            home_directory = os.path.expanduser('~')
+            conda_path = os.path.join(home_directory, 'anaconda3', 'bin', conda_executable)
 
     if not os.path.exists(conda_path):
-        username = getpass.getuser()
-        conda_path = f"C:\\Users\\{username}\\Anaconda3\\Scripts\\conda.exe"
+        if sys.platform == "win32":
+            username = getpass.getuser()
+            conda_path = f"C:\\Users\\{username}\\Anaconda3\\Scripts\\conda.exe"
 
     if not conda_path or not os.path.exists(conda_path):
         print("Conda is not found in the system PATH")
