@@ -2798,11 +2798,15 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
                             all_to_mip=all_to_mip,
                             fps=2)
     if masks:
+    
+        if len(cellpose_channels) == 2:
+            chans = [0,1]
+        elif len(cellpose_channels) == 3:
+            chans = [0,2]
+        elif len(cellpose_channels) == 1:
+            chans = [0,0]
+
         if cell_chann_dim != None:
-            if len(cellpose_channels) == 2:
-                chans = [0,1]
-            if len(cellpose_channels) == 3:
-                chans = [0,2]
             generate_masks(src,
                            object_type='cell',
                            mag=magnefication,
