@@ -2690,6 +2690,8 @@ def generate_dataset(src, file_type=None, experiment='TSG101_screen', sample=Non
     # Initialize the shared objects
     counter_ = Value('i', 0)
     lock_ = Lock()
+
+    ctx = mp.get_context('spawn')
     
     print(f'Generating temporary tar files in {dst}')
     
@@ -2703,15 +2705,12 @@ def generate_dataset(src, file_type=None, experiment='TSG101_screen', sample=Non
         tar_name = tar_name_2
     
     # Add the counter and lock to the arguments for pool.map
-    #print(f'Merging temporary files')
+    print(f'Merging temporary files')
     #with Pool(processes=num_procs, initializer=init_globals, initargs=(counter_, lock_)) as pool:
     #    results = pool.map(add_images_to_tar, zip(paths_chunks, temp_tar_files))
 
-    print(f'Merging temporary files')
-    with Pool(processes=num_procs, initializer=init_globals, initargs=(counter_, lock_)) as pool:
-        results = pool.starmap(add_images_to_tar, zip(paths_chunks, temp_tar_files))
-
-    print("Subprocesses completed, results:", results)
+    with ctx.Pool(processes=num_procs, initializer=init_globals, initargs=(counter_, lock_)) as pool:
+        results = pool.map(add_images_to_tar, zip(paths_chunks, temp_tar_files))
     
     with tarfile.open(os.path.join(dst, tar_name), 'w') as final_tar:
         for tar_path in results:
