@@ -76,10 +76,6 @@ def has_nvidia_gpu():
 # Install dependencies in a specified kernel environment.
 def install_dependencies_in_kernel(dependencies, env_name):
     
-    # Ensure Python version is 3.9 or above
-    if sys.version_info < (3, 9):
-        raise EnvironmentError("Python version 3.9 or higher is required.")
-    
     conda_PATH, _, pip_PATH, _ = get_paths(env_name)
 
     # Check if conda is available
