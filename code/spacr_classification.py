@@ -153,6 +153,7 @@ print('CUDA version:',torch.version.cuda)
 import numpy as np
 import pandas as pd
 from PIL import Image, ImageTk, ImageOps
+import tarfile
 
 # statmodels
 from statsmodels.stats.outliers_influence import variance_inflation_factor
