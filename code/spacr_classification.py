@@ -2675,7 +2675,7 @@ def generate_dataset(src, file_type=None, experiment='TSG101_screen', sample=Non
         remainder = len(selected_paths) % num_procs
     else:
         num_procs = 2
-        chunk_size = len(selected_paths)/2
+        chunk_size = len(selected_paths) // 2
         remainder = 0
 
     paths_chunks = []
