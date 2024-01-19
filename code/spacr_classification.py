@@ -2655,11 +2655,11 @@ def generate_dataset(src, file_type=None, experiment='TSG101_screen', sample=Non
     
     if isinstance(sample, int):
         selected_paths = random.sample(all_paths, sample)
-	print(f'Random selection of {len(selected_paths) paths}')
+        print(f'Random selection of {len(selected_paths) paths}')
     else:
         selected_paths = all_paths
         random.shuffle(selected_paths)
-	print(f'All paths: {len(selected_paths) paths}')
+        print(f'All paths: {len(selected_paths) paths}')
         
     total_images = len(selected_paths)
     print(f'found {total_images} images')
