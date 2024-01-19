@@ -2655,20 +2655,28 @@ def generate_dataset(src, file_type=None, experiment='TSG101_screen', sample=Non
     
     if isinstance(sample, int):
         selected_paths = random.sample(all_paths, sample)
+	print(f'Random selection of {len(selected_paths) paths}')
     else:
         selected_paths = all_paths
         random.shuffle(selected_paths)
+	print(f'All paths: {len(selected_paths) paths}')
         
     total_images = len(selected_paths)
+    print(f'found {total_images} images')
     
     # Create a temp folder in dst
     temp_dir = os.path.join(dst, "temp_tars")
     os.makedirs(temp_dir, exist_ok=True)
-    
+
     # Chunking the data
-    num_procs = cpu_count()
-    chunk_size = len(selected_paths) // num_procs
-    remainder = len(selected_paths) % num_procs
+    if len(selected_paths) > 10000:
+        num_procs = cpu_count()-2
+        chunk_size = len(selected_paths) // num_procs
+        remainder = len(selected_paths) % num_procs
+    else:
+        num_procs = 2
+        chunk_size = len(selected_paths)/2
+        remainder = 0
 
     paths_chunks = []
     start = 0
