@@ -2691,7 +2691,7 @@ def generate_dataset(src, file_type=None, experiment='TSG101_screen', sample=Non
     counter_ = Value('i', 0)
     lock_ = Lock()
 
-    ctx = mp.get_context('spawn')
+    ctx = multiprocessing.get_context('spawn')
     
     print(f'Generating temporary tar files in {dst}')
     
