@@ -1908,23 +1908,29 @@ def map_wells(file_name):
         plate, row, column, field, prcf = 'error','error','error','error','error'
     return plate, row, column, field, prcf
 
+def safe_int_convert(value, default=0):
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
 def map_wells_png(file_name):
     try:
         root, ext = os.path.splitext(file_name)
         parts = root.split('_')
         plate = 'p' + parts[0][5:]
-        field = 'f' + str(int(parts[2]))
+        field = 'f' + str(safe_int_convert(parts[2]))
         well = parts[1]
         row = 'r' + str(string.ascii_uppercase.index(well[0]) + 1)
-        column = 'c' + str(int(well[1:]))
-        cell_id = 'o' + str(int(parts[3]))
+        column = 'c' + str(safe_int_convert(well[1:]))
+        cell_id = 'o' + str(safe_int_convert(parts[3], default='none'))
         prcfo = '_'.join([plate, row, column, field, cell_id])
     except Exception as e:
         print(f"Error processing filename: {file_name}")
         print(f"Error: {e}")
-        plate, row, column, field, cell_id, prcfo = 'error','error','error','error','error','error'
+        plate, row, column, field, cell_id, prcfo = 'error', 'error', 'error', 'error', 'error', 'error'
     return plate, row, column, field, cell_id, prcfo
-
+    
 def merge_and_save_to_database(morph_df, intensity_df, table_type, source_folder, file_name, experiment):
     morph_df = check_integrity(morph_df)
     intensity_df = check_integrity(intensity_df)
@@ -2020,55 +2026,39 @@ def merge_overlapping_objects(mask1, mask2):
                 # Merge the overlapping cell objects into one
                 for m2_label in overlapping_2_labels[1:]:
                     mask2[mask2 == m2_label] = overlapping_2_labels[0]
-    
+                    
     return mask1, mask2
-
+    
 def generate_names(file_name, cell_id, cell_nuclei_ids, cell_parasite_ids, source_folder, crop_mode='cell'):
-    
     non_zero_cell_ids = cell_id[cell_id != 0]
-    if non_zero_cell_ids.size != 1:
-        cell_id = non_zero_cell_ids
-        
-    if non_zero_cell_ids.size == 1:
-        cell_id = int(non_zero_cell_ids)
-    
+    cell_id_str = "multi" if non_zero_cell_ids.size > 1 else str(non_zero_cell_ids[0]) if non_zero_cell_ids.size == 1 else "none"
+
     cell_nuclei_ids = cell_nuclei_ids[cell_nuclei_ids != 0]
+    cell_nuclei_id_str = "multi" if cell_nuclei_ids.size > 1 else str(cell_nuclei_ids[0]) if cell_nuclei_ids.size == 1 else "none"
+
     cell_parasite_ids = cell_parasite_ids[cell_parasite_ids != 0]
-    
-    if crop_mode == 'nucleus':
-        if cell_nuclei_ids.size == 1:
-            nucleus_id = int(cell_nuclei_ids)
-        else:
-            nucleus_id = cell_nuclei_ids
-        img_name = f"{file_name}_{cell_id}_{nucleus_id}.png"
-        
-    if crop_mode == 'parasite':
-        if cell_parasite_ids.size == 1:
-            parasite_id = int(cell_parasite_ids)
-        else:
-            parasite_id = cell_parasite_ids
-        img_name = f"{file_name}_{cell_id}_{parasite_id}.png"
-    
-    if crop_mode == 'cell' or crop_mode == 'cytoplasm':
-        img_name = f"{file_name}_{cell_id}.png"
-    
+    cell_parasite_id_str = "multi" if cell_parasite_ids.size > 1 else str(cell_parasite_ids[0]) if cell_parasite_ids.size == 1 else "none"
+
     fldr = f"{source_folder}/data/"
-    if crop_mode == 'cell' or crop_mode == 'cytoplasm':
-        if cell_nuclei_ids.size == 1:
-            fldr += "single_nuclei/"
-        elif cell_nuclei_ids.size > 1:
-            fldr += "multiple_nuclei/"
-        else:
-            fldr += "no_nuclei/"
-        if cell_parasite_ids.size == 1:
-            fldr += "single_parasite/"
-        elif cell_parasite_ids.size > 1:
-            fldr += "multiple_parasites/"
-        else:
-            fldr += "uninfected/"
-        table_name = fldr.replace("/", "_")
+    img_name = ""
+
+    if crop_mode == 'nucleus':
+        img_name = f"{file_name}_{cell_id_str}_{cell_nuclei_id_str}.png"
+        fldr += "single_nucleus/" if cell_nuclei_ids.size == 1 else "multiple_nuclei/" if cell_nuclei_ids.size > 1 else "no_nucleus/"
+        fldr += "single_parasite/" if cell_parasite_ids.size == 1 else "multiple_parasites/" if cell_parasite_ids.size > 1 else "uninfected/"
+
+    elif crop_mode == 'parasite':
+        img_name = f"{file_name}_{cell_id_str}_{cell_parasite_id_str}.png"
+        fldr += "single_nucleus/" if cell_nuclei_ids.size == 1 else "multiple_nuclei/" if cell_nuclei_ids.size > 1 else "no_nucleus/"
+        fldr += "infected/" if cell_parasite_ids.size >= 1 else "uninfected/"
+
+    elif crop_mode == 'cell' or crop_mode == 'cytoplasm':
+        img_name = f"{file_name}_{cell_id_str}.png"
+        fldr += "single_nucleus/" if cell_nuclei_ids.size == 1 else "multiple_nuclei/" if cell_nuclei_ids.size > 1 else "no_nucleus/"
+        fldr += "single_parasite/" if cell_parasite_ids.size == 1 else "multiple_parasites/" if cell_parasite_ids.size > 1 else "uninfected/"
 
     table_name = fldr.replace("/", "_")
+    
     return img_name, fldr, table_name
 
 def find_bounding_box(crop_mask, _id, buffer=10):
@@ -2109,28 +2099,33 @@ def measure_crop_core(index, time_ls, file, settings):
 
         #extract image, cell, nucleus and parasite arrays
         channel_arrays = data[:, :, settings['channels']].astype(data_type)
-        cell_mask = data[:, :, settings['cell_mask_dim']].astype(data_type)
+        if settings['cell_mask_dim'] is not None:
+            cell_mask = data[:, :, settings['cell_mask_dim']].astype(data_type)
+            if settings['cell_min_size'] is not None:
+                cell_mask = filter_object(cell_mask, settings['cell_min_size']) # Filter out small cells
+        else:
+            cell_mask = np.zeros_like(data[:, :, 0])
+
         if settings['nuclei_mask_dim'] is not None:
             nuclei_mask = data[:, :, settings['nuclei_mask_dim']].astype(data_type)
             if settings['cell_mask_dim'] is not None:
-            	nuclei_mask, cell_mask = merge_overlapping_objects(mask1=nuclei_mask, mask2=cell_mask)
+                nuclei_mask, cell_mask = merge_overlapping_objects(mask1=nuclei_mask, mask2=cell_mask)
+        if settings['nucleus_min_size'] is not None:
+            nuclei_mask = filter_object(nuclei_mask, settings['nucleus_min_size']) # Filter out small nuclei
         else:
-            nuclei_mask = np.zeros_like(cell_mask)
+            nuclei_mask = np.zeros_like(data[:, :, 0])
 
         if settings['parasite_mask_dim'] is not None:
             parasite_mask = data[:, :, settings['parasite_mask_dim']].astype(data_type)
             if settings['merge_edge_parasite_cells']:
-            	if settings['cell_mask_dim'] is not None:
-                	parasite_mask, cell_mask = merge_overlapping_objects(mask1=parasite_mask, mask2=cell_mask)
+                if settings['cell_mask_dim'] is not None:
+                    parasite_mask, cell_mask = merge_overlapping_objects(mask1=parasite_mask, mask2=cell_mask)
         else:
-            parasite_mask = np.zeros_like(cell_mask)
+            parasite_mask = np.zeros_like(data[:, :, 0])
             
-        if settings['cell_min_size'] is not None:
-            cell_mask = filter_object(cell_mask, settings['cell_min_size']) # Filter out small cells
-        if settings['nucleus_min_size'] is not None:
-            nuclei_mask = filter_object(nuclei_mask, settings['nucleus_min_size']) # Filter out small nuclei
         if settings['parasite_min_size'] is not None:
             parasite_mask = filter_object(parasite_mask, settings['parasite_min_size']) # Filter out small parasites
+
 
         # Create cytoplasm mask
         if settings['cytoplasm']:
@@ -2229,6 +2224,7 @@ def measure_crop_core(index, time_ls, file, settings):
                             region = find_bounding_box(crop_mask, _id, buffer=10)
                         
                         img_name, fldr, table_name = generate_names(file_name=file_name, cell_id=region_cell_ids, cell_nuclei_ids=region_nuclei_ids, cell_parasite_ids=region_parasite_ids, source_folder=source_folder, crop_mode=crop_mode)
+                        
                         if dialate_png:
                             region_area = np.sum(region)
                             approximate_diameter = np.sqrt(region_area)
@@ -2267,7 +2263,19 @@ def measure_crop_core(index, time_ls, file, settings):
                             if len(img_paths) == len(objects_in_image):
                                 png_df = pd.DataFrame(img_paths, columns=['png_path'])
                                 png_df['file_name'] = png_df['png_path'].apply(lambda x: os.path.basename(x))
-                                png_df[['plate', 'row', 'col', 'field', 'cell_id', 'prcfo']] = png_df['file_name'].apply(lambda x: pd.Series(map_wells_png(x)))
+
+                                if crop_mode == 'cell':
+                                    png_df[['plate', 'row', 'col', 'field', 'cell_id', 'prcfo']] = png_df['file_name'].apply(lambda x: pd.Series(map_wells_png(x)))
+
+                                elif crop_mode == 'nucleus':
+                                    png_df[['plate', 'row', 'col', 'field', 'nucleus_id', 'prcfo']] = png_df['file_name'].apply(lambda x: pd.Series(map_wells_png(x)))
+
+                                elif crop_mode == 'parasite':
+                                    png_df[['plate', 'row', 'col', 'field', 'parasite_id', 'prcfo']] = png_df['file_name'].apply(lambda x: pd.Series(map_wells_png(x)))
+
+                                elif crop_mode == 'cytoplasm':
+                                    png_df[['plate', 'row', 'col', 'field', 'cytoplasm_id', 'prcfo']] = png_df['file_name'].apply(lambda x: pd.Series(map_wells_png(x)))
+
                                 try:
                                     conn = sqlite3.connect(f'{source_folder}/measurements/measurements.db', timeout=5)
                                     png_df.to_sql('png_list', conn, if_exists='append', index=False)
