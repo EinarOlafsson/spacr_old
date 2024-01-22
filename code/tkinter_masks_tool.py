@@ -297,13 +297,3 @@ class ImageEditor:
             self.current_image_index += 1
             self.display_image()
             self.draw_coordinates.clear()
-
-# Folder path, scale factor, and window size as arguments
-folder_path = "/Users/olafsson/Desktop/test"
-scale_factor = 0.5
-window_width = 1024
-window_height = 768
-
-root = tk.Tk()
-app = ImageEditor(root, folder_path, window_width, window_height, scale_factor)
-root.mainloop()
