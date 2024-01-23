@@ -3,6 +3,7 @@ from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 import imageio.v2 as imageio
 from skimage.color import rgb2gray
 from skimage.transform import resize
@@ -38,6 +39,18 @@ class ImageEditor:
         
         # Display the first image
         self.display_image()
+
+    def apply_quantiles(self):
+        self.display_image()
+
+    def normalize_image(self, image, lower_quantile, upper_quantile):
+        lower_bound = np.percentile(image, lower_quantile)
+        upper_bound = np.percentile(image, upper_quantile)
+        normalized = np.clip(image, lower_bound, upper_bound)
+        normalized = (normalized - lower_bound) / (upper_bound - lower_bound)
+        max_value = np.iinfo(image.dtype).max
+        normalized = (normalized * max_value).astype(image.dtype)
+        return normalized
         
     def load_images(self, folder_path):
         image_files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.tif', '.tiff'))]
@@ -52,65 +65,52 @@ class ImageEditor:
             self.image_filenames.append(file)  # Add filename
             image = imageio.imread(image_path)
             images.append(image)
+            image_shape = image.shape
 
             # Check if the mask exists in the 'masks' folder
             if os.path.exists(mask_path):
-                mask = imageio.imread(mask_path)
-                mask = mask.astype(np.uint8)
-                masks.append(mask)
-                print(f"Loaded mask for {file} - shape: {mask.shape}, image shape: {image.shape} unique values: {np.unique(mask)}")
+                mask = Image.open(mask_path)
+                mask = np.array(mask, dtype=np.uint16)
+                print("Unique mask values:", np.unique(mask))
+                
+                # Optional: Display a sample mask
+                #plt.imshow(mask, cmap='gray')
+                #plt.title("Sample Mask")
+                #plt.show()
+                #masks.append(mask)
+                #print(f"Loaded mask for {file} - shape: {mask.shape}, image shape: {image.shape} unique values: {np.unique(mask)}")
             else:
-                masks.append(np.zeros(image.shape[:2], dtype=np.uint8))  # Create a zero-filled mask
+                masks.append(np.zeros(image.shape[:2], dtype=np.uint16))  # Create a zero-filled mask
 
         self.masks = masks
         return images
-        
-    def apply_quantiles(self):
-        self.display_image()
-
-    def normalize_image(self, image, lower_quantile, upper_quantile):
-        lower_bound = np.percentile(image, lower_quantile)
-        upper_bound = np.percentile(image, upper_quantile)
-        normalized = np.clip(image, lower_bound, upper_bound)
-        normalized = (normalized - lower_bound) / (upper_bound - lower_bound)
-        max_value = np.iinfo(image.dtype).max
-        normalized = (normalized * max_value).astype(image.dtype)
-        return normalized
     
-    def resize_image(self, image, scale_factor):
-        original_dtype = image.dtype
-        resized_image = resize(image, 
-                               (int(image.shape[0] * scale_factor), int(image.shape[1] * scale_factor)), 
+    def resize_array(self, array, scale_factor):
+        original_dtype = array.dtype
+        resized_array = resize(array, 
+                               (int(array.shape[0] * scale_factor), int(array.shape[1] * scale_factor)), 
                                anti_aliasing=True, preserve_range=True)
-        return resized_image.astype(original_dtype)
+        return resized_array.astype(original_dtype)
     
-    def resize_mask(self, mask, image, scale_factor):
-        original_dtype = mask.dtype
-        resized_mask = resize(mask, 
-                               (int(image.shape[0] * scale_factor), int(image.shape[1] * scale_factor)), 
-                               anti_aliasing=True, preserve_range=True)
-        return resized_mask.astype(original_dtype)
-    
-    def resize_current_image(self):
+    def resize_current_image_and_mask(self):
         if self.current_image_index < len(self.images):
+            # Resize the current image
             original_image = self.images[self.current_image_index]
-            self.current_resized_image = self.resize_image(original_image, self.scale_factor)
-    
-    def resize_current_mask(self, image):
-        if self.current_image_index < len(self.images):
+            self.current_resized_image = self.resize_array(original_image, self.scale_factor)
+
+            # Resize the mask using nearest-neighbor interpolation
             original_mask = self.masks[self.current_image_index]
-            self.current_resized_mask = self.resize_mask(original_mask, image, self.scale_factor)
-    
-    def display_image(self):
+            resized_mask_dimensions = (self.current_resized_image.shape[0], self.current_resized_image.shape[1])
+            print("Unique resized_mask_dimensions values:", np.unique(resized_mask_dimensions))
+            self.current_resized_mask = resize(original_mask, resized_mask_dimensions, anti_aliasing=False, order=0, preserve_range=True).astype(original_mask.dtype)
+
+    def display_image_old(self):
         if self.current_image_index < len(self.images):
-            self.resize_current_image()  # Resize the current image
+            self.resize_current_image_and_mask()  # Resize image and mask together
             image = self.current_resized_image
-            
-            self.resize_current_mask(image)  # Resize the current mask
             mask = self.current_resized_mask
             print(mask.shape)
-            
-            #mask = self.masks[self.current_image_index]
+
             lower_quantile = float(self.lower_quantile_entry.get())
             upper_quantile = float(self.upper_quantile_entry.get())
             normalized_image = self.normalize_image(image, lower_quantile, upper_quantile)
@@ -118,6 +118,46 @@ class ImageEditor:
 
             overlay = self.overlay_mask_on_image(scaled_image, mask)
             self.tk_image = ImageTk.PhotoImage(image=Image.fromarray(overlay))
+            self.canvas.create_image(0, 0, anchor='nw', image=self.tk_image)
+
+    def display_image_new_old(self):
+        if self.current_image_index < len(self.images):
+            self.resize_current_image_and_mask()  # Resize image and mask for processing
+            image = self.current_resized_image
+            mask = self.current_resized_mask
+            print(mask.shape)
+            print(image.shape)
+    
+            lower_quantile = float(self.lower_quantile_entry.get())
+            upper_quantile = float(self.upper_quantile_entry.get())
+            normalized_image = self.normalize_image(image, lower_quantile, upper_quantile)
+    
+            # Resize for display purposes
+            display_size_image = resize(normalized_image, (self.window_height, self.window_width), preserve_range=True).astype(normalized_image.dtype)
+            display_size_mask = resize(mask, (self.window_height, self.window_width), preserve_range=True).astype(mask.dtype)
+    
+            overlay = self.overlay_mask_on_image(display_size_image, display_size_mask)
+            self.tk_image = ImageTk.PhotoImage(image=Image.fromarray(overlay))
+            self.canvas.create_image(0, 0, anchor='nw', image=self.tk_image)
+    
+    def display_image(self):
+        if self.current_image_index < len(self.images):
+            self.resize_current_image_and_mask()  # Resize image and mask for processing
+            image = self.current_resized_image
+            mask = self.current_resized_mask
+            print(mask.shape)
+            print(image.shape)
+            lower_quantile = float(self.lower_quantile_entry.get())
+            upper_quantile = float(self.upper_quantile_entry.get())
+            normalized_image = self.normalize_image(image, lower_quantile, upper_quantile)
+            # Resize for display purposes
+            display_size_image = resize(normalized_image, (self.window_height, self.window_width), preserve_range=True).astype(normalized_image.dtype)
+            display_size_mask = resize(mask, (self.window_height, self.window_width), preserve_range=True).astype(mask.dtype)
+            print("Unique display_size_mask values:", np.unique(display_size_mask))
+            overlay = self.overlay_mask_on_image(display_size_image, display_size_mask)
+            # Convert the combined image to 8-bit format
+            overlay_8bit = (overlay / overlay.max() * 255).astype(np.uint8)
+            self.tk_image = ImageTk.PhotoImage(image=Image.fromarray(overlay_8bit))
             self.canvas.create_image(0, 0, anchor='nw', image=self.tk_image)
 
     def redraw_lines(self):
@@ -216,9 +256,11 @@ class ImageEditor:
         if len(image.shape) == 2:  # Grayscale image
             image = np.stack((image,) * 3, axis=-1)  # Convert to RGB
 
+        print("Unique mask values:", np.unique(mask))
         # Ensure mask is in integer format
         mask = mask.astype(np.int32)
         max_label = np.max(mask)
+        print("Unique mask values:", np.unique(mask))
 
         np.random.seed(0)  # Optional: for consistent colors across different calls
         colors = np.random.randint(0, 255, size=(max_label + 1, 3), dtype=np.uint8)
@@ -230,22 +272,25 @@ class ImageEditor:
         image_8bit = (image / 256).astype(np.uint8)
         combined_image = np.where(mask[..., None] > 0, colored_mask, image_8bit)
         return combined_image
-    
-    def overlay_mask_on_image_broken(self, image, mask):
-        if len(image.shape) == 2:  # Grayscale image
-            image = np.stack((image,)*3, axis=-1)  # Convert to RGB
 
-        unique_labels = np.unique(mask)
-        label_colors = {label: [random.randint(0, 255) for _ in range(3)] for label in unique_labels if label != 0}
-
-        colored_mask = np.zeros_like(image, dtype=np.uint8)
-        for label, color in label_colors.items():
-            mask_indices = mask == label
-            colored_mask[mask_indices] = color
-
-        image_8bit = (image / 256).astype(np.uint8)
-        combined_image = np.where(mask[..., None] > 0, colored_mask, image_8bit)
+    def overlay_mask_on_image_new(self, image, mask):
+        # Ensure the image is in RGB format
+        if len(image.shape) == 2 or image.shape[-1] != 3:
+            image = np.stack((image,) * 3, axis=-1)  # Convert to RGB
+        # Process mask
+        mask = mask.astype(np.int32)
+        max_label = np.max(mask)
+        np.random.seed(0)
+        colors = np.random.randint(0, 255, size=(max_label + 1, 3), dtype=np.uint8)
+        colors[0] = [0, 0, 0]  # Background color
+        # Ensure mask has same dimensions as image for overlay
+        colored_mask = colors[mask]
+        if colored_mask.shape[-1] != 3:
+            colored_mask = np.stack((colored_mask,) * 3, axis=-1)  # Convert to RGB
+        # Overlay the colored mask on the image
+        combined_image = np.where(mask[..., None] > 0, colored_mask, image)    
         return combined_image
+
 
     def activate_erase_object_mode(self):
         # Bind the canvas click event to the erase_object_mode function
@@ -372,10 +417,10 @@ class ImageEditor:
             self.draw_coordinates.clear()
             
 # Folder path, scale factor, and window size as arguments
-folder_path = "/mnt/training_data_cellpose/test/"
+folder_path = "/Users/olafsson/Desktop/test"
 scale_factor = 1
-window_width = 1996
-window_height = 1996
+window_width = 800
+window_height = 800
 
 root = tk.Tk()
 app = ImageEditor(root, folder_path, window_width, window_height, scale_factor)
