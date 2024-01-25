@@ -1,3 +1,122 @@
+import subprocess
+import sys
+import os
+import json
+import shutil
+import platform
+import getpass
+
+def get_paths(env_name):
+    conda_executable = "conda.exe" if sys.platform == "win32" else "conda"
+    python_executable = "python.exe" if sys.platform == "win32" else "python"
+    pip_executable = "pip.exe" if sys.platform == "win32" else "pip"
+
+    conda_path = shutil.which(conda_executable)
+    
+    if not conda_path:
+        if sys.platform == "win32":
+            conda_path = "C:\\ProgramData\\Anaconda3\\Scripts\\conda.exe"
+        else:
+            home_directory = os.path.expanduser('~')
+            conda_path = os.path.join(home_directory, 'anaconda3', 'bin', conda_executable)
+
+    if not os.path.exists(conda_path):
+        if sys.platform == "win32":
+            username = getpass.getuser()
+            conda_path = f"C:\\Users\\{username}\\Anaconda3\\Scripts\\conda.exe"
+
+    if not conda_path or not os.path.exists(conda_path):
+        print("Conda is not found in the system PATH")
+        return None, None, None, None
+
+    conda_dir = os.path.dirname(os.path.dirname(conda_path))
+    env_path = os.path.join(conda_dir, 'envs', env_name)
+    
+    if sys.platform == "win32":
+        pip_path = os.path.join(env_path, 'Scripts', pip_executable)
+        python_path = os.path.join(env_path, python_executable)
+    else:
+        python_path = os.path.join(env_path, 'bin', python_executable)
+        pip_path = os.path.join(env_path, 'bin', pip_executable)
+
+    return conda_path, python_path, pip_path, env_path
+
+# create new kernel
+def add_kernel(env_name, display_name):
+    _, python_path, _, _ = get_paths(env_name)
+    if not python_path:
+        print(f"Failed to locate the Python executable for '{env_name}'")
+        return
+
+    try:
+        subprocess.run([python_path, '-m', 'ipykernel', 'install', '--user', '--name', env_name, '--display-name', display_name])
+        print(f"Kernel for '{env_name}' with display name '{display_name}' added successfully.")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to add kernel. Error: {e}")
+        print(f"kernel can be added manualy with: python -m ipykernel install --user --name {env_name} --display-name {display_name}")
+
+def create_environment(conda_PATH, env_name):
+    print(f"Creating environment {env_name}...")
+    subprocess.run([conda_PATH, "create", "-n", env_name, "python=3.9", "-y"])
+
+# Install dependencies in a specified kernel environment.
+def install_dependencies_in_kernel(dependencies, env_name):
+    
+    conda_PATH, _, pip_PATH, _ = get_paths(env_name)
+
+    # Check if conda is available
+    if not conda_PATH:
+        raise EnvironmentError("Conda executable not found.")
+
+    # Get the current Conda configuration for channels
+    result = subprocess.run([conda_PATH, "config", "--show", "channels"], capture_output=True, text=True)
+    channels = result.stdout
+
+    # Check if 'conda-forge' is in the channels list
+    if 'conda-forge' not in channels:
+        # If 'conda-forge' is not in the channels, add it
+        subprocess.run([conda_PATH, "config", "--add", "channels", "conda-forge"])
+        print("Added conda-forge to channels.")
+
+    # Update conda
+    #print("Updating Conda...")
+    #subprocess.run([conda_PATH, "update", "-n", "base", "-c", "defaults", "conda", "-y"])
+    
+    for package in dependencies:
+        print(f"Installing {package}")
+        subprocess.run([conda_PATH, "install", "-n", env_name, package, "-y"])
+    
+    # Install additional packages
+    subprocess.run([pip_PATH, "install", "opencv-python-headless"])
+    subprocess.run([pip_PATH, "install", "PyQt5"])
+    subprocess.run([pip_PATH, "install", "screeninfo"])
+
+    print("Dependencies installation complete.")
+
+env_name = "spacr_modify_masks_gui"
+
+conda_PATH, python_PATH, pip_PATH, env_PATH = get_paths(env_name)
+
+dependencies = ["tkinter", "imageio==2.33.1", "scipy", "pillow", "scikit-image", "ipykernel", "requests", "h5py", "pyzmq"]
+
+if not os.path.exists(env_PATH):
+
+    print(f'System type: {sys.platform}')
+    print(f'PATH to conda: {conda_PATH}')
+    print(f'PATH to python: {python_PATH}')
+    print(f'PATH to pip: {pip_PATH}')
+    print(f'PATH to new environment: {env_PATH}')
+
+    create_environment(conda_PATH, env_name)
+    install_dependencies_in_kernel(dependencies, env_name)
+    add_kernel(env_name, env_name)
+    print(f"Environment '{env_name}' created and added as a Jupyter kernel.")
+    print(f"Refresh the page, set {env_name} as the kernel and run cell again")
+    sys.exit()
+    #SystemExit()
+
+#######################################################################################################################
+
 import os
 import numpy as np
 import tkinter as tk
@@ -178,20 +297,38 @@ class modify_masks:
         combined = self.overlay_mask_on_image(normalized, self.mask)
         self.tk_image = ImageTk.PhotoImage(image=Image.fromarray(combined))
         self.canvas.create_image(0, 0, anchor='nw', image=self.tk_image)
+        
+    def display_zoomed_image(self):
+        if self.zoom_rectangle_start and self.zoom_rectangle_end:
+            x0, y0 = self.zoom_rectangle_start
+            x1, y1 = self.zoom_rectangle_end
+            x0, x1 = min(x0, x1), max(x0, x1)
+            y0, y1 = min(y0, y1), max(y0, y1)
+            self.zoom_x0 = x0
+            self.zoom_y0 = y0
+            self.zoom_x1 = x1
+            self.zoom_y1 = y1
 
-    def overlay_mask_on_image_old(self, image, mask):
-        # Ensure the image and mask are in uint8 format
-        image = image.astype(np.uint8)
-        mask = mask.astype(np.uint8)
+            # Normalize the entire image
+            lower_quantile = float(self.lower_quantile.get()) if self.lower_quantile.get() else 1.0
+            upper_quantile = float(self.upper_quantile.get()) if self.upper_quantile.get() else 99.0
+            normalized_image = self.normalize_image(self.image, lower_quantile, upper_quantile)
 
-        if len(image.shape) == 2:
-            image = np.stack((image,) * 3, axis=-1)
-        mask_binary = np.where(mask > 0, 255, 0).astype(np.uint8)
-        red_mask = np.stack((255 * np.ones_like(mask_binary), np.zeros_like(mask_binary), np.zeros_like(mask_binary)), axis=-1)
-        combined = np.where(mask_binary[..., None], red_mask, image)
-        return combined
+            # Extract the zoomed portion of the normalized image and mask
+            zoomed_image = normalized_image[y0:y1, x0:x1]
+            zoomed_mask = self.mask[y0:y1, x0:x1]
+
+            # Resize the zoomed image and mask to fit the canvas
+            canvas_height = self.canvas.winfo_height()
+            canvas_width = self.canvas.winfo_width()
+            if zoomed_image.size > 0 and canvas_height > 0 and canvas_width > 0:
+                zoomed_image_resized = resize(zoomed_image, (canvas_height, canvas_width), preserve_range=True).astype(zoomed_image.dtype)
+                zoomed_mask_resized = resize(zoomed_mask, (canvas_height, canvas_width), preserve_range=True, order=0).astype(zoomed_mask.dtype)
+                combined = self.overlay_mask_on_image(zoomed_image_resized, zoomed_mask_resized)
+                self.tk_image = ImageTk.PhotoImage(image=Image.fromarray(combined))
+                self.canvas.create_image(0, 0, anchor='nw', image=self.tk_image)
     
-    def overlay_mask_on_image(self, image, mask):
+    def overlay_mask_on_image_old(self, image, mask):
         if len(image.shape) == 2:
             image = np.stack((image,) * 3, axis=-1)  
         mask = mask.astype(np.int32)
@@ -203,6 +340,28 @@ class modify_masks:
         image_8bit = (image / 256).astype(np.uint8)
         combined_image = np.where(mask[..., None] > 0, colored_mask, image_8bit)
         return combined_image
+    
+
+    def overlay_mask_on_image(self, image, mask, alpha=0.5):
+        if len(image.shape) == 2:
+            image = np.stack((image,) * 3, axis=-1)
+        mask = mask.astype(np.int32)
+        max_label = np.max(mask)
+        np.random.seed(0)
+        colors = np.random.randint(0, 255, size=(max_label + 1, 3), dtype=np.uint8)
+        colors[0] = [0, 0, 0]  # background color
+        colored_mask = colors[mask]
+        image_8bit = (image / 256).astype(np.uint8)
+
+        # Blend the mask and the image with transparency
+        combined_image = np.where(mask[..., None] > 0, 
+                                  np.clip(image_8bit * (1 - alpha) + colored_mask * alpha, 0, 255), 
+                                  image_8bit)
+        # Convert the final image back to uint8
+        combined_image = combined_image.astype(np.uint8)
+
+        return combined_image
+
 
     def setup_navigation_toolbar(self):
         navigation_toolbar = tk.Frame(self.root)
@@ -242,37 +401,6 @@ class modify_masks:
                 print("Save successful!")  # Confirm save
         except Exception as e:
             print(f"Error during saving: {e}")
-            
-    def display_zoomed_image(self):
-        if self.zoom_rectangle_start and self.zoom_rectangle_end:
-            x0, y0 = self.zoom_rectangle_start
-            x1, y1 = self.zoom_rectangle_end
-            x0, x1 = min(x0, x1), max(x0, x1)
-            y0, y1 = min(y0, y1), max(y0, y1)
-            self.zoom_x0 = x0
-            self.zoom_y0 = y0
-            self.zoom_x1 = x1
-            self.zoom_y1 = y1
-
-            # Normalize the entire image
-            lower_quantile = float(self.lower_quantile.get()) if self.lower_quantile.get() else 1.0
-            upper_quantile = float(self.upper_quantile.get()) if self.upper_quantile.get() else 99.0
-            normalized_image = self.normalize_image(self.image, lower_quantile, upper_quantile)
-
-            # Extract the zoomed portion of the normalized image and mask
-            zoomed_image = normalized_image[y0:y1, x0:x1]
-            zoomed_mask = self.mask[y0:y1, x0:x1]
-
-            # Resize the zoomed image and mask to fit the canvas
-            canvas_height = self.canvas.winfo_height()
-            canvas_width = self.canvas.winfo_width()
-            if zoomed_image.size > 0 and canvas_height > 0 and canvas_width > 0:
-                zoomed_image_resized = resize(zoomed_image, (canvas_height, canvas_width), preserve_range=True).astype(zoomed_image.dtype)
-                zoomed_mask_resized = resize(zoomed_mask, (canvas_height, canvas_width), preserve_range=True, order=0).astype(zoomed_mask.dtype)
-                combined = self.overlay_mask_on_image(zoomed_image_resized, zoomed_mask_resized)
-                self.tk_image = ImageTk.PhotoImage(image=Image.fromarray(combined))
-                self.canvas.create_image(0, 0, anchor='nw', image=self.tk_image)
-
     
     def set_zoom_rectangle_start(self, event):
         if self.zoom_active:
@@ -460,10 +588,10 @@ class modify_masks:
         self.display_image()
     
 # Main execution
-root = tk.Tk()
-folder_path = '/home/olafsson/Desktop/train_cellpose/test/imgs'  # Specify your folder path
-scale_factor = 1  # Define your scale factor
-width, height = 1500,1500
-if folder_path:
-    app = modify_masks(root, folder_path, scale_factor, width, height)
-    root.mainloop()
+#root = tk.Tk()
+#folder_path = '/home/olafsson/Desktop/train_cellpose/test/imgs'  # Specify your folder path
+#scale_factor = 1  # Define your scale factor
+#width, height = 1500,1500
+#if folder_path:
+#    app = modify_masks(root, folder_path, scale_factor, width, height)
+#    root.mainloop()
