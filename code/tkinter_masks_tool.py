@@ -1,57 +1,71 @@
-import tkinter as tk
-from tkinter import filedialog, messagebox
-from PIL import Image, ImageTk
 import os
 import numpy as np
-import matplotlib.pyplot as plt
+import tkinter as tk
 import imageio.v2 as imageio
-from skimage.color import rgb2gray
-from skimage.transform import resize
-from skimage.draw import polygon
-from scipy.ndimage import label
 from collections import deque
+from tkinter import filedialog
+from PIL import Image, ImageTk
+from skimage.draw import polygon
+from skimage.transform import resize
+from skimage.measure import label as sk_label
 from scipy.ndimage import binary_fill_holes, label
-import random
 
-class ImageEditor:
-    def __init__(self, root, folder_path, window_width, window_height, scale_factor):
-        # Initialize main attributes first
+
+class modify_masks:
+    def __init__(self, root, folder_path, scale_factor, width, height):
         self.root = root
         self.folder_path = folder_path
         self.scale_factor = scale_factor
+        self.image_filenames = sorted([f for f in os.listdir(folder_path) if f.endswith(('.png', '.jpg', '.jpeg', '.tif', '.tiff'))])
+        self.masks_folder = os.path.join(folder_path, 'masks')
         self.current_image_index = 0
-        self.images = self.load_images(folder_path)
-        #self.masks = [np.zeros((image.shape[0], image.shape[1]), dtype=np.uint16) for image in self.images]
+        self.canvas_width = width
+        self.canvas_height = height
 
-        # Initialize Canvas
-        self.window_width = window_width
-        self.window_height = window_height
-        self.canvas = tk.Canvas(root, width=window_width, height=window_height)
-        self.canvas.pack()
-
-        # Additional attributes
-        self.draw_coordinates = []
-        self.redraw_needed = False
-        self.erase_active = False  
-        self.current_resized_image = None  
-        self.current_resized_mask = None
-        self.setup_toolbar()
-        
-        # For Zoom
-        self.zoom_active = False
-        self.original_image = None
-        self.original_mask = None
-        self.zoomed_image = None
-        self.zoomed_mask = None
-        self.zoom_applied = False
+        # Initialize these before the first call to load_image_and_mask
         self.zoom_rectangle_start = None
+        self.zoom_rectangle_end = None
+        self.zoom_rectangle_id = None
+        self.zoom_x0 = None
+        self.zoom_y0 = None
+        self.zoom_x1 = None
+        self.zoom_y1 = None
         
-        # Display the first image
-        self.display_image()
+        # Initialize mode flags
+        self.drawing = False
+        self.zoom_active = False
+        self.magic_wand_active = False
+        
+        # Initialize percentile values
+        self.lower_quantile = tk.StringVar(value="1.0")
+        self.upper_quantile = tk.StringVar(value="99.0")
+        
+        self.image, self.mask = self.load_image_and_mask(self.current_image_index)
+        self.original_size = self.image.shape
+        
+        self.image, self.mask = self.resize_arrays(self.image,self.mask)
+        
+        self.setup_navigation_toolbar()
 
-    def apply_quantiles(self):
+        # Initialize the canvas after loading the first image
+        #self.canvas = tk.Canvas(root, width=self.image.shape[1], height=self.image.shape[0])
+        #self.canvas.pack()
+        
+        # Initialize the canvas
+        self.canvas = tk.Canvas(root, width=self.canvas_width, height=self.canvas_height)
+        self.canvas.pack()
+        
+        self.magic_wand_tolerance = tk.StringVar(value="10")
+        
+        self.setup_mode_toolbar()
+        self.setup_function_toolbar()
+        self.setup_zoom_toolbar()
+        
+        self.draw_coordinates = []
+        self.canvas.bind("<B1-Motion>", self.draw)
+        self.canvas.bind("<ButtonRelease-1>", self.finish_drawing_if_active)
         self.display_image()
-
+        
     def normalize_image(self, image, lower_quantile, upper_quantile):
         lower_bound = np.percentile(image, lower_quantile)
         upper_bound = np.percentile(image, upper_quantile)
@@ -60,195 +74,123 @@ class ImageEditor:
         max_value = np.iinfo(image.dtype).max
         normalized = (normalized * max_value).astype(image.dtype)
         return normalized
+    
+    def resize_arrays(self, img, mask):
+        original_dtype = img.dtype
+        scaled_height = int(img.shape[0] * self.scale_factor)
+        scaled_width = int(img.shape[1] * self.scale_factor)
+        scaled_img = resize(img, (scaled_height, scaled_width), anti_aliasing=True, preserve_range=True)
+        scaled_mask = resize(mask, (scaled_height, scaled_width), order=0, anti_aliasing=False, preserve_range=True)
+        stretched_img = resize(scaled_img, (self.canvas_height, self.canvas_width), anti_aliasing=True, preserve_range=True)
+        stretched_mask = resize(scaled_mask, (self.canvas_height, self.canvas_width), order=0, anti_aliasing=False, preserve_range=True)
+        return stretched_img.astype(original_dtype), stretched_mask.astype(original_dtype)
+
+            
+    def setup_mode_toolbar(self):
+        self.mode_toolbar = tk.Frame(self.root)
+        self.mode_toolbar.pack(side='top', fill='x')
+
+        # Draw button
+        self.draw_btn = tk.Button(self.mode_toolbar, text="Draw", command=self.toggle_draw_mode)
+        self.draw_btn.pack(side='left')
+
+        # Magic Wand button
+        self.magic_wand_btn = tk.Button(self.mode_toolbar, text="Magic Wand", command=self.toggle_magic_wand_mode)
+        self.magic_wand_btn.pack(side='left')
+
+        # Tolerance Entry
+        self.tolerance_entry = tk.Entry(self.mode_toolbar, textvariable=self.magic_wand_tolerance)
+        self.tolerance_entry.pack(side='left')
+        tk.Label(self.mode_toolbar, text="Tolerance:").pack(side='left')
         
-    def load_images(self, folder_path):
-        image_files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.tif', '.tiff'))]
-        images = []
-        self.image_filenames = []  # Store filenames
-        masks = []  # Initialize masks list
-        masks_folder = os.path.join(folder_path, 'masks')  # Path to the masks subdirectory
+    def setup_function_toolbar(self):
+        self.function_toolbar = tk.Frame(self.root)
+        self.function_toolbar.pack(side='top', fill='x')
 
-        for file in image_files:
-            image_path = os.path.join(folder_path, file)
-            mask_path = os.path.join(masks_folder, file)  # Define mask_path here
-            self.image_filenames.append(file)  # Add filename
-            image = imageio.imread(image_path)
-            images.append(image)
-            image_shape = image.shape
+        # Fill button
+        self.fill_btn = tk.Button(self.function_toolbar, text="Fill", command=self.fill_objects)
+        self.fill_btn.pack(side='left')
 
-            # Check if the mask exists in the 'masks' folder
-            if os.path.exists(mask_path):
-                mask = imageio.imread(mask_path)
-                mask = mask.astype(np.int32)
-                masks.append(mask)
-            else:
-                masks.append(np.zeros(image.shape[:2], dtype=np.uint16))  # Create a zero-filled mask
+        # Relabel button
+        self.relabel_btn = tk.Button(self.function_toolbar, text="Relabel", command=self.relabel_objects)
+        self.relabel_btn.pack(side='left')
 
-        self.masks = masks
-        return images
-    
-    def resize_array(self, array, scale_factor):
-        original_dtype = array.dtype
-        resized_array = resize(array, 
-                               (int(array.shape[0] * scale_factor), int(array.shape[1] * scale_factor)), 
-                               anti_aliasing=True, preserve_range=True)
-        return resized_array.astype(original_dtype)
-    
-    def resize_current_image_and_mask(self):
-        if self.current_image_index < len(self.images):
-            
-            # Resize the current image
-            original_image = self.images[self.current_image_index]
-            self.current_resized_image = self.resize_array(original_image, self.scale_factor)
+        # Clear button
+        self.clear_btn = tk.Button(self.function_toolbar, text="Clear", command=self.clear_objects)
+        self.clear_btn.pack(side='left')
 
-            # Resize the mask using nearest-neighbor interpolation
-            original_mask = self.masks[self.current_image_index]            
-            resized_mask_dimensions = (self.current_resized_image.shape[0], self.current_resized_image.shape[1])
-            self.current_resized_mask = resize(original_mask, resized_mask_dimensions, order=0, anti_aliasing=False, preserve_range=True).astype(original_mask.dtype)
-            
-    def display_image_no_zoom(self):
-        if self.current_image_index < len(self.images):
-            
-            # Resize image and mask for processing
-            self.resize_current_image_and_mask()  
-            image = self.current_resized_image
-            mask = self.current_resized_mask
-            
-            # Normalize the image
-            lower_quantile = float(self.lower_quantile_entry.get())
-            upper_quantile = float(self.upper_quantile_entry.get())
-            normalized_image = self.normalize_image(image, lower_quantile, upper_quantile)
+        # Invert button
+        self.invert_btn = tk.Button(self.function_toolbar, text="Invert", command=self.invert_mask)
+        self.invert_btn.pack(side='left')
 
-            # Resize normalized image for display
-            display_size_image = resize(normalized_image, (self.window_height, self.window_width), anti_aliasing=True, preserve_range=True).astype(normalized_image.dtype)
+    def setup_zoom_toolbar(self):
+        self.zoom_toolbar = tk.Frame(self.root)
+        self.zoom_toolbar.pack(side='top', fill='x')
+        self.zoom_btn = tk.Button(self.zoom_toolbar, text="Zoom", command=self.toggle_zoom_mode)
+        self.zoom_btn.pack(side='left')
+        # Normalize button
+        self.normalize_btn = tk.Button(self.zoom_toolbar, text="Apply Normalization", command=self.apply_normalization)
+        self.normalize_btn.pack(side='left')
 
-            # Resize mask using nearest-neighbor interpolation for display
-            display_size_mask = resize(mask, (self.window_height, self.window_width), order=0, anti_aliasing=False, preserve_range=True).astype(mask.dtype)
-            overlay = self.overlay_mask_on_image(display_size_image, display_size_mask)
-            self.tk_image = ImageTk.PhotoImage(image=Image.fromarray(overlay))
-            self.canvas.create_image(0, 0, anchor='nw', image=self.tk_image)
-            
-    def display_image(self):
-        # Ensure there is an image to display
-        if self.current_image_index < len(self.images):
-            self.resize_current_image_and_mask()
+        # Lower Percentile Entry
+        self.lower_entry = tk.Entry(self.zoom_toolbar, textvariable=self.lower_quantile)
+        self.lower_entry.pack(side='left')
+        tk.Label(self.zoom_toolbar, text="Lower Percentile:").pack(side='left')
 
-        if self.zoom_active and self.zoomed_image is not None:
-            # Display the zoomed image
-            image_to_display = self.zoomed_image
-            mask_to_display = self.zoomed_mask
+        # Upper Percentile Entry
+        self.upper_entry = tk.Entry(self.zoom_toolbar, textvariable=self.upper_quantile)
+        self.upper_entry.pack(side='left')
+        tk.Label(self.zoom_toolbar, text="Upper Percentile:").pack(side='left')
+        
+    def load_image_and_mask(self, index):
+        image_path = os.path.join(self.folder_path, self.image_filenames[index])
+        image = imageio.imread(image_path)
+        #if image.dtype != np.uint8:
+        #    image = (image / np.max(image) * 255).astype(np.uint8)
+        mask_filename = os.path.splitext(self.image_filenames[index])[0] + '_mask.png'
+        mask_path = os.path.join(self.masks_folder, mask_filename)
+        if os.path.exists(mask_path):
+            mask = imageio.imread(mask_path)
+            if mask.dtype != np.uint8:
+                mask = (mask / np.max(mask) * 255).astype(np.uint8)
         else:
-            # Display the regular image
-            image_to_display = self.current_resized_image
-            mask_to_display = self.current_resized_mask
+            mask = np.zeros(image.shape[:2], dtype=np.uint8)
 
-        # Normalize the image
-        lower_quantile = float(self.lower_quantile_entry.get())
-        upper_quantile = float(self.upper_quantile_entry.get())
-        normalized_image = self.normalize_image(image_to_display, lower_quantile, upper_quantile)
+        return image, mask
+        
+    def display_image_old(self):
+        if self.zoom_rectangle_id is not None:
+            self.canvas.delete(self.zoom_rectangle_id)
+            self.zoom_rectangle_id = None
 
-        # Resize normalized image for display
-        display_size_image = resize(normalized_image, (self.window_height, self.window_width), anti_aliasing=True, preserve_range=True).astype(normalized_image.dtype)
-
-        # Resize mask using nearest-neighbor interpolation for display
-        display_size_mask = resize(mask_to_display, (self.window_height, self.window_width), order=0, anti_aliasing=False, preserve_range=True).astype(mask_to_display.dtype)
-
-        # Overlay mask on image
-        overlay = self.overlay_mask_on_image(display_size_image, display_size_mask)
-
-        # Update the canvas
-        self.tk_image = ImageTk.PhotoImage(image=Image.fromarray(overlay))
+        combined = self.overlay_mask_on_image(self.image, self.mask)
+        self.tk_image = ImageTk.PhotoImage(image=Image.fromarray(combined))
+        self.canvas.create_image(0, 0, anchor='nw', image=self.tk_image)
+        
+    def display_image(self):
+        if self.zoom_rectangle_id is not None:
+            self.canvas.delete(self.zoom_rectangle_id)
+            self.zoom_rectangle_id = None
+            
+        lower_quantile = float(self.lower_quantile.get()) if self.lower_quantile.get() else 1.0
+        upper_quantile = float(self.upper_quantile.get()) if self.upper_quantile.get() else 99.0
+        normalized = self.normalize_image(self.image, lower_quantile, upper_quantile)
+        combined = self.overlay_mask_on_image(normalized, self.mask)
+        self.tk_image = ImageTk.PhotoImage(image=Image.fromarray(combined))
         self.canvas.create_image(0, 0, anchor='nw', image=self.tk_image)
 
-    def redraw_lines(self):
-        for i in range(1, len(self.draw_coordinates)):
-            x0, y0 = self.draw_coordinates[i - 1]
-            x1, y1 = self.draw_coordinates[i]
-            self.canvas.create_line(x0, y0, x1, y1, fill="yellow", width=3)
+    def overlay_mask_on_image_old(self, image, mask):
+        # Ensure the image and mask are in uint8 format
+        image = image.astype(np.uint8)
+        mask = mask.astype(np.uint8)
 
-    def setup_toolbar(self):
-        toolbar = tk.Frame(self.root)
-        toolbar.pack(side='top', fill='x')
-        self.draw_btn = tk.Button(toolbar, text="Draw", command=self.freehand_draw)
-        self.draw_btn.pack(side='left')
-        self.wand_btn = tk.Button(toolbar, text="Magic Wand", command=self.activate_magic_wand)
-        self.wand_btn.pack(side='left')
-        save_btn = tk.Button(toolbar, text="Save Mask", command=self.save_mask)
-        save_btn.pack(side='left')
-        next_btn = tk.Button(toolbar, text="Next Image", command=self.next_image)
-        next_btn.pack(side='left')
-        self.tolerance_entry = tk.Entry(toolbar)
-        self.tolerance_entry.insert(0, "1000")
-        self.tolerance_entry.pack(side='left')
-        self.drawing = False
-        self.magic_wand_active = False
-        fill_btn = tk.Button(toolbar, text="Fill Objects", command=self.fill_objects)
-        fill_btn.pack(side='left')
-        relabel_btn = tk.Button(toolbar, text="Relabel", command=self.relabel_objects)
-        relabel_btn.pack(side='left')
-        self.erase_btn = tk.Button(toolbar, text="Erase Object", command=self.activate_erase_object_mode)
-        self.erase_btn.pack(side='left')
-        
-        self.zoom_btn = tk.Button(toolbar, text="Zoom", command=self.activate_zoom_mode)
-        self.zoom_btn.pack(side='left')
-        
-        # Quantile entries
-        self.lower_quantile_entry = tk.Entry(toolbar)
-        self.lower_quantile_entry.insert(0, "2") 
-        self.lower_quantile_entry.pack(side='left')
-        self.upper_quantile_entry = tk.Entry(toolbar)
-        self.upper_quantile_entry.insert(0, "99.99")
-        self.upper_quantile_entry.pack(side='left')
-        apply_quantiles_btn = tk.Button(toolbar, text="Apply Quantiles", command=self.apply_quantiles)
-        apply_quantiles_btn.pack(side='left')
-        clear_btn = tk.Button(toolbar, text="Clear Mask", command=self.clear_mask)
-        clear_btn.pack(side='left')
-        invert_mask_btn = tk.Button(toolbar, text="Invert Mask", command=self.invert_mask)
-        invert_mask_btn.pack(side='left')
-
-    def relabel_objects(self):
-        mask = self.masks[self.current_image_index]
-        labeled_mask, num_labels = label(mask > 0)
-        self.masks[self.current_image_index] = labeled_mask
-        self.display_image()
-
-    def flood_fill(self, x, y, label, visited):
-        to_fill = deque([(x, y)])
-        while to_fill:
-            x, y = to_fill.popleft()
-            if x < 0 or x >= len(self.masks[0][0]) or y < 0 or y >= len(self.masks[0]) or visited[y][x] or self.masks[self.current_image_index][y][x] == 0:
-                continue
-            visited[y][x] = True
-            self.masks[self.current_image_index][y][x] = label
-            to_fill.extend([(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)])
-            
-    def clear_mask(self):
-        self.masks[self.current_image_index] = np.zeros_like(self.masks[self.current_image_index])
-        self.display_image()
-
-    def invert_mask(self):
-        mask = self.masks[self.current_image_index]
-        self.masks[self.current_image_index] = np.where(mask > 0, 0, 1).astype(np.uint16)
-        self.display_image()
-
-    def erase_object(self, label):
-        self.masks[self.current_image_index][self.masks[self.current_image_index] == label] = 0
-        
-    def erase_object_mode(self, event):
-        x, y = self.canvas_to_image(event.x, event.y)
-        if self.masks[self.current_image_index][y][x] > 0:
-            self.erase_object(self.masks[self.current_image_index][y][x])
-            self.display_image()
-
-    def fill_objects(self):
-        # Fill holes in the binary mask
-        binary_mask = self.masks[self.current_image_index] > 0
-        filled_mask = binary_fill_holes(binary_mask)
-        self.masks[self.current_image_index] = filled_mask.astype(np.uint16) * 65535
-        labeled_mask, _ = label(filled_mask)
-        self.masks[self.current_image_index] = labeled_mask
-        self.display_image()
-
+        if len(image.shape) == 2:
+            image = np.stack((image,) * 3, axis=-1)
+        mask_binary = np.where(mask > 0, 255, 0).astype(np.uint8)
+        red_mask = np.stack((255 * np.ones_like(mask_binary), np.zeros_like(mask_binary), np.zeros_like(mask_binary)), axis=-1)
+        combined = np.where(mask_binary[..., None], red_mask, image)
+        return combined
+    
     def overlay_mask_on_image(self, image, mask):
         if len(image.shape) == 2:
             image = np.stack((image,) * 3, axis=-1)  
@@ -262,265 +204,266 @@ class ImageEditor:
         combined_image = np.where(mask[..., None] > 0, colored_mask, image_8bit)
         return combined_image
 
-    def activate_erase_object_mode(self):
-        self.erase_active = not self.erase_active
-        if self.erase_active:
-            self.disable_other_modes('erase')
-            self.erase_btn.config(text="Erase Object ON")
-            self.canvas.bind("<Button-1>", self.erase_object_mode)
-        else:
-            self.erase_btn.config(text="Erase Object") 
-            
-    def activate_magic_wand(self):
-        self.magic_wand_active = not self.magic_wand_active
-        if self.magic_wand_active:
-            self.disable_other_modes('wand')
-            self.wand_btn.config(text="Magic Wand ON")
-            self.canvas.bind("<Button-1>", lambda event: self.on_canvas_click(event, select=True))
-            self.canvas.bind("<Button-3>", lambda event: self.on_canvas_click(event, select=False))
-        else:
-            self.wand_btn.config(text="Magic Wand")
-            self.canvas.unbind("<Button-1>")
-            self.canvas.unbind("<Button-3>")
-            
-    def freehand_draw(self):
-        self.drawing = not self.drawing
-        if self.drawing:
-            self.disable_other_modes('draw')
-            self.canvas.bind("<B1-Motion>", self.draw)
-            self.canvas.bind("<ButtonRelease-1>", self.create_object)
-            self.canvas.focus_set()  # Focus on the canvas
-            self.draw_btn.config(text="Draw ON")
-        else:
-            self.canvas.unbind("<B1-Motion>")
-            self.canvas.unbind("<ButtonRelease-1>")
-            self.draw_btn.config(text="Draw")
+    def setup_navigation_toolbar(self):
+        navigation_toolbar = tk.Frame(self.root)
+        navigation_toolbar.pack(side='top', fill='x')
+        prev_btn = tk.Button(navigation_toolbar, text="Previous", command=self.previous_image)
+        prev_btn.pack(side='left')
+        next_btn = tk.Button(navigation_toolbar, text="Next", command=self.next_image)
+        next_btn.pack(side='left')
+        save_btn = tk.Button(navigation_toolbar, text="Save", command=self.save_mask)
+        save_btn.pack(side='left')
 
-    def disable_other_modes(self, active_mode):
-        if active_mode != 'draw':
-            self.drawing = False
-            self.draw_btn.config(text="Draw")
-        if active_mode != 'wand':
-            self.magic_wand_active = False
-            self.wand_btn.config(text="Magic Wand")
-        if active_mode != 'erase':
-            self.erase_active = False
-            self.erase_btn.config(text="Erase Object")
-            
-    def activate_zoom_mode(self):
-        self.zoom_active = not self.zoom_active
-        if self.zoom_active:
-            self.disable_other_modes('zoom')
-            self.zoom_btn.config(text="Zoom ON")
-            self.canvas.bind("<Button-1>", self.set_zoom_rectangle_start)
-            if not self.zoom_applied:
-                self.canvas.bind("<Motion>", self.update_zoom_rectangle)
-        else:
-            self.zoom_btn.config(text="Zoom")
-            self.return_to_original_image()
-            self.canvas.unbind("<Motion>")
-
-    def perform_zoom(self):
-        if not (self.zoom_rectangle_start and self.zoom_rectangle_end) or self.zoom_applied:
-            print("Zoom rectangle not defined or already zoomed")
-            return
-        x0, y0 = self.zoom_rectangle_start
-        x1, y1 = self.zoom_rectangle_end
-        # Ensure coordinates are within the image bounds
-        x0 = max(0, min(x0, self.current_resized_image.shape[1] - 1))
-        x1 = max(0, min(x1, self.current_resized_image.shape[1] - 1))
-        y0 = max(0, min(y0, self.current_resized_image.shape[0] - 1))
-        y1 = max(0, min(y1, self.current_resized_image.shape[0] - 1))
-        # Validate zoom rectangle dimensions
-        if x0 == x1 or y0 == y1:
-            print("Invalid zoom rectangle dimensions")
-            return
-        self.original_image = self.current_resized_image.copy()
-        self.original_mask = self.current_resized_mask.copy()
-        self.zoomed_image = self.current_resized_image[y0:y1, x0:x1]
-        self.zoomed_mask = self.current_resized_mask[y0:y1, x0:x1]
-        self.zoom_applied = True
-        self.display_image()
-        
-    def return_to_original_image(self):
-        # Return to the original image and mask if they exist
-        if self.original_image is not None and self.original_mask is not None:
-            self.current_resized_image = self.original_image
-            self.current_resized_mask = self.original_mask
+    def previous_image(self):
+        if self.current_image_index > 0:
+            self.current_image_index -= 1
+            self.image, self.mask = self.load_image_and_mask(self.current_image_index)
             self.display_image()
 
-    def draw(self, event):
-        x, y = event.x, event.y
-        if self.draw_coordinates:
-            last_x, last_y = self.draw_coordinates[-1]
-            self.canvas.create_line(last_x, last_y, x, y, fill="yellow", width=3)
-        self.draw_coordinates.append((x, y))
+    def next_image(self):
+        if self.current_image_index < len(self.image_filenames) - 1:
+            self.current_image_index += 1
+            self.image, self.mask = self.load_image_and_mask(self.current_image_index)
+            self.display_image()
 
-    def finish_drawing(self, event):
-        self.display_image()
-        
-    def update_original_mask_from_zoomed(self):
-        if self.zoomed_mask is not None and self.original_mask is not None:
-            # Get zoomed area dimensions
+    def save_mask(self):
+        try:
+            if self.current_image_index < len(self.image_filenames):
+                original_size = self.original_size
+                resized_mask = resize(self.mask, original_size, preserve_range=True).astype(np.uint16)
+                save_folder = os.path.join(self.folder_path, 'new_masks')
+                if not os.path.exists(save_folder):
+                    os.makedirs(save_folder)
+                image_filename = os.path.splitext(self.image_filenames[self.current_image_index])[0] + '.png'
+                save_path = os.path.join(save_folder, image_filename)
+                
+                print(f"Saving mask to: {save_path}")  # Debug print
+                imageio.imwrite(save_path, resized_mask)
+                print("Save successful!")  # Confirm save
+        except Exception as e:
+            print(f"Error during saving: {e}")
+            
+    def display_zoomed_image(self):
+        if self.zoom_rectangle_start and self.zoom_rectangle_end:
             x0, y0 = self.zoom_rectangle_start
             x1, y1 = self.zoom_rectangle_end
+            x0, x1 = min(x0, x1), max(x0, x1)
+            y0, y1 = min(y0, y1), max(y0, y1)
+            self.zoom_x0 = x0
+            self.zoom_y0 = y0
+            self.zoom_x1 = x1
+            self.zoom_y1 = y1
 
-            # Calculate the original dimensions of the zoomed area
-            original_zoomed_area_width = x1 - x0
-            original_zoomed_area_height = y1 - y0
+            # Normalize the entire image
+            lower_quantile = float(self.lower_quantile.get()) if self.lower_quantile.get() else 1.0
+            upper_quantile = float(self.upper_quantile.get()) if self.upper_quantile.get() else 99.0
+            normalized_image = self.normalize_image(self.image, lower_quantile, upper_quantile)
 
-            # Resize zoomed mask to the size of the zoomed area in the original mask
-            resized_zoomed_mask = resize(self.zoomed_mask, 
-                                         (original_zoomed_area_height, original_zoomed_area_width),
-                                         order=0, anti_aliasing=False, preserve_range=True).astype(np.uint8)
+            # Extract the zoomed portion of the normalized image and mask
+            zoomed_image = normalized_image[y0:y1, x0:x1]
+            zoomed_mask = self.mask[y0:y1, x0:x1]
 
-            # Update the relevant section of the original mask
-            self.masks[self.current_image_index][y0:y1, x0:x1] = resized_zoomed_mask
-            
+            # Resize the zoomed image and mask to fit the canvas
+            canvas_height = self.canvas.winfo_height()
+            canvas_width = self.canvas.winfo_width()
+            if zoomed_image.size > 0 and canvas_height > 0 and canvas_width > 0:
+                zoomed_image_resized = resize(zoomed_image, (canvas_height, canvas_width), preserve_range=True).astype(zoomed_image.dtype)
+                zoomed_mask_resized = resize(zoomed_mask, (canvas_height, canvas_width), preserve_range=True, order=0).astype(zoomed_mask.dtype)
+                combined = self.overlay_mask_on_image(zoomed_image_resized, zoomed_mask_resized)
+                self.tk_image = ImageTk.PhotoImage(image=Image.fromarray(combined))
+                self.canvas.create_image(0, 0, anchor='nw', image=self.tk_image)
+
+    
     def set_zoom_rectangle_start(self, event):
-        if self.zoom_active and not self.zoom_applied:
-            self.zoom_rectangle_start = self.canvas_to_image(event.x, event.y)
-            self.canvas.bind("<Motion>", self.update_zoom_rectangle)
-
-    def update_zoom_rectangle(self, event):
-        if self.zoom_rectangle_start is not None and not self.zoom_applied:
-            # Dynamically calculate the end point to maintain aspect ratio
-            start_x, start_y = self.zoom_rectangle_start
-            aspect_ratio = self.current_resized_image.shape[1] / self.current_resized_image.shape[0]
-
-            # Calculate width and height based on aspect ratio
-            current_width = abs(event.x - start_x)
-            current_height = current_width / aspect_ratio
-            if event.y < start_y:
-                end_y = start_y - current_height
-            else:
-                end_y = start_y + current_height
-
-            # Update canvas with red rectangle
-            self.canvas.delete("zoom_rect")  # Remove previous rectangle
-            self.canvas.create_rectangle(start_x, start_y, event.x, end_y, outline="red", tag="zoom_rect")
+        if self.zoom_active:
+            self.zoom_rectangle_start = (event.x, event.y)
 
     def set_zoom_rectangle_end(self, event):
-        if self.zoom_active and not self.zoom_applied:
-            # Use the dynamically calculated end point
-            start_x, start_y = self.zoom_rectangle_start
-            aspect_ratio = self.current_resized_image.shape[1] / self.current_resized_image.shape[0]
-            current_width = abs(event.x - start_x)
-            current_height = current_width / aspect_ratio
-            if event.y < start_y:
-                end_y = start_y - current_height
-            else:
-                end_y = start_y + current_height
-
-            self.zoom_rectangle_end = self.canvas_to_image(event.x, end_y)
-            self.perform_zoom()
+        if self.zoom_active:
+            self.zoom_rectangle_end = (event.x, event.y)
             self.canvas.unbind("<Motion>")
-            self.zoom_applied = True
+            self.display_zoomed_image()
 
-    def zoom_canvas_to_image(self, x, y):
-        x0, y0 = self.zoom_rectangle_start
-        x1, y1 = self.zoom_rectangle_end
-        zoom_width_original, zoom_height_original = x1 - x0, y1 - y0
-        display_ratio = min(self.window_width / zoom_width_original, self.window_height / zoom_height_original)
-        zoom_width_display = zoom_width_original * display_ratio
-        zoom_height_display = zoom_height_original * display_ratio
-        offset_x = (self.window_width - zoom_width_display) / 2 if self.window_width > zoom_width_display else 0
-        offset_y = (self.window_height - zoom_height_display) / 2 if self.window_height > zoom_height_display else 0
-        adjusted_x = x - offset_x
-        adjusted_y = y - offset_y
-        scale_x = zoom_width_original / zoom_width_display
-        scale_y = zoom_height_original / zoom_height_display
-        translated_x = x0 + (adjusted_x * scale_x)
-        translated_y = y0 + (adjusted_y * scale_y)
-
-        return int(translated_x), int(translated_y)
+    def toggle_draw_mode(self):
+        self.drawing = not self.drawing
+        if self.drawing:
+            self.draw_btn.config(text="Draw ON")
+            self.canvas.bind("<B1-Motion>", self.draw)
+            self.canvas.bind("<ButtonRelease-1>", self.finish_drawing)
+        else:
+            self.draw_btn.config(text="Draw")
+            self.canvas.unbind("<B1-Motion>")
+            self.canvas.unbind("<ButtonRelease-1>")
             
-    def create_object(self, event):
-        print("Zoom Mode Active:", self.zoom_active)
-        if len(self.draw_coordinates) > 2:
-            self.draw_coordinates.append(self.draw_coordinates[0])
-            mask = self.current_resized_mask if self.zoom_active else self.masks[self.current_image_index]
+    def toggle_magic_wand_mode(self):
+        self.magic_wand_active = not self.magic_wand_active
+        if self.magic_wand_active:
+            self.magic_wand_btn.config(text="Magic Wand ON")
+            self.canvas.bind("<Button-1>", self.use_magic_wand)
+            # Disable other modes
+            self.drawing = False
+            self.zoom_active = False
+        else:
+            self.magic_wand_btn.config(text="Magic Wand")
+            self.canvas.unbind("<Button-1>")
 
-            if self.zoom_active:
-                draw_polygon = np.array([self.zoom_canvas_to_image(x, y) for x, y in self.draw_coordinates])
-            else:
-                draw_polygon = np.array([self.canvas_to_image(x, y) for x, y in self.draw_coordinates])
-                rr, cc = polygon(draw_polygon[:, 1], draw_polygon[:, 0], shape=mask.shape)
-            
-            mask[rr, cc] = 65535
-            self.draw_coordinates.clear()
-            if self.zoom_active:
-                self.update_original_mask_from_zoomed()
+    def toggle_zoom_mode(self):
+        self.zoom_active = not self.zoom_active
+        if self.zoom_active:
+            self.zoom_btn.config(text="Zoom ON")
+            self.canvas.bind("<Button-1>", self.set_zoom_rectangle_start)
+            self.canvas.bind("<Button-3>", self.set_zoom_rectangle_end)
+            self.canvas.bind("<Motion>", self.update_zoom_box)
+        else:
+            self.zoom_btn.config(text="Zoom")
+            self.canvas.unbind("<Button-1>")
+            self.canvas.unbind("<Button-3>")
+            self.canvas.unbind("<Motion>")
+            if self.drawing:
+                self.toggle_draw_mode() 
+            self.zoom_rectangle_start = self.zoom_rectangle_end = None
+            self.zoom_rectangle_id = None
             self.display_image()
             
-    def canvas_to_image(self, x, y):
-        # Regular canvas to image coordinates
-        scale_x = self.current_resized_image.shape[1] / self.window_width
-        scale_y = self.current_resized_image.shape[0] / self.window_height
-        return int(x * scale_x), int(y * scale_y)
+    def use_magic_wand(self, event):
+        if self.magic_wand_active:
+            x, y = event.x, event.y
+            tolerance = int(self.magic_wand_tolerance.get())
+            if self.zoom_active:
+                self.magic_wand_zoomed((x, y), tolerance)
+            else:
+                self.magic_wand_normal((x, y), tolerance)
 
-    def deferred_display_update(self):
-        self.display_image()
-        self.deferred_update_active = False
-
-    def on_canvas_click(self, event, select=True):
-        tolerance = int(self.tolerance_entry.get())
-        x, y = self.canvas_to_image(event.x, event.y)
-        if select:
-            self.magic_wand((x, y), tolerance, select=True)
-        else:
-            self.magic_wand((x, y), tolerance, select=False)
-        
-    def magic_wand(self, seed_point, tolerance, select=True):
+    def magic_wand_normal(self, seed_point, tolerance):
         x, y = seed_point
-        image = self.images[self.current_image_index]
-        mask = self.masks[self.current_image_index]
-        if not (0 <= x < image.shape[1] and 0 <= y < image.shape[0]):
-            return
-        initial_value = image[y, x]
-        visited = np.zeros_like(image, dtype=bool)
+        initial_value = self.image[y, x]
+        visited = np.zeros_like(self.image, dtype=bool)
         queue = deque([(x, y)])
         while queue:
             cx, cy = queue.popleft()
             if visited[cy, cx]:
                 continue
             visited[cy, cx] = True
-            current_value = image[cy, cx]
-            if abs(int(current_value) - int(initial_value)) <= tolerance:
-                mask[cy, cx] = 65535 if select else 0
+            current_value = self.image[cy, cx]
+            if np.linalg.norm(current_value - initial_value) <= tolerance:
+                self.mask[cy, cx] = 255
                 for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                     nx, ny = cx + dx, cy + dy
-                    if 0 <= nx < image.shape[1] and 0 <= ny < image.shape[0] and not visited[ny, nx]:
+                    if 0 <= nx < self.image.shape[1] and 0 <= ny < self.image.shape[0] and not visited[ny, nx]:
                         queue.append((nx, ny))
         self.display_image()
 
-    def save_mask(self):
-        mask = self.masks[self.current_image_index]
-        original_size = self.images[self.current_image_index].shape[:2]
-        resized_mask = resize(mask, original_size, preserve_range=True).astype(np.uint16)
-        save_folder = os.path.join(self.folder_path, 'new_masks')
-        if not os.path.exists(save_folder):
-            os.makedirs(save_folder)
-
-        # Use the same filename as the original image
-        image_filename = self.image_filenames[self.current_image_index]
-        save_path = os.path.join(save_folder, image_filename)  # Save with the same filename
-
-        imageio.imwrite(save_path, resized_mask)
-        self.next_image()
-
-    def next_image(self):
-        if self.current_image_index < len(self.images) - 1:
-            self.current_image_index += 1
-            self.display_image()
-            self.draw_coordinates.clear()
+    def magic_wand_zoomed(self, seed_point, tolerance):
+        x0, y0, x1, y1 = self.zoom_x0, self.zoom_y0, self.zoom_x1, self.zoom_y1
+        zoomed_image = self.image[y0:y1, x0:x1]
+        x, y = seed_point
+        initial_value = zoomed_image[y, x]
+        visited = np.zeros_like(zoomed_image, dtype=bool)
+        queue = deque([(x, y)])
+        zoomed_mask = np.zeros_like(zoomed_image, dtype=np.uint8)
+        while queue:
+            cx, cy = queue.popleft()
+            if visited[cy, cx]:
+                continue
+            visited[cy, cx] = True
+            current_value = zoomed_image[cy, cx]
+            if np.linalg.norm(current_value - initial_value) <= tolerance:
+                zoomed_mask[cy, cx] = 255
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nx, ny = cx + dx, cy + dy
+                    if 0 <= nx < zoomed_image.shape[1] and 0 <= ny < zoomed_image.shape[0] and not visited[ny, nx]:
+                        queue.append((nx, ny))
+        resized_mask = resize(zoomed_mask, (y1 - y0, x1 - x0), order=0, preserve_range=True).astype(np.uint8)
+        self.mask[y0:y1, x0:x1] = resized_mask
+        self.display_image()
             
-# Folder path, scale factor, and window size as arguments
-folder_path = "/mnt/training_data_cellpose/test/"
-scale_factor = 1
-window_width = 2000
-window_height = 2000
+    def update_zoom_box(self, event):
+        if self.zoom_active and self.zoom_rectangle_start is not None:
+            if self.zoom_rectangle_id is not None:
+                self.canvas.delete(self.zoom_rectangle_id)
+            self.zoom_rectangle_end = (event.x, event.y)
+            x0, y0 = self.zoom_rectangle_start
+            x1, y1 = self.zoom_rectangle_end
+            self.zoom_rectangle_id = self.canvas.create_rectangle(x0, y0, x1, y1, outline="red", width=2)
 
+    def draw(self, event):
+        if self.drawing:
+            x, y = event.x, event.y
+            if self.draw_coordinates:
+                last_x, last_y = self.draw_coordinates[-1]
+                self.current_line = self.canvas.create_line(last_x, last_y, x, y, fill="yellow", width=3)
+            self.draw_coordinates.append((x, y))
+            
+    def draw_on_zoomed_mask(self, draw_coordinates):
+        canvas_height = self.canvas.winfo_height()
+        canvas_width = self.canvas.winfo_width()
+        zoomed_mask = np.zeros((canvas_height, canvas_width), dtype=np.uint8)
+        rr, cc = polygon(np.array(draw_coordinates)[:, 1], np.array(draw_coordinates)[:, 0], shape=zoomed_mask.shape)
+        zoomed_mask[rr, cc] = 255
+        return zoomed_mask
+
+    def update_original_mask(self, zoomed_mask, x0, x1, y0, y1):
+        resized_mask = resize(zoomed_mask, (y1 - y0, x1 - x0), order=0, preserve_range=True).astype(np.uint8)
+        self.mask[y0:y1, x0:x1] = resized_mask
+        self.mask = self.mask.copy()
+
+    def finish_drawing(self, event):
+        if len(self.draw_coordinates) > 2:
+            self.draw_coordinates.append(self.draw_coordinates[0])
+            if self.zoom_active:
+                x0, x1, y0, y1 = self.zoom_x0, self.zoom_x1, self.zoom_y0, self.zoom_y1
+                zoomed_mask = self.draw_on_zoomed_mask(self.draw_coordinates)
+                self.update_original_mask(zoomed_mask, x0, x1, y0, y1)
+            else:
+                rr, cc = polygon(np.array(self.draw_coordinates)[:, 1], np.array(self.draw_coordinates)[:, 0], shape=self.mask.shape)
+                self.mask[rr, cc] = 255
+                self.mask = self.mask.copy()
+            self.canvas.delete(self.current_line)
+            self.draw_coordinates.clear()
+            self.display_image()
+
+    def finish_drawing_if_active(self, event):
+        if self.drawing and len(self.draw_coordinates) > 2:
+            self.finish_drawing(event)
+            
+    def apply_normalization(self):
+        self.image, self.mask = self.load_image_and_mask(self.current_image_index)
+        self.display_image()
+        
+    def update_normalized_image(self, *args):
+        lower_quantile = float(self.lower_quantile.get()) if self.lower_quantile.get() != '' else 1.0
+        upper_quantile = float(self.upper_quantile.get()) if self.upper_quantile.get() != '' else 99.0
+        self.norm_image = self.normalize_image(self.image, lower_quantile, upper_quantile)  
+        self.display_image()
+
+    def fill_objects(self):
+        binary_mask = self.mask > 0
+        filled_mask = binary_fill_holes(binary_mask)
+        self.mask = filled_mask.astype(np.uint8) * 255
+        labeled_mask, _ = label(filled_mask)
+        self.mask = labeled_mask
+        self.display_image()
+
+    def relabel_objects(self):
+        mask = self.mask
+        labeled_mask, num_labels = label(mask > 0)
+        self.mask = labeled_mask
+        self.display_image()
+        
+    def clear_objects(self):
+        self.mask = np.zeros_like(self.mask)
+        self.display_image()
+
+    def invert_mask(self):
+        self.mask = np.where(self.mask > 0, 0, 1)
+        self.relabel_objects()
+        self.display_image()
+    
+# Main execution
 root = tk.Tk()
-app = ImageEditor(root, folder_path, window_width, window_height, scale_factor)
-root.mainloop()
+folder_path = '/home/olafsson/Desktop/train_cellpose/test/imgs'  # Specify your folder path
+scale_factor = 1  # Define your scale factor
+width, height = 1500,1500
+if folder_path:
+    app = modify_masks(root, folder_path, scale_factor, width, height)
+    root.mainloop()
