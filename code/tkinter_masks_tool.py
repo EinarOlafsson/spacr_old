@@ -208,37 +208,25 @@ class modify_masks:
     def setup_mode_toolbar(self):
         self.mode_toolbar = tk.Frame(self.root)
         self.mode_toolbar.pack(side='top', fill='x')
-
-        # Draw button
         self.draw_btn = tk.Button(self.mode_toolbar, text="Draw", command=self.toggle_draw_mode)
         self.draw_btn.pack(side='left')
-
-        # Magic Wand button
         self.magic_wand_btn = tk.Button(self.mode_toolbar, text="Magic Wand", command=self.toggle_magic_wand_mode)
         self.magic_wand_btn.pack(side='left')
-
-        # Tolerance Entry
         self.tolerance_entry = tk.Entry(self.mode_toolbar, textvariable=self.magic_wand_tolerance)
         self.tolerance_entry.pack(side='left')
         tk.Label(self.mode_toolbar, text="Tolerance:").pack(side='left')
+        self.erase_btn = tk.Button(self.mode_toolbar, text="Erase", command=self.toggle_erase_mode)
+        self.erase_btn.pack(side='left')
         
     def setup_function_toolbar(self):
         self.function_toolbar = tk.Frame(self.root)
         self.function_toolbar.pack(side='top', fill='x')
-
-        # Fill button
         self.fill_btn = tk.Button(self.function_toolbar, text="Fill", command=self.fill_objects)
         self.fill_btn.pack(side='left')
-
-        # Relabel button
         self.relabel_btn = tk.Button(self.function_toolbar, text="Relabel", command=self.relabel_objects)
         self.relabel_btn.pack(side='left')
-
-        # Clear button
         self.clear_btn = tk.Button(self.function_toolbar, text="Clear", command=self.clear_objects)
         self.clear_btn.pack(side='left')
-
-        # Invert button
         self.invert_btn = tk.Button(self.function_toolbar, text="Invert", command=self.invert_mask)
         self.invert_btn.pack(side='left')
 
@@ -247,16 +235,11 @@ class modify_masks:
         self.zoom_toolbar.pack(side='top', fill='x')
         self.zoom_btn = tk.Button(self.zoom_toolbar, text="Zoom", command=self.toggle_zoom_mode)
         self.zoom_btn.pack(side='left')
-        # Normalize button
         self.normalize_btn = tk.Button(self.zoom_toolbar, text="Apply Normalization", command=self.apply_normalization)
         self.normalize_btn.pack(side='left')
-
-        # Lower Percentile Entry
         self.lower_entry = tk.Entry(self.zoom_toolbar, textvariable=self.lower_quantile)
         self.lower_entry.pack(side='left')
         tk.Label(self.zoom_toolbar, text="Lower Percentile:").pack(side='left')
-
-        # Upper Percentile Entry
         self.upper_entry = tk.Entry(self.zoom_toolbar, textvariable=self.upper_quantile)
         self.upper_entry.pack(side='left')
         tk.Label(self.zoom_toolbar, text="Upper Percentile:").pack(side='left')
@@ -415,6 +398,8 @@ class modify_masks:
     def toggle_draw_mode(self):
         self.drawing = not self.drawing
         if self.drawing:
+            self.magic_wand_active = False
+            self.erase_active = False
             self.draw_btn.config(text="Draw ON")
             self.canvas.bind("<B1-Motion>", self.draw)
             self.canvas.bind("<ButtonRelease-1>", self.finish_drawing)
@@ -422,35 +407,56 @@ class modify_masks:
             self.draw_btn.config(text="Draw")
             self.canvas.unbind("<B1-Motion>")
             self.canvas.unbind("<ButtonRelease-1>")
-            
+
     def toggle_magic_wand_mode(self):
         self.magic_wand_active = not self.magic_wand_active
         if self.magic_wand_active:
+            self.drawing = False
+            self.draw_btn.config(text="Draw")
+            self.erase_active = False
+            self.erase_btn.config(text="Erase")
             self.magic_wand_btn.config(text="Magic Wand ON")
             self.canvas.bind("<Button-1>", self.use_magic_wand)
-            # Disable other modes
-            self.drawing = False
-            self.zoom_active = False
         else:
             self.magic_wand_btn.config(text="Magic Wand")
             self.canvas.unbind("<Button-1>")
-
+  
     def toggle_zoom_mode(self):
-        self.zoom_active = not self.zoom_active
-        if self.zoom_active:
+        if not self.zoom_active:
+            self.zoom_active = True
             self.zoom_btn.config(text="Zoom ON")
             self.canvas.bind("<Button-1>", self.set_zoom_rectangle_start)
             self.canvas.bind("<Button-3>", self.set_zoom_rectangle_end)
             self.canvas.bind("<Motion>", self.update_zoom_box)
         else:
+            self.zoom_active = False
             self.zoom_btn.config(text="Zoom")
             self.canvas.unbind("<Button-1>")
             self.canvas.unbind("<Button-3>")
             self.canvas.unbind("<Motion>")
-            if self.drawing:
-                self.toggle_draw_mode() 
             self.zoom_rectangle_start = self.zoom_rectangle_end = None
             self.zoom_rectangle_id = None
+            self.display_image()
+            
+    def toggle_erase_mode(self):
+        self.erase_active = not self.erase_active
+        if self.erase_active:
+            self.erase_btn.config(text="Erase ON")
+            self.canvas.bind("<Button-1>", self.erase_object)
+            # Deactivate other modes
+            self.drawing = False
+            self.draw_btn.config(text="Draw")
+            self.magic_wand_active = False
+            self.magic_wand_btn.config(text="Magic Wand")
+        else:
+            self.erase_btn.config(text="Erase")
+            self.canvas.unbind("<Button-1>")
+            
+    def erase_object(self, event):
+        x, y = event.x, event.y
+        label_to_remove = self.mask[y, x]
+        if label_to_remove > 0:
+            self.mask[self.mask == label_to_remove] = 0
             self.display_image()
             
     def use_magic_wand(self, event):
@@ -549,7 +555,7 @@ class modify_masks:
             self.canvas.delete(self.current_line)
             self.draw_coordinates.clear()
             self.display_image()
-
+            
     def finish_drawing_if_active(self, event):
         if self.drawing and len(self.draw_coordinates) > 2:
             self.finish_drawing(event)
