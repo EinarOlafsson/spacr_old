@@ -135,6 +135,7 @@ class modify_masks:
         self.current_image_index = 0
         self.canvas_width = width
         self.canvas_height = height
+        #print(f'loaded image: {self.image_filenames[current_image_index]}')
 
         # Initialize these before the first call to load_image_and_mask
         self.zoom_rectangle_start = None
@@ -153,6 +154,7 @@ class modify_masks:
         self.drawing = False
         self.zoom_active = False
         self.magic_wand_active = False
+        self.brush_active = False
         self.zoom_scale = 1
         
         # Initialize percentile values
@@ -182,24 +184,11 @@ class modify_masks:
         self.canvas.bind("<ButtonRelease-1>", self.finish_drawing_if_active)
         self.display_image()
         
-    def update_mouse_info_old(self, event):
-        x, y = event.x, event.y
-        intensity = "N/A"
-        mask_value = "N/A"
-
+    def update_display(self):
         if self.zoom_active:
-            # In zoom mode, use canvas coordinates directly for zoomed images
-            if 0 <= x < self.canvas_width and 0 <= y < self.canvas_height:
-                intensity = self.zoom_image_orig[y, x] if self.zoom_image_orig is not None else "N/A"
-                mask_value = self.zoom_mask[y, x] if self.zoom_mask is not None else "N/A"
+            self.display_zoomed_image()
         else:
-            # In normal mode, use canvas coordinates directly for the original image and mask
-            if 0 <= x < self.image.shape[1] and 0 <= y < self.image.shape[0]:
-                intensity = self.image[y, x]
-                mask_value = self.mask[y, x]
-
-        self.intensity_label.config(text=f"Intensity: {intensity}")
-        self.mask_value_label.config(text=f"Mask Value: {mask_value}")
+            self.display_image()
         
     def update_mouse_info(self, event):
         x, y = event.x, event.y
@@ -284,6 +273,13 @@ class modify_masks:
         self.max_pixels_entry.pack(side='left')
         self.erase_btn = tk.Button(self.mode_toolbar, text="Erase", command=self.toggle_erase_mode)
         self.erase_btn.pack(side='left')
+    
+        self.brush_btn = tk.Button(self.mode_toolbar, text="Brush", command=self.toggle_brush_mode)
+        self.brush_btn.pack(side='left')
+        self.brush_size_entry = tk.Entry(self.mode_toolbar)
+        self.brush_size_entry.insert(0, "10")  # Default brush size
+        self.brush_size_entry.pack(side='left')
+        tk.Label(self.mode_toolbar, text="Brush Size:").pack(side='left')
 
     def setup_function_toolbar(self):
         self.function_toolbar = tk.Frame(self.root)
@@ -313,7 +309,7 @@ class modify_masks:
         
     def load_image_and_mask(self, index):
         image_path = os.path.join(self.folder_path, self.image_filenames[index])
-        image = imageio.imread(image_path)
+        image = imageio.imread(image_path)        
         #if image.dtype != np.uint8:
         #    image = (image / np.max(image) * 255).astype(np.uint8)
         mask_filename = os.path.splitext(self.image_filenames[index])[0] + '_mask.png'
@@ -324,14 +320,14 @@ class modify_masks:
                 mask = (mask / np.max(mask) * 255).astype(np.uint8)
         else:
             mask = np.zeros(image.shape[:2], dtype=np.uint8)
-
         return image, mask
         
     def display_image(self):
+        self.canvas_width = self.canvas.winfo_width()
+        self.canvas_height = self.canvas.winfo_height()
         if self.zoom_rectangle_id is not None:
             self.canvas.delete(self.zoom_rectangle_id)
             self.zoom_rectangle_id = None
-            
         lower_quantile = float(self.lower_quantile.get()) if self.lower_quantile.get() else 1.0
         upper_quantile = float(self.upper_quantile.get()) if self.upper_quantile.get() else 99.0
         normalized = self.normalize_image(self.image, lower_quantile, upper_quantile)
@@ -346,27 +342,22 @@ class modify_masks:
             x1, y1 = self.canvas_to_image(*self.zoom_rectangle_end)
             x0, x1 = min(x0, x1), max(x0, x1)
             y0, y1 = min(y0, y1), max(y0, y1)
-            
             self.zoom_x0 = x0
             self.zoom_y0 = y0
             self.zoom_x1 = x1
             self.zoom_y1 = y1
-
             # Normalize the entire image
             lower_quantile = float(self.lower_quantile.get()) if self.lower_quantile.get() else 1.0
             upper_quantile = float(self.upper_quantile.get()) if self.upper_quantile.get() else 99.0
             normalized_image = self.normalize_image(self.image, lower_quantile, upper_quantile)
-
             # Extract the zoomed portion of the normalized image and mask
             self.zoom_image = normalized_image[y0:y1, x0:x1]
             self.zoom_image_orig = self.image[y0:y1, x0:x1]
             self.zoom_mask = self.mask[y0:y1, x0:x1]
-            
             original_mask_area = self.mask.shape[0] * self.mask.shape[1]
             zoom_mask_area = self.zoom_mask.shape[0] * self.zoom_mask.shape[1]
             if original_mask_area > 0:
                 self.zoom_scale = original_mask_area/zoom_mask_area
-
             # Resize the zoomed image and mask to fit the canvas
             canvas_height = self.canvas.winfo_height()
             canvas_width = self.canvas.winfo_width()
@@ -390,14 +381,12 @@ class modify_masks:
         colors[0] = [0, 0, 0]  # background color
         colored_mask = colors[mask]
         image_8bit = (image / 256).astype(np.uint8)
-
         # Blend the mask and the image with transparency
         combined_image = np.where(mask[..., None] > 0, 
                                   np.clip(image_8bit * (1 - alpha) + colored_mask * alpha, 0, 255), 
                                   image_8bit)
         # Convert the final image back to uint8
         combined_image = combined_image.astype(np.uint8)
-
         return combined_image
 
     def previous_image(self):
@@ -410,6 +399,16 @@ class modify_masks:
         if self.current_image_index < len(self.image_filenames) - 1:
             self.current_image_index += 1
             self.image, self.mask = self.load_image_and_mask(self.current_image_index)
+            self.zoom_rectangle_start = None
+            self.zoom_rectangle_end = None
+            self.zoom_x0 = None
+            self.zoom_y0 = None
+            self.zoom_x1 = None
+            self.zoom_y1 = None
+            self.zoom_mask = None
+            self.zoom_image = None
+            self.zoom_image_orig = None
+            self.zoom_scale = 1  # or the appropriate initial value
             self.display_image()
 
     def save_mask(self):
@@ -454,11 +453,12 @@ class modify_masks:
             # Delete the red zoom rectangle
             if self.zoom_rectangle_id is not None:
                 self.canvas.delete(self.zoom_rectangle_id)
-                self.zoom_rectangle_id = None  # Reset the ID after deletion
+                self.zoom_rectangle_id = None
     
-            self.display_zoomed_image()  # Trigger zoom display
-            self.canvas.unbind("<Motion>")  # Unbind the motion event
-            self.canvas.unbind("<Button-3>")  # Unbind the right-click event
+            self.display_zoomed_image()  
+            self.canvas.unbind("<Motion>")  
+            self.canvas.unbind("<Button-1>")
+            self.canvas.unbind("<Button-3>")  
             self.canvas.bind("<Motion>", self.update_mouse_info)
             
     def update_zoom_box(self, event):
@@ -470,49 +470,6 @@ class modify_masks:
             x0, y0 = self.zoom_rectangle_start
             x1, y1 = self.zoom_rectangle_end
             self.zoom_rectangle_id = self.canvas.create_rectangle(x0, y0, x1, y1, outline="red", width=2)
-
-    def toggle_draw_mode(self):
-        self.drawing = not self.drawing
-        if self.drawing:
-            self.magic_wand_active = False
-            self.erase_active = False
-            self.draw_btn.config(text="Draw ON")
-            self.erase_btn.config(text="Erase")
-            self.magic_wand_btn.config(text="Magic Wand")
-            self.canvas.bind("<B1-Motion>", self.draw)
-            self.canvas.bind("<ButtonRelease-1>", self.finish_drawing)
-        else:
-            self.draw_btn.config(text="Draw")
-            self.canvas.unbind("<B1-Motion>")
-            self.canvas.unbind("<ButtonRelease-1>")
-
-    def toggle_magic_wand_mode(self):
-        self.magic_wand_active = not self.magic_wand_active
-        if self.magic_wand_active:
-            self.drawing = False
-            self.erase_active = False
-            self.draw_btn.config(text="Draw")
-            self.erase_btn.config(text="Erase")
-            self.magic_wand_btn.config(text="Magic Wand ON")
-            self.canvas.bind("<Button-1>", self.use_magic_wand)
-        else:
-            self.magic_wand_btn.config(text="Magic Wand")
-            self.canvas.unbind("<Button-1>")
-            
-    def toggle_erase_mode(self):
-        self.erase_active = not self.erase_active
-        if self.erase_active:
-            self.erase_btn.config(text="Erase ON")
-            self.canvas.bind("<Button-1>", self.erase_object)
-            # Deactivate other modes
-            self.drawing = False
-            self.draw_btn.config(text="Draw")
-            self.magic_wand_active = False
-            self.magic_wand_btn.config(text="Magic Wand")
-        else:
-            self.erase_active = False
-            self.erase_btn.config(text="Erase")
-            self.canvas.unbind("<Button-1>")
             
     def toggle_zoom_mode(self):
         if not self.zoom_active:
@@ -520,6 +477,8 @@ class modify_masks:
             self.drawing = False
             self.magic_wand_active = False
             self.erase_active = False
+            self.brush_active = False
+            self.brush_btn.config(text="Brush")
             self.draw_btn.config(text="Draw")
             self.erase_btn.config(text="Erase")
             self.magic_wand_btn.config(text="Magic Wand")
@@ -537,21 +496,176 @@ class modify_masks:
             self.zoom_rectangle_id = None
             self.display_image()
             self.canvas.bind("<Motion>", self.update_mouse_info)
+            self.zoom_rectangle_start = None
+            self.zoom_rectangle_end = None
+            self.zoom_rectangle_id = None
+            self.zoom_x0 = None
+            self.zoom_y0 = None
+            self.zoom_x1 = None
+            self.zoom_y1 = None
+            self.zoom_mask = None
+            self.zoom_image = None
+            self.zoom_image_orig = None
+            
+    def toggle_brush_mode(self):
+        self.brush_active = not self.brush_active
+        if self.brush_active:
+            self.drawing = False
+            self.magic_wand_active = False
+            self.erase_active = False
+            self.brush_btn.config(text="Brush ON")
+            self.draw_btn.config(text="Draw")
+            self.erase_btn.config(text="Erase")
+            self.magic_wand_btn.config(text="Magic Wand")
+            self.canvas.unbind("<Button-1>")
+            self.canvas.unbind("<Button-3>")
+            self.canvas.unbind("<Motion>")
+            self.canvas.bind("<B1-Motion>", self.apply_brush)  # Left click and drag to apply brush
+            self.canvas.bind("<B3-Motion>", self.erase_brush)  # Right click and drag to erase with brush
+            self.canvas.bind("<ButtonRelease-1>", self.apply_brush_release)  # Left button release
+            self.canvas.bind("<ButtonRelease-3>", self.erase_brush_release)  # Right button release
+        else:
+            self.brush_btn.config(text="Brush")
+            self.canvas.unbind("<B1-Motion>")
+            self.canvas.unbind("<B3-Motion>")
+            self.canvas.unbind("<ButtonRelease-1>")
+            self.canvas.unbind("<ButtonRelease-3>")
+            
+    def toggle_draw_mode(self):
+        self.drawing = not self.drawing
+        if self.drawing:
+            self.magic_wand_active = False
+            self.erase_active = False
+            self.brush_active = False
+            self.draw_btn.config(text="Draw ON")
+            self.magic_wand_btn.config(text="Magic Wand")
+            self.erase_btn.config(text="Erase")
+            self.brush_btn.config(text="Brush")
+            
+            self.canvas.unbind("<Button-1>")
+            self.canvas.unbind("<Button-3>")
+            self.canvas.unbind("<Motion>")
+            
+            self.canvas.bind("<B1-Motion>", self.draw)
+            self.canvas.bind("<ButtonRelease-1>", self.finish_drawing)
+        else:
+            self.drawing = False
+            self.draw_btn.config(text="Draw")
+            self.canvas.unbind("<B1-Motion>")
+            self.canvas.unbind("<ButtonRelease-1>")
+
+    def toggle_magic_wand_mode(self):
+        self.magic_wand_active = not self.magic_wand_active
+        if self.magic_wand_active:
+            self.drawing = False
+            self.erase_active = False
+            self.brush_active = False
+            self.draw_btn.config(text="Draw")
+            self.erase_btn.config(text="Erase")
+            self.brush_btn.config(text="Brush")
+            self.magic_wand_btn.config(text="Magic Wand ON")
+            self.canvas.bind("<Button-1>", self.use_magic_wand)
+        else:
+            self.magic_wand_btn.config(text="Magic Wand")
+            self.canvas.unbind("<Button-1>")
             
     def toggle_erase_mode(self):
         self.erase_active = not self.erase_active
         if self.erase_active:
             self.erase_btn.config(text="Erase ON")
             self.canvas.bind("<Button-1>", self.erase_object)
-            # Deactivate other modes
             self.drawing = False
-            self.draw_btn.config(text="Draw")
             self.magic_wand_active = False
+            self.brush_active = False
+            self.draw_btn.config(text="Draw")
             self.magic_wand_btn.config(text="Magic Wand")
+            self.brush_btn.config(text="Brush")
         else:
             self.erase_active = False
             self.erase_btn.config(text="Erase")
             self.canvas.unbind("<Button-1>")
+            
+    def toggle_erase_mode(self):
+        self.erase_active = not self.erase_active
+        if self.erase_active:
+            self.erase_btn.config(text="Erase ON")
+            self.brush_active = False
+            self.magic_wand_active = False
+            self.drawing = False
+            self.canvas.bind("<Button-1>", self.erase_object)
+            self.draw_btn.config(text="Draw")
+            self.brush_btn.config(text="Brush")
+            self.magic_wand_btn.config(text="Magic Wand")
+        else:
+            self.erase_btn.config(text="Erase")
+            self.canvas.unbind("<Button-1>")
+            
+    def apply_brush_release(self, event):
+        if hasattr(self, 'brush_path'):
+            for x, y, brush_size in self.brush_path:
+                img_x, img_y = (x, y) if self.zoom_active else self.canvas_to_image(x, y)
+                x0 = max(img_x - brush_size // 2, 0)
+                y0 = max(img_y - brush_size // 2, 0)
+                x1 = min(img_x + brush_size // 2, self.zoom_mask.shape[1] if self.zoom_active else self.mask.shape[1])
+                y1 = min(img_y + brush_size // 2, self.zoom_mask.shape[0] if self.zoom_active else self.mask.shape[0])
+
+                if self.zoom_active:
+                    self.zoom_mask[y0:y1, x0:x1] = 255
+                    self.update_original_mask_from_zoom()
+                else:
+                    self.mask[y0:y1, x0:x1] = 255
+
+            del self.brush_path
+            self.canvas.delete("temp_line")
+            self.update_display()
+
+    def erase_brush_release(self, event):
+        if hasattr(self, 'erase_path'):
+            for x, y, brush_size in self.erase_path:
+                img_x, img_y = (x, y) if self.zoom_active else self.canvas_to_image(x, y)
+                x0 = max(img_x - brush_size // 2, 0)
+                y0 = max(img_y - brush_size // 2, 0)
+                x1 = min(img_x + brush_size // 2, self.zoom_mask.shape[1] if self.zoom_active else self.mask.shape[1])
+                y1 = min(img_y + brush_size // 2, self.zoom_mask.shape[0] if self.zoom_active else self.mask.shape[0])
+
+                if self.zoom_active:
+                    self.zoom_mask[y0:y1, x0:x1] = 0                    
+                    self.update_original_mask_from_zoom()
+                else:
+                    self.mask[y0:y1, x0:x1] = 0
+
+            del self.erase_path
+            self.canvas.delete("temp_line")
+            self.update_display()
+
+    def apply_brush(self, event):
+        brush_size = int(self.brush_size_entry.get())
+        x, y = event.x, event.y
+
+        if not hasattr(self, 'brush_path'):
+            self.brush_path = []
+            self.last_brush_coord = (x, y)
+
+        self.brush_path.append((x, y, brush_size))
+        self.canvas.create_line(self.last_brush_coord[0], self.last_brush_coord[1], x, y, width=brush_size, fill="blue", tag="temp_line")
+        self.last_brush_coord = (x, y)
+
+    def erase_brush(self, event):
+        brush_size = int(self.brush_size_entry.get())
+        x, y = event.x, event.y
+
+        if not hasattr(self, 'erase_path'):
+            self.erase_path = []
+            self.last_erase_coord = (x, y)
+
+        self.erase_path.append((x, y, brush_size))
+        self.canvas.create_line(self.last_erase_coord[0], self.last_erase_coord[1], x, y, width=brush_size, fill="white", tag="temp_line")
+        self.last_erase_coord = (x, y)
+        
+    def update_original_mask_from_zoom(self):
+        y0, y1, x0, x1 = self.zoom_y0, self.zoom_y1, self.zoom_x0, self.zoom_x1
+        zoomed_mask_resized = resize(self.zoom_mask, (y1 - y0, x1 - x0), order=0, preserve_range=True).astype(np.uint8)
+        self.mask[y0:y1, x0:x1] = zoomed_mask_resized
 
     def erase_object(self, event):
         x, y = event.x, event.y
@@ -578,12 +692,7 @@ class modify_masks:
         label_to_remove = self.mask[orig_y, orig_x]
         if label_to_remove > 0:
             self.mask[self.mask == label_to_remove] = 0
-
-        # Update the display to show changes
-        if self.zoom_active:
-            self.display_zoomed_image()
-        else:
-            self.display_image()
+        self.update_display()
                 
     def use_magic_wand(self, event):
         x, y = event.x, event.y
@@ -594,31 +703,6 @@ class modify_masks:
             self.magic_wand_zoomed((x, y), tolerance)
         else:
             self.magic_wand_normal((x, y), tolerance)
-    
-    def apply_magic_wand_old(self, image, mask, seed_point, tolerance, maximum):
-        x, y = seed_point
-        initial_value = image[y, x].astype(np.float32)
-        visited = np.zeros_like(image, dtype=bool)
-        queue = deque([(x, y)])
-        pixel_count = 0
-
-        while queue and pixel_count < maximum:
-            cx, cy = queue.popleft()
-            if visited[cy, cx]:
-                continue
-            visited[cy, cx] = True
-            current_value = image[cy, cx].astype(np.float32)
-
-            if np.linalg.norm(current_value - initial_value) <= tolerance:
-                mask[cy, cx] = 255
-                pixel_count += 1
-
-                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                    nx, ny = cx + dx, cy + dy
-                    if 0 <= nx < image.shape[1] and 0 <= ny < image.shape[0] and not visited[ny, nx]:
-                        queue.append((nx, ny))
-
-        return mask
     
     def apply_magic_wand(self, image, mask, seed_point, tolerance, maximum):
         x, y = seed_point
@@ -647,7 +731,14 @@ class modify_masks:
                     if 0 <= nx < image.shape[1] and 0 <= ny < image.shape[0] and not visited[ny, nx]:
                         queue.append((nx, ny))
         return mask
-        
+    
+    def canvas_to_zoomed_image(self, x_canvas, y_canvas):
+        # Calculate the relative position in the zoomed area
+        # Assuming self.zoom_x0, self.zoom_y0 are the top-left coordinates of the zoomed area
+        rel_x = (x_canvas * self.zoom_scale) + self.zoom_x0
+        rel_y = (y_canvas * self.zoom_scale) + self.zoom_y0
+        return int(rel_x), int(rel_y)
+    
     def magic_wand_normal(self, seed_point, tolerance):
         try:
             maximum = int(self.max_pixels_entry.get())
@@ -707,10 +798,7 @@ class modify_masks:
                 self.mask = self.mask.copy()
             self.canvas.delete(self.current_line)
             self.draw_coordinates.clear()
-            if self.zoom_active:
-                self.display_zoomed_image()
-            else:
-                self.display_image()
+            self.update_display()
             
     def finish_drawing_if_active(self, event):
         if self.drawing and len(self.draw_coordinates) > 2:
@@ -728,20 +816,13 @@ class modify_masks:
         self.mask = self.mask.copy()
             
     def apply_normalization(self):
-        #self.image, self.mask = self.load_image_and_mask(self.current_image_index)
-        if self.zoom_active:
-            self.display_zoomed_image()
-        else:
-            self.display_image()
+        self.update_display()
             
     def update_normalized_image_old(self, *args):
         lower_quantile = float(self.lower_quantile.get()) if self.lower_quantile.get() != '' else 1.0
         upper_quantile = float(self.upper_quantile.get()) if self.upper_quantile.get() != '' else 99.0
         self.norm_image = self.normalize_image(self.image, lower_quantile, upper_quantile)  
-        if self.zoom_active:
-            self.display_zoomed_image()
-        else:
-            self.display_image()
+        self.update_display()
 
     def fill_objects(self):
         binary_mask = self.mask > 0
@@ -749,31 +830,19 @@ class modify_masks:
         self.mask = filled_mask.astype(np.uint8) * 255
         labeled_mask, _ = label(filled_mask)
         self.mask = labeled_mask
-        if self.zoom_active:
-            self.display_zoomed_image()
-        else:
-            self.display_image()
+        self.update_display()
 
     def relabel_objects(self):
         mask = self.mask
         labeled_mask, num_labels = label(mask > 0)
         self.mask = labeled_mask
-        if self.zoom_active:
-            self.display_zoomed_image()
-        else:
-            self.display_image()
+        self.update_display()
         
     def clear_objects(self):
         self.mask = np.zeros_like(self.mask)
-        if self.zoom_active:
-            self.display_zoomed_image()
-        else:
-            self.display_image()
+        self.update_display()
 
     def invert_mask(self):
         self.mask = np.where(self.mask > 0, 0, 1)
         self.relabel_objects()
-        if self.zoom_active:
-            self.display_zoomed_image()
-        else:
-            self.display_image()
+        self.update_display()
