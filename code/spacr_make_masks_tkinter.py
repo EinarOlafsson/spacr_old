@@ -548,13 +548,12 @@ class modify_masks:
             self.erase_btn.config(text="Erase")
             self.brush_btn.config(text="Brush")
             self.magic_wand_btn.config(text="Magic Wand ON")
-            self.canvas.bind("<Button-1>", self.use_magic_wand)  # Left-click for adding
-            self.canvas.bind("<Button-3>", self.use_magic_wand)  # Right-click for erasing
+            self.canvas.bind("<Button-1>", self.use_magic_wand)
+            self.canvas.bind("<Button-3>", self.use_magic_wand)
         else:
             self.magic_wand_btn.config(text="Magic Wand")
             self.canvas.unbind("<Button-1>")
             self.canvas.unbind("<Button-3>")  # Unbind right-click as well
-
             
     def toggle_erase_mode(self):
         self.erase_active = not self.erase_active
@@ -698,7 +697,6 @@ class modify_masks:
                         queue.append((nx, ny))
         return mask
 
-    
     def magic_wand_normal(self, seed_point, tolerance, action):
         try:
             maximum = int(self.max_pixels_entry.get())
@@ -706,7 +704,6 @@ class modify_masks:
             print("Invalid maximum value; using default of 1000")
             maximum = 1000 
         self.mask = self.apply_magic_wand(self.image, self.mask, seed_point, tolerance, maximum, action)
-        #self.mask = self.apply_magic_wand(self.image, self.mask, seed_point, tolerance, maximum)
         self.display_image()
         
     def magic_wand_zoomed(self, seed_point, tolerance, action):
@@ -726,12 +723,14 @@ class modify_masks:
             return
         
         self.zoom_mask = self.apply_magic_wand(self.zoom_image_orig, self.zoom_mask, (canvas_x, canvas_y), tolerance, maximum, action)
-        #self.zoom_mask = self.apply_magic_wand(self.zoom_image_orig, self.zoom_mask, (canvas_x, canvas_y), tolerance, maximum)
         y0, y1, x0, x1 = self.zoom_y0, self.zoom_y1, self.zoom_x0, self.zoom_x1
         zoomed_mask_resized_back = resize(self.zoom_mask, (y1 - y0, x1 - x0), order=0, preserve_range=True).astype(np.uint8)
-        self.mask[y0:y1, x0:x1] = np.where(zoomed_mask_resized_back > 0, zoomed_mask_resized_back, self.mask[y0:y1, x0:x1])
-        self.display_zoomed_image()
-        
+        if action == 'erase':
+            self.mask[y0:y1, x0:x1] = np.where(zoomed_mask_resized_back == 0, 0, self.mask[y0:y1, x0:x1])
+        else:
+            self.mask[y0:y1, x0:x1] = np.where(zoomed_mask_resized_back > 0, zoomed_mask_resized_back, self.mask[y0:y1, x0:x1])
+        self.update_display()
+                
     def draw(self, event):
         if self.drawing:
             x, y = event.x, event.y
