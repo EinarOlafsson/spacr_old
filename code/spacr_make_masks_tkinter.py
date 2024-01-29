@@ -301,7 +301,7 @@ class modify_masks:
         self.brush_btn = tk.Button(self.mode_toolbar, text="Brush", command=self.toggle_brush_mode)
         self.brush_btn.pack(side='left')
         self.brush_size_entry = tk.Entry(self.mode_toolbar)
-        self.brush_size_entry.insert(0, "10")  # Default brush size
+        self.brush_size_entry.insert(0, "10") 
         self.brush_size_entry.pack(side='left')
         tk.Label(self.mode_toolbar, text="Brush Size:").pack(side='left')
 
@@ -544,6 +544,7 @@ class modify_masks:
             self.canvas.bind("<ButtonRelease-1>", self.apply_brush_release)  # Left button release
             self.canvas.bind("<ButtonRelease-3>", self.erase_brush_release)  # Right button release
         else:
+            self.brush_active = False
             self.brush_btn.config(text="Brush")
             self.canvas.unbind("<B1-Motion>")
             self.canvas.unbind("<B3-Motion>")
@@ -586,7 +587,7 @@ class modify_masks:
         else:
             self.magic_wand_btn.config(text="Magic Wand")
             self.canvas.unbind("<Button-1>")
-            self.canvas.unbind("<Button-3>")  # Unbind right-click as well
+            self.canvas.unbind("<Button-3>")
             
     def toggle_erase_mode(self):
         self.erase_active = not self.erase_active
