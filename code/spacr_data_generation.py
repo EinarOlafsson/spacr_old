@@ -2510,7 +2510,7 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
                                 timelapse=timelapse)
         else:
             print(f'========== creating single channel folders ==========')
-            z_to_mip(src, regex=regex)
+            #z_to_mip(src, regex=regex)
             z_to_mip(src, regex=regex, batch_size=batch_size, pick_slice=pick_slice, skip_mode=skip_mode)
 		
             #Make sure no batches will be of only one image
