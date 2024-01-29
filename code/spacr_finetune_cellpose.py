@@ -255,7 +255,6 @@ def print_mask_and_flows(stack, mask, flows):
     fig.tight_layout()
     plt.show()
     
-
 def identify_masks(paths, dst, model_name, channels, diameter, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False, custom_model=None):
     print('========== generating masks ==========')
     print('Torch available:', torch.cuda.is_available())
@@ -267,16 +266,20 @@ def identify_masks(paths, dst, model_name, channels, diameter, flow_threshold=30
         model_state = torch.load(custom_model, map_location=device)
         model = models.CellposeModel(gpu=True, model_type=model_name)
         model.net.load_state_dict(model_state)
+        print(f'loaded custom model:{custom_model}')
 
     chans = [2, 1] if model_name == 'cyto2' else [0,0] if model_name == 'nuclei' else [1,0] if model_name == 'cyto' else [2, 0] 
     
+    print(f'Using channels: {chans} for model of type {model_name}')
+    
     if verbose == True:
-        print(f'Settings: minimum_size: {minimum_size}, maximum_size:{maximum_size}')
+        #print(f'Settings: minimum_size: {minimum_size}, maximum_size:{maximum_size}')
         print(f'Cellpose settings: Model: {model_name}, channels: {channels}, cellpose_chans: {chans}, diameter:{diameter}, flow_threshold:{flow_threshold}, cellprob_threshold:{cellprob_threshold}')
         
     time_ls = []
     
     for file_index, path in enumerate(paths):
+        print(file_index, path)
         stack = cv2.imread(path).astype(np.float32)
         stack = stack[:, :, channels]
         filename = os.path.basename(path)
@@ -285,18 +288,28 @@ def identify_masks(paths, dst, model_name, channels, diameter, flow_threshold=30
         
         if stack.max() > 1:
             stack = stack / stack.max()
+                                        
+        results = model.eval(x=stack,
+                         normalize=False,
+                         channels=chans,
+                         channel_axis=3,
+                         diameter=diameter,
+                         flow_threshold=flow_threshold,
+                         cellprob_threshold=cellprob_threshold,
+                         rescale=None,
+                         resample=True,
+                         net_avg=True,
+                         progress=None)
 
-        mask, flows, _, _ = model.eval(x=stack,
-                                        normalize=False,
-                                        channels=chans,
-                                        channel_axis=3,
-                                        diameter=diameter,
-                                        flow_threshold=flow_threshold,
-                                        cellprob_threshold=cellprob_threshold,
-                                        rescale=None,
-                                        resample=True,
-                                        net_avg=True,
-                                        progress=None)
+        print(len(results))
+
+        # Unpack the results based on the number of returned values
+        if len(results) == 4:
+            mask, flows, _, _ = results
+        elif len(results) == 3:
+            mask, flows, _ = results
+        else:
+            raise ValueError("Unexpected number of return values from model.eval()")
 
         stop = time.time()
         duration = (stop - start)
