@@ -489,12 +489,16 @@ class modify_masks:
     
     def toggle_zoom_mode(self):
         if not self.zoom_active:
+            self.brush_btn.config(text="Brush")
+            self.canvas.unbind("<B1-Motion>")
+            self.canvas.unbind("<B3-Motion>")
+            self.canvas.unbind("<ButtonRelease-1>")
+            self.canvas.unbind("<ButtonRelease-3>")
             self.zoom_active = True
             self.drawing = False
             self.magic_wand_active = False
             self.erase_active = False
             self.brush_active = False
-            self.brush_btn.config(text="Brush")
             self.draw_btn.config(text="Draw")
             self.erase_btn.config(text="Erase")
             self.magic_wand_btn.config(text="Magic Wand")
@@ -554,13 +558,17 @@ class modify_masks:
     def toggle_draw_mode(self):
         self.drawing = not self.drawing
         if self.drawing:
+            self.brush_btn.config(text="Brush")
+            self.canvas.unbind("<B1-Motion>")
+            self.canvas.unbind("<B3-Motion>")
+            self.canvas.unbind("<ButtonRelease-1>")
+            self.canvas.unbind("<ButtonRelease-3>")
             self.magic_wand_active = False
             self.erase_active = False
             self.brush_active = False
             self.draw_btn.config(text="Draw ON")
             self.magic_wand_btn.config(text="Magic Wand")
             self.erase_btn.config(text="Erase")
-            self.brush_btn.config(text="Brush")
             self.draw_coordinates = []
             self.canvas.unbind("<Button-1>")
             self.canvas.unbind("<Motion>")
@@ -575,12 +583,16 @@ class modify_masks:
     def toggle_magic_wand_mode(self):
         self.magic_wand_active = not self.magic_wand_active
         if self.magic_wand_active:
+            self.brush_btn.config(text="Brush")
+            self.canvas.unbind("<B1-Motion>")
+            self.canvas.unbind("<B3-Motion>")
+            self.canvas.unbind("<ButtonRelease-1>")
+            self.canvas.unbind("<ButtonRelease-3>")
             self.drawing = False
             self.erase_active = False
             self.brush_active = False
             self.draw_btn.config(text="Draw")
             self.erase_btn.config(text="Erase")
-            self.brush_btn.config(text="Brush")
             self.magic_wand_btn.config(text="Magic Wand ON")
             self.canvas.bind("<Button-1>", self.use_magic_wand)
             self.canvas.bind("<Button-3>", self.use_magic_wand)
@@ -592,6 +604,11 @@ class modify_masks:
     def toggle_erase_mode(self):
         self.erase_active = not self.erase_active
         if self.erase_active:
+            self.brush_btn.config(text="Brush")
+            self.canvas.unbind("<B1-Motion>")
+            self.canvas.unbind("<B3-Motion>")
+            self.canvas.unbind("<ButtonRelease-1>")
+            self.canvas.unbind("<ButtonRelease-3>")
             self.erase_btn.config(text="Erase ON")
             self.canvas.bind("<Button-1>", self.erase_object)
             self.drawing = False
@@ -599,7 +616,6 @@ class modify_masks:
             self.brush_active = False
             self.draw_btn.config(text="Draw")
             self.magic_wand_btn.config(text="Magic Wand")
-            self.brush_btn.config(text="Brush")
         else:
             self.erase_active = False
             self.erase_btn.config(text="Erase")
