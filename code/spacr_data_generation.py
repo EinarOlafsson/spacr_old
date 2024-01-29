@@ -1323,7 +1323,12 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
             for i in range(0, stack.shape[0], batch_size): # pseudo 3D batch of 2D images
                 mask_stack = []
                 start = time.time()
-                batch = stack[i: i+batch_size, :, :, channels].astype(stack.dtype)
+                
+                if stack.shape[3] == 1:
+                    batch = stack[i: i+batch_size, :, :, [0,0]].astype(stack.dtype)
+                else:
+                    batch = stack[i: i+batch_size, :, :, channels].astype(stack.dtype)
+                    
                 batch_filenames = filenames[i: i+batch_size].tolist()
                 if not plot:
                     batch, batch_filenames = check_masks(batch, batch_filenames, output_folder)
