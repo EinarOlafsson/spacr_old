@@ -280,7 +280,7 @@ def z_to_mip(src, regex, batch_size=100, pick_slice=False, skip_mode='01'):
             if pick_slice:
                 for key in images_by_key:
                     plate, well, field, channel, mode = key
-                    max_intensity_slice = max(images, key=lambda x: np.percentile(x, 90))
+                    max_intensity_slice = max(images_by_key[key], key=lambda x: np.percentile(x, 90))
                     #max_intensity_slice = max(images_by_key[key], key=lambda x: np.sum(x))
                     mip_image = Image.fromarray(max_intensity_slice)
 
