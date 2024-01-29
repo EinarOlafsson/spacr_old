@@ -2485,7 +2485,7 @@ def load_and_concatenate_arrays(src, channels, cell_chann_dim, nucleus_chann_dim
         print(f'Files merged: {count}/{all_imgs}', end='\r', flush=True)
     return
 
-def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img_format='.tif', bitdepth='uint16', cmap='inferno', figuresize=15, normalize=False, nr=1, plot=False, mask_channels=[0,1,2], batch_size=100, timelapse=False, remove_background=False, backgrounds=[50,50,50,50], lower_quantile=0.01, save_dtype=np.float32, min_highs=[2000, 2000, 2000, 2000], correct_illumination=False, randomize=True, signal_to_noise=5, generate_movies=False, all_to_mip=False, fps=2):
+def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img_format='.tif', bitdepth='uint16', cmap='inferno', figuresize=15, normalize=False, nr=1, plot=False, mask_channels=[0,1,2], batch_size=100, timelapse=False, remove_background=False, backgrounds=[50,50,50,50], lower_quantile=0.01, save_dtype=np.float32, min_highs=[2000, 2000, 2000, 2000], correct_illumination=False, randomize=True, signal_to_noise=5, generate_movies=False, all_to_mip=False, fps=2, pick_slice=False, skip_mode='01'):
     print(f'========== settings ==========')
     print(f'source == {src}')
     print(f'Bitdepth: {bitdepth}: cmap:{cmap}: figuresize:{figuresize}')
@@ -2502,7 +2502,6 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
     if metadata_type == 'custom':
         regex = f'({custom_regex}){img_format}'
     
-    
     print(f'regex == {regex}')
     if not os.path.exists(src+'/stack'):
         if timelapse:
@@ -2512,7 +2511,8 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
         else:
             print(f'========== creating single channel folders ==========')
             z_to_mip(src, regex=regex)
-
+            z_to_mip(src, regex=regex, batch_size=batch_size, pick_slice=pick_slice, skip_mode=skip_mode)
+		
             #Make sure no batches will be of only one image
             all_imgs = len(src+'/stack')
             full_batches = all_imgs // batch_size
@@ -2760,7 +2760,7 @@ def mip_all(src, include_first_chan=True):
     return
 
 
-def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, experiment='experiment', preprocess=True, masks=True, save=True,  plot=True,  examples_to_plot=1,  channels=[0,1,2,3], cell_chann_dim=1, cell_cp_prob=0, nucleus_chann_dim=0, nucleus_cp_prob=0, parasite_chann_dim=2,  parasite_cp_prob=-1,  batch_size=4,  backgrounds=100,  signal_to_noise=5, magnefication=40,  workers=30,  all_to_mip = False, verbose=True):
+def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, experiment='experiment', preprocess=True, masks=True, save=True,  plot=True,  examples_to_plot=1,  channels=[0,1,2,3], cell_chann_dim=1, cell_cp_prob=0, nucleus_chann_dim=0, nucleus_cp_prob=0, parasite_chann_dim=2,  parasite_cp_prob=-1,  batch_size=4,  backgrounds=100,  signal_to_noise=5, magnefication=40,  workers=30,  all_to_mip = False, pick_slice=False, skip_mode='01', verbose=True):
                                 
     #settings that generally do not change
     randomize = True
@@ -2770,10 +2770,8 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
     count = False
     timelapse = False
     normalize_plots = True
-    fps = 2
+    #fps = 2
 
-    
-    
     if preprocess and not masks:
         print(f'WARNING: channels for mask generation are defined when preprocess = True')
 
@@ -2823,7 +2821,9 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
                             generate_movies=False,
                             nr=examples_to_plot,
                             all_to_mip=all_to_mip,
-                            fps=2)
+                            fps=fps,
+			    pick_slice=pick_slice,
+			    skip_mode=skip_mode)
     if masks:
     
         if len(cellpose_channels) == 2:
