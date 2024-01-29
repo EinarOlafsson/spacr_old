@@ -134,89 +134,55 @@ class modify_masks:
         self.image_filenames = sorted([f for f in os.listdir(folder_path) if f.endswith(('.png', '.jpg', '.jpeg', '.tif', '.tiff'))])
         self.masks_folder = os.path.join(folder_path, 'masks')
         self.current_image_index = 0
-
-        # Initialize mode and quantile flags
         self.initialize_flags()
-        
         self.canvas_width = width
         self.canvas_height = height
-
-        # Initialize UI elements
         self.setup_navigation_toolbar()
         self.setup_mode_toolbar()
         self.setup_function_toolbar()
         self.setup_zoom_toolbar()
         self.setup_canvas()
-
-        # Load the first image and mask
         self.load_first_image()
-
-    def load_first_image(self):
-        self.image, self.mask = self.load_image_and_mask(self.current_image_index)
-        self.original_size = self.image.shape
-        self.image, self.mask = self.resize_arrays(self.image, self.mask)
-        self.display_image()
-
-    def setup_canvas(self):
-        self.canvas = tk.Canvas(self.root, width=self.canvas_width, height=self.canvas_height)
-        self.canvas.pack()
-        self.canvas.bind("<Motion>", self.update_mouse_info)
-
-    def initialize_flags(self):
-        # Initialize these before the first call to display_image
-        self.zoom_rectangle_start = None
-        self.zoom_rectangle_end = None
-        self.zoom_rectangle_id = None
-        self.zoom_x0 = None
-        self.zoom_y0 = None
-        self.zoom_x1 = None
-        self.zoom_y1 = None
-        self.zoom_mask = None
-        self.zoom_image = None
-        self.zoom_image_orig = None
-        self.zoom_scale = 1
-
-        # Initialize mode flags
-        self.drawing = False
-        self.zoom_active = False
-        self.magic_wand_active = False
-        self.brush_active = False
-
-        # Initialize percentile values
-        self.lower_quantile = tk.StringVar(value="1.0")
-        self.upper_quantile = tk.StringVar(value="99.9")
-        self.magic_wand_tolerance = tk.StringVar(value="1000")
-
-
+    
+    ####################################################################################################
+    # Helper functions#
+    ####################################################################################################
+    
     def update_display(self):
         if self.zoom_active:
             self.display_zoomed_image()
         else:
             self.display_image()
+    
+    def update_original_mask_from_zoom(self):
+        y0, y1, x0, x1 = self.zoom_y0, self.zoom_y1, self.zoom_x0, self.zoom_x1
+        zoomed_mask_resized = resize(self.zoom_mask, (y1 - y0, x1 - x0), order=0, preserve_range=True).astype(np.uint8)
+        self.mask[y0:y1, x0:x1] = zoomed_mask_resized
         
-    def update_mouse_info(self, event):
-        x, y = event.x, event.y
-        intensity = "N/A"
-        mask_value = "N/A"
-        pixel_count = "N/A"  # Variable to hold the pixel count
-        if self.zoom_active:
-            if 0 <= x < self.canvas_width and 0 <= y < self.canvas_height:
-                intensity = self.zoom_image_orig[y, x] if self.zoom_image_orig is not None else "N/A"
-                mask_value = self.zoom_mask[y, x] if self.zoom_mask is not None else "N/A"
-        else:
-            if 0 <= x < self.image.shape[1] and 0 <= y < self.image.shape[0]:
-                intensity = self.image[y, x]
-                mask_value = self.mask[y, x]
-        # Count the pixels with the same mask value, if the value is not 0
-        if mask_value != "N/A" and mask_value != 0:
-            pixel_count = np.sum(self.mask == mask_value)
-        self.intensity_label.config(text=f"Intensity: {intensity}")
-        self.mask_value_label.config(text=f"Mask: {mask_value}, Area: {pixel_count}")
-        self.mask_value_label.config(text=f"Mask: {mask_value}")
-        if mask_value != "N/A" and mask_value != 0:
-            self.pixel_count_label.config(text=f"Area: {pixel_count}")
-        else:
-            self.pixel_count_label.config(text="Area: N/A")
+    def update_original_mask(self, zoomed_mask, x0, x1, y0, y1):
+        actual_mask_region = self.mask[y0:y1, x0:x1]
+        target_shape = actual_mask_region.shape
+        resized_mask = resize(zoomed_mask, target_shape, order=0, preserve_range=True).astype(np.uint8)
+        if resized_mask.shape != actual_mask_region.shape:
+            raise ValueError(f"Shape mismatch: resized_mask {resized_mask.shape}, actual_mask_region {actual_mask_region.shape}")
+        self.mask[y0:y1, x0:x1] = np.maximum(actual_mask_region, resized_mask)
+        self.mask = self.mask.copy()
+        self.mask[y0:y1, x0:x1] = np.maximum(self.mask[y0:y1, x0:x1], resized_mask)
+        self.mask = self.mask.copy()
+
+    def get_scaling_factors(self, img_width, img_height, canvas_width, canvas_height):
+        x_scale = img_width / canvas_width
+        y_scale = img_height / canvas_height
+        return x_scale, y_scale
+    
+    def canvas_to_image(self, x_canvas, y_canvas):
+        x_scale, y_scale = self.get_scaling_factors(
+            self.image.shape[1], self.image.shape[0],
+            self.canvas_width, self.canvas_height
+        )
+        x_image = int(x_canvas * x_scale)
+        y_image = int(y_canvas * y_scale)
+        return x_image, y_image
 
     def apply_zoom_on_enter(self, event):
         if self.zoom_active and self.zoom_rectangle_start is not None:
@@ -240,6 +206,64 @@ class modify_masks:
         stretched_img = resize(scaled_img, (self.canvas_height, self.canvas_width), anti_aliasing=True, preserve_range=True)
         stretched_mask = resize(scaled_mask, (self.canvas_height, self.canvas_width), order=0, anti_aliasing=False, preserve_range=True)
         return stretched_img.astype(original_dtype), stretched_mask.astype(original_dtype)
+    
+    ####################################################################################################
+    #Initiate canvas elements#
+    ####################################################################################################
+    
+    def load_first_image(self):
+        self.image, self.mask = self.load_image_and_mask(self.current_image_index)
+        self.original_size = self.image.shape
+        self.image, self.mask = self.resize_arrays(self.image, self.mask)
+        self.display_image()
+
+    def setup_canvas(self):
+        self.canvas = tk.Canvas(self.root, width=self.canvas_width, height=self.canvas_height)
+        self.canvas.pack()
+        self.canvas.bind("<Motion>", self.update_mouse_info)
+
+    def initialize_flags(self):
+        self.zoom_rectangle_start = None
+        self.zoom_rectangle_end = None
+        self.zoom_rectangle_id = None
+        self.zoom_x0 = None
+        self.zoom_y0 = None
+        self.zoom_x1 = None
+        self.zoom_y1 = None
+        self.zoom_mask = None
+        self.zoom_image = None
+        self.zoom_image_orig = None
+        self.zoom_scale = 1
+        self.drawing = False
+        self.zoom_active = False
+        self.magic_wand_active = False
+        self.brush_active = False
+        self.lower_quantile = tk.StringVar(value="1.0")
+        self.upper_quantile = tk.StringVar(value="99.9")
+        self.magic_wand_tolerance = tk.StringVar(value="1000")
+    
+    def update_mouse_info(self, event):
+        x, y = event.x, event.y
+        intensity = "N/A"
+        mask_value = "N/A"
+        pixel_count = "N/A"  
+        if self.zoom_active:
+            if 0 <= x < self.canvas_width and 0 <= y < self.canvas_height:
+                intensity = self.zoom_image_orig[y, x] if self.zoom_image_orig is not None else "N/A"
+                mask_value = self.zoom_mask[y, x] if self.zoom_mask is not None else "N/A"
+        else:
+            if 0 <= x < self.image.shape[1] and 0 <= y < self.image.shape[0]:
+                intensity = self.image[y, x]
+                mask_value = self.mask[y, x]
+        if mask_value != "N/A" and mask_value != 0:
+            pixel_count = np.sum(self.mask == mask_value)
+        self.intensity_label.config(text=f"Intensity: {intensity}")
+        self.mask_value_label.config(text=f"Mask: {mask_value}, Area: {pixel_count}")
+        self.mask_value_label.config(text=f"Mask: {mask_value}")
+        if mask_value != "N/A" and mask_value != 0:
+            self.pixel_count_label.config(text=f"Area: {pixel_count}")
+        else:
+            self.pixel_count_label.config(text="Area: N/A")
     
     def setup_navigation_toolbar(self):
         navigation_toolbar = tk.Frame(self.root)
@@ -292,6 +316,12 @@ class modify_masks:
         self.clear_btn.pack(side='left')
         self.invert_btn = tk.Button(self.function_toolbar, text="Invert", command=self.invert_mask)
         self.invert_btn.pack(side='left')
+        remove_small_btn = tk.Button(self.function_toolbar, text="Remove Small", command=self.remove_small_objects)
+        remove_small_btn.pack(side='left')
+        tk.Label(self.function_toolbar, text="Min Area:").pack(side='left')
+        self.min_area_entry = tk.Entry(self.function_toolbar)
+        self.min_area_entry.insert(0, "100")  # Default minimum area
+        self.min_area_entry.pack(side='left')
 
     def setup_zoom_toolbar(self):
         self.zoom_toolbar = tk.Frame(self.root)
@@ -318,8 +348,12 @@ class modify_masks:
                 mask = (mask / np.max(mask) * 255).astype(np.uint8)
         else:
             mask = np.zeros(image.shape[:2], dtype=np.uint8)
+            print(f'loaded new mask for image: {image_path}')
         return image, mask
-        
+    
+    ####################################################################################################
+    # Image Display functions#
+    ####################################################################################################
     def display_image(self):
         if self.zoom_rectangle_id is not None:
             self.canvas.delete(self.zoom_rectangle_id)
@@ -384,7 +418,11 @@ class modify_masks:
         # Convert the final image back to uint8
         combined_image = combined_image.astype(np.uint8)
         return combined_image
-
+    
+    ####################################################################################################
+    # Navigation functions#
+    ####################################################################################################
+    
     def previous_image(self):
         if self.current_image_index > 0:
             self.current_image_index -= 1
@@ -416,20 +454,8 @@ class modify_masks:
 
             print(f"Saving mask to: {save_path}")  # Debug print
             imageio.imwrite(save_path, resized_mask)
-
-    def get_scaling_factors(self, img_width, img_height, canvas_width, canvas_height):
-        x_scale = img_width / canvas_width
-        y_scale = img_height / canvas_height
-        return x_scale, y_scale
     
-    def canvas_to_image(self, x_canvas, y_canvas):
-        x_scale, y_scale = self.get_scaling_factors(
-            self.image.shape[1], self.image.shape[0],
-            self.canvas_width, self.canvas_height
-        )
-        x_image = int(x_canvas * x_scale)
-        y_image = int(y_canvas * y_scale)
-        return x_image, y_image
+    # Zoom Functions
 
     def set_zoom_rectangle_start(self, event):
         if self.zoom_active:
@@ -456,7 +482,11 @@ class modify_masks:
             x0, y0 = self.zoom_rectangle_start
             x1, y1 = self.zoom_rectangle_end
             self.zoom_rectangle_id = self.canvas.create_rectangle(x0, y0, x1, y1, outline="red", width=2)
-            
+    
+    ####################################################################################################
+    # Mode activation#
+    ####################################################################################################
+    
     def toggle_zoom_mode(self):
         if not self.zoom_active:
             self.zoom_active = True
@@ -469,6 +499,9 @@ class modify_masks:
             self.erase_btn.config(text="Erase")
             self.magic_wand_btn.config(text="Magic Wand")
             self.zoom_btn.config(text="Zoom ON")
+            self.canvas.unbind("<Button-1>")
+            self.canvas.unbind("<Button-3>")
+            self.canvas.unbind("<Motion>")
             self.canvas.bind("<Button-1>", self.set_zoom_rectangle_start)
             self.canvas.bind("<Button-3>", self.set_zoom_rectangle_end)
             self.canvas.bind("<Motion>", self.update_zoom_box)
@@ -570,7 +603,11 @@ class modify_masks:
             self.erase_active = False
             self.erase_btn.config(text="Erase")
             self.canvas.unbind("<Button-1>")
-            
+    
+    ####################################################################################################
+    # Mode functions#
+    ####################################################################################################
+    
     def apply_brush_release(self, event):
         if hasattr(self, 'brush_path'):
             for x, y, brush_size in self.brush_path:
@@ -635,11 +672,6 @@ class modify_masks:
         self.canvas.create_line(self.last_erase_coord[0], self.last_erase_coord[1], x, y, width=brush_size, fill="white", tag="temp_line")
         self.last_erase_coord = (x, y)
 
-    def update_original_mask_from_zoom(self):
-        y0, y1, x0, x1 = self.zoom_y0, self.zoom_y1, self.zoom_x0, self.zoom_x1
-        zoomed_mask_resized = resize(self.zoom_mask, (y1 - y0, x1 - x0), order=0, preserve_range=True).astype(np.uint8)
-        self.mask[y0:y1, x0:x1] = zoomed_mask_resized
-
     def erase_object(self, event):
         x, y = event.x, event.y
         if self.zoom_active:
@@ -667,7 +699,6 @@ class modify_masks:
             self.magic_wand_zoomed((x, y), tolerance, action)
         else:
             self.magic_wand_normal((x, y), tolerance, action)
-    
     
     def apply_magic_wand(self, image, mask, seed_point, tolerance, maximum, action='add'):
         x, y = seed_point
@@ -766,16 +797,9 @@ class modify_masks:
         if self.drawing and len(self.draw_coordinates) > 2:
             self.finish_drawing(event)
 
-    def update_original_mask(self, zoomed_mask, x0, x1, y0, y1):
-        actual_mask_region = self.mask[y0:y1, x0:x1]
-        target_shape = actual_mask_region.shape
-        resized_mask = resize(zoomed_mask, target_shape, order=0, preserve_range=True).astype(np.uint8)
-        if resized_mask.shape != actual_mask_region.shape:
-            raise ValueError(f"Shape mismatch: resized_mask {resized_mask.shape}, actual_mask_region {actual_mask_region.shape}")
-        self.mask[y0:y1, x0:x1] = np.maximum(actual_mask_region, resized_mask)
-        self.mask = self.mask.copy()
-        self.mask[y0:y1, x0:x1] = np.maximum(self.mask[y0:y1, x0:x1], resized_mask)
-        self.mask = self.mask.copy()
+    ####################################################################################################
+    # Single function butons#
+    ####################################################################################################
             
     def apply_normalization(self):
         self.lower_quantile.set(self.lower_entry.get())
@@ -803,4 +827,17 @@ class modify_masks:
     def invert_mask(self):
         self.mask = np.where(self.mask > 0, 0, 1)
         self.relabel_objects()
+        self.update_display()
+        
+    def remove_small_objects(self):
+        try:
+            min_area = int(self.min_area_entry.get())
+        except ValueError:
+            print("Invalid minimum area value; using default of 100")
+            min_area = 100
+
+        labeled_mask, num_labels = label(self.mask > 0)
+        for i in range(1, num_labels + 1):  # Skip background
+            if np.sum(labeled_mask == i) < min_area:
+                self.mask[labeled_mask == i] = 0  # Remove small objects
         self.update_display()
