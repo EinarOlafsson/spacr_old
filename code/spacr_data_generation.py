@@ -243,7 +243,7 @@ def list_folders(src):
     sorted_folders = sorted(folders)
     return sorted_folders
 
-def z_to_mip(src, regex, batch_size=100):
+def z_to_mip(src, regex, batch_size=100, pick_slice=False, skip_mode='01'):
     regular_expression = re.compile(regex)
     images_by_key = defaultdict(list)
     stack_path = os.path.join(src, 'stack')
@@ -260,7 +260,16 @@ def z_to_mip(src, regex, batch_size=100):
                         well = match.group('wellID')
                         field = match.group('fieldID')
                         channel = match.group('chanID')
-                        key = (plate, well, field, channel)
+                        #sliceid = match.group('sliceID')
+                        
+                        try:
+                            mode = match.group('AID')
+                        except IndexError:
+                            sliceid = '00'
+                        
+                        if mode == skip_mode:
+                            continue
+                        key = (plate, well, field, channel, mode)
                         with Image.open(os.path.join(src, filename)) as img:
                             images_by_key[key].append(np.array(img))
                     except IndexError:
@@ -268,26 +277,40 @@ def z_to_mip(src, regex, batch_size=100):
                 else:
                     print(f"Filename {filename} did not match provided regex")
 
-            for key, images in images_by_key.items():
-                plate, well, field, channel = key
-                mip = np.max(np.stack(images), axis=0)
-                if images[0].dtype == np.uint8:
-                    mip_image = Image.fromarray(mip.astype(np.uint8))
-                elif images[0].dtype == np.uint16:
-                    mip_image = Image.fromarray(mip.astype(np.uint16))
-                elif images[0].dtype == np.uint32:
-                    mip_image = Image.fromarray(mip.astype(np.uint32))
-                else:
-                    raise ValueError(f'Unsupported image bit depth: {images[0].dtype}')
-                output_dir = os.path.join(src, channel)
-                os.makedirs(output_dir, exist_ok=True)
-                output_filename = f'{plate}_{well}_{field}.tif'
-                output_path = os.path.join(output_dir, output_filename)
-                if os.path.exists(output_path):
-                    print(f'WARNING: A file with the same name already exists at location {output_filename}')
-                else:
-                    mip_image.save(output_path)
+            if pick_slice:
+                for key in images_by_key:
+                    plate, well, field, channel, mode = key
+                    max_intensity_slice = max(images, key=lambda x: np.percentile(x, 90))
+                    #max_intensity_slice = max(images_by_key[key], key=lambda x: np.sum(x))
+                    mip_image = Image.fromarray(max_intensity_slice)
+
+                    output_dir = os.path.join(src, channel)
+                    os.makedirs(output_dir, exist_ok=True)
+                    output_filename = f'{plate}_{well}_{field}.tif'
+                    output_path = os.path.join(output_dir, output_filename)
+                    
+                    if os.path.exists(output_path):                        
+                        print(f'WARNING: A file with the same name already exists at location {output_filename}')
+                    else:
+                        mip_image.save(output_path)
+            else:
+                for key, images in images_by_key.items():
+                    mip = np.max(np.stack(images), axis=0)
+                    mip_image = Image.fromarray(mip)
+                    plate, well, field, channel = key[:-2]  # Remove mode and sliceid from the key
+                    output_dir = os.path.join(src, channel)
+                    os.makedirs(output_dir, exist_ok=True)
+                    output_filename = f'{plate}_{well}_{field}.tif'
+                    output_path = os.path.join(output_dir, output_filename)
+
+                    if os.path.exists(output_path):                        
+                        print(f'WARNING: A file with the same name already exists at location {output_filename}')
+                    else:
+                        mip_image.save(output_path)
+
             images_by_key.clear()
+
+        # Move original images to a new directory
         valid_exts = ['.tif', '.png']
         newpath = os.path.join(src, 'orig')
         os.makedirs(newpath, exist_ok=True)
