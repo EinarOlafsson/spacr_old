@@ -256,11 +256,17 @@ def print_mask_and_flows(stack, mask, flows):
     plt.show()
     
 
-def identify_masks(paths, dst, model_name, channels, diameter, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False):
+def identify_masks(paths, dst, model_name, channels, diameter, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False, custom_model=None):
     print('========== generating masks ==========')
     print('Torch available:', torch.cuda.is_available())
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    model = models.Cellpose(gpu=True, model_type=model_name, net_avg=True, device=device)
+
+    if custom_model == None:
+        model = models.Cellpose(gpu=True, model_type=model_name, net_avg=True, device=device)
+    else:
+        model_state = torch.load(model_path, map_location=device)
+        model = models.CellposeModel(gpu=True, model_type=model_name)
+        model.net.load_state_dict(model_state)
 
     chans = [2, 1] if model_name == 'cyto2' else [0,0] if model_name == 'nuclei' else [1,0] if model_name == 'cyto' else [2, 0] 
     
