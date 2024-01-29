@@ -264,7 +264,7 @@ def identify_masks(paths, dst, model_name, channels, diameter, flow_threshold=30
     if custom_model == None:
         model = models.Cellpose(gpu=True, model_type=model_name, net_avg=True, device=device)
     else:
-        model_state = torch.load(model_path, map_location=device)
+        model_state = torch.load(custom_model, map_location=device)
         model = models.CellposeModel(gpu=True, model_type=model_name)
         model.net.load_state_dict(model_state)
 
