@@ -297,7 +297,7 @@ def z_to_mip(src, regex, batch_size=100, pick_slice=False, skip_mode='01'):
                 for key, images in images_by_key.items():
                     mip = np.max(np.stack(images), axis=0)
                     mip_image = Image.fromarray(mip)
-                    plate, well, field, channel = key[:-2]  # Remove mode and sliceid from the key
+                    plate, well, field, channel = key[:4]  # Remove mode and sliceid from the key
                     output_dir = os.path.join(src, channel)
                     os.makedirs(output_dir, exist_ok=True)
                     output_filename = f'{plate}_{well}_{field}.tif'
