@@ -2127,10 +2127,10 @@ def measure_crop_core(index, time_ls, file, settings):
             plot_cropped_arrays(data)
 
         #extract image, cell, nucleus and parasite arrays
-        channel_arrays = data[:, :, settings['channels']].astype(data_type)
+        channel_arrays = data[:, :, settings['channels']].astype(data_type)        
         if settings['cell_mask_dim'] is not None:
             cell_mask = data[:, :, settings['cell_mask_dim']].astype(data_type)
-            if settings['cell_min_size'] is not None:
+            if settings['cell_min_size'] is not None and settings['cell_min_size'] != 0:
                 cell_mask = filter_object(cell_mask, settings['cell_min_size']) # Filter out small cells
         else:
             cell_mask = np.zeros_like(data[:, :, 0])
@@ -2139,8 +2139,8 @@ def measure_crop_core(index, time_ls, file, settings):
             nuclei_mask = data[:, :, settings['nuclei_mask_dim']].astype(data_type)
             if settings['cell_mask_dim'] is not None:
                 nuclei_mask, cell_mask = merge_overlapping_objects(mask1=nuclei_mask, mask2=cell_mask)
-        if settings['nucleus_min_size'] is not None:
-            nuclei_mask = filter_object(nuclei_mask, settings['nucleus_min_size']) # Filter out small nuclei
+            if settings['nucleus_min_size'] is not None and settings['nucleus_min_size'] != 0:
+                nuclei_mask = filter_object(nuclei_mask, settings['nucleus_min_size']) # Filter out small nuclei
         else:
             nuclei_mask = np.zeros_like(data[:, :, 0])
 
@@ -2149,32 +2149,32 @@ def measure_crop_core(index, time_ls, file, settings):
             if settings['merge_edge_parasite_cells']:
                 if settings['cell_mask_dim'] is not None:
                     parasite_mask, cell_mask = merge_overlapping_objects(mask1=parasite_mask, mask2=cell_mask)
+            if settings['parasite_min_size'] is not None and settings['parasite_min_size'] != 0:
+                parasite_mask = filter_object(parasite_mask, settings['parasite_min_size']) # Filter out small parasites
         else:
             parasite_mask = np.zeros_like(data[:, :, 0])
-            
-        if settings['parasite_min_size'] is not None:
-            parasite_mask = filter_object(parasite_mask, settings['parasite_min_size']) # Filter out small parasites
-
-
+                        
         # Create cytoplasm mask
         if settings['cytoplasm']:
             if settings['cell_mask_dim'] is not None:
-                if settings['nucleus_min_size'] is not None and settings['parasite_min_size'] is not None:
+                if settings['nuclei_mask_dim'] is not None and settings['parasite_mask_dim'] is not None:
                     cytoplasm_mask = np.where(np.logical_or(nuclei_mask != 0, parasite_mask != 0), 0, cell_mask)
-                elif settings['nucleus_min_size'] is not None:
+                elif settings['nuclei_mask_dim'] is not None:
                     cytoplasm_mask = np.where(np.logical_or(nuclei_mask != 0), 0, cell_mask)
-                elif settings['parasite_min_size'] is not None:
+                elif settings['parasite_mask_dim'] is not None:
                     cytoplasm_mask = np.where(np.logical_or(parasite_mask != 0), 0, cell_mask)
+                else:
+                    cytoplasm_mask = np.zeros_like(cell_mask)
         else:
             cytoplasm_mask = np.zeros_like(cell_mask)
         
-        if settings['cell_min_size'] is not None:
+        if settings['cell_min_size'] is not None and settings['cell_min_size'] != 0:
             cell_mask = filter_object(cell_mask, settings['cell_min_size']) # Filter out small cells
-        if settings['nucleus_min_size'] is not None:
+        if settings['cytoplasm_min_size'] is not None and settings['nucleus_min_size'] != 0:
             nuclei_mask = filter_object(nuclei_mask, settings['nucleus_min_size']) # Filter out small nuclei
-        if settings['parasite_min_size'] is not None:
+        if settings['parasite_min_size'] is not None and settings['parasite_min_size'] != 0:
             parasite_mask = filter_object(parasite_mask, settings['parasite_min_size']) # Filter out small parasites
-        if settings['cytoplasm_min_size'] is not None:
+        if settings['cytoplasm_min_size'] is not None and settings['cytoplasm_min_size'] != 0:
             cytoplasm_mask = filter_object(cytoplasm_mask, settings['cytoplasm_min_size']) # Filter out small cytoplasms
 
         if settings['include_uninfected'] == False:
@@ -2197,10 +2197,14 @@ def measure_crop_core(index, time_ls, file, settings):
         if settings['save_measurements']:
             cell_df, nucleus_df, parasite_df, cytoplasm_df = morphological_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask, settings)
             cell_intensity_df, nucleus_intensity_df, parasite_intensity_df, cytoplasm_intensity_df = intensity_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask, channel_arrays, settings, sizes=[1, 2, 3, 4, 5], periphery=True, outside=True)
+            
             cell_merged_df = merge_and_save_to_database(cell_df, cell_intensity_df, 'cell', source_folder, file_name, settings['experiment'])
+            
             nucleus_merged_df = merge_and_save_to_database(nucleus_df, nucleus_intensity_df, 'nucleus', source_folder, file_name, settings['experiment'])
+            
             parasite_merged_df = merge_and_save_to_database(parasite_df, parasite_intensity_df, 'parasite', source_folder, file_name, settings['experiment'])
-            cytoplasm_merged_df = merge_and_save_to_database(cytoplasm_df, cytoplasm_intensity_df, 'cytoplasm', source_folder, file_name, settings['experiment'])
+            if settings['cytoplasm']:
+            	cytoplasm_merged_df = merge_and_save_to_database(cytoplasm_df, cytoplasm_intensity_df, 'cytoplasm', source_folder, file_name, settings['experiment'])
 
         if settings['save_png'] or settings['save_arrays'] or settings['plot']:
             
