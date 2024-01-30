@@ -1503,7 +1503,7 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
         cells = cells.assign(object_label=lambda x: 'o' + x['object_label'].astype(int).astype(str))
         cells = cells.assign(prcfo = lambda x: x['prcf'] + '_' + x['object_label'])
         cells_g_df, metadata = split_data(cells, 'prcfo', 'object_label')
-	merged_df = cells_g_df.copy()
+        merged_df = cells_g_df.copy()
         if verbose:
             print(f'cells: {len(cells)}')
             print(f'cells grouped: {len(cells_g_df)}')
