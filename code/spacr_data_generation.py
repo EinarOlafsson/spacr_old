@@ -2131,8 +2131,8 @@ def measure_crop_core(index, time_ls, file, settings):
                 cell_mask = filter_object(cell_mask, settings['cell_min_size']) # Filter out small cells
         else:
             cell_mask = np.zeros_like(data[:, :, 0])
-	    settings['cytoplasm'] = False
-	    settings['include_uninfected'] = True
+            settings['cytoplasm'] = False
+            settings['include_uninfected'] = True
 
         if settings['nuclei_mask_dim'] is not None:
             nuclei_mask = data[:, :, settings['nuclei_mask_dim']].astype(data_type)
