@@ -2384,8 +2384,6 @@ def measure_crop(settings):
     else:
     	settings['cytoplasm'] = False
     
-    settings['dialate_pngs'] = False
-    settings['dialate_png_ratios'] = 0.2
     settings['center_crop'] = True
 
     int_setting_keys = ['cell_mask_dim', 'nuclei_mask_dim', 'parasite_mask_dim', 'cell_min_size', 'nucleus_min_size', 'parasite_min_size', 'cytoplasm_min_size']
@@ -2894,14 +2892,14 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
             torch.cuda.empty_cache()
 	#Concatinate stack with masks
         load_and_concatenate_arrays(src, channels, cell_chann_dim, nucleus_chann_dim, parasite_chann_dim)
-    	if plot:
+        if plot:
             plot_dims = len(channels)
             overlay_channels = [2,1,0]
             cell_mask_dim = nucleus_mask_dim = parasite_mask_dim = None
             plot_counter = plot_dims
             if isinstance(backgrounds, list):
-            	backgrounds = 100
-            
+                backgrounds = 100
+
             if cell_chann_dim is not None:
                 cell_mask_dim = plot_counter
                 plot_counter += 1
