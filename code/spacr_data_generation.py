@@ -1954,7 +1954,7 @@ def map_wells_png(file_name):
         well = parts[1]
         row = 'r' + str(string.ascii_uppercase.index(well[0]) + 1)
         column = 'c' + str(safe_int_convert(well[1:]))
-        cell_id = 'o' + str(safe_int_convert(parts[3], default='none'))
+        cell_id = 'o' + str(safe_int_convert(parts[-1], default='none'))
         prcfo = '_'.join([plate, row, column, field, cell_id])
     except Exception as e:
         print(f"Error processing filename: {file_name}")
@@ -1994,8 +1994,6 @@ def merge_and_save_to_database(morph_df, intensity_df, table_type, source_folder
             cols.insert(i, cols.pop(cols.index(col)))
             
         merged_df = merged_df[cols]  # rearrange the columns
-        if table_type == 'nucleus' or table_type == 'parasite':
-        
         
         if len(merged_df) > 0:
             try:
