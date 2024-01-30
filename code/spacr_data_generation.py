@@ -1652,7 +1652,8 @@ def morphological_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_
         prop_ls = prop_ls + [cell_props]
         ls = ls + ['cell']
     else:
-        ls = ls + [pd.DataFrame()]
+        prop_ls = prop_ls + [pd.DataFrame()]
+        ls = ls + ['cell']
 
     if settings['nuclei_mask_dim'] is not None:
         nucleus_props = pd.DataFrame(regionprops_table(nuclei_mask, properties=morphological_props))
@@ -1662,7 +1663,8 @@ def morphological_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_
         prop_ls = prop_ls + [nucleus_props]
         ls = ls + ['nucleus']
     else:
-        ls = ls + [pd.DataFrame()]
+        prop_ls = prop_ls + [pd.DataFrame()]
+        ls = ls + ['nucleus']
     
     if settings['parasite_mask_dim'] is not None:
         parasite_props = pd.DataFrame(regionprops_table(parasite_mask, properties=morphological_props))
@@ -1672,21 +1674,23 @@ def morphological_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_
         prop_ls = prop_ls + [parasite_props]
         ls = ls + ['parasite']
     else:
-        ls = ls + [pd.DataFrame()]
+        prop_ls = prop_ls + [pd.DataFrame()]
+        ls = ls + ['parasite']
 
     if settings['cytoplasm']:
         cytoplasm_props = pd.DataFrame(regionprops_table(cytoplasm_mask, properties=morphological_props))
         prop_ls = prop_ls + [cytoplasm_props]
         ls = ls + ['cytoplasm']
     else:
-        ls = ls + [pd.DataFrame()]
+        prop_ls = prop_ls + [pd.DataFrame()]
+        ls = ls + ['cytoplasm']
 
     df_ls = []
     for i,df in enumerate(prop_ls):
         df.columns = [f'{ls[i]}_{col}' for col in df.columns]
         df = df.rename(columns={col: 'label' for col in df.columns if 'label' in col})
         df_ls.append(df)
-    
+ 
     return df_ls[0], df_ls[1], df_ls[2], df_ls[3]
 
 def intensity_percentiles(region):
