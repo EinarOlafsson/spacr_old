@@ -2214,8 +2214,8 @@ def generate_training_dataset(src, mode='annotation', annotation_column='test', 
         [png_list_df] = read_db(db_loc=db_path, tables=['png_list'])
 
         print(f'Classes will be defined by the Q1 and Q3 quantiles of recruitment (parasite/cytoplasm for channel {channel_of_interest})')
-        if not custom_measurement == None:
-            df['recruitment'] = f'custom_measurement'
+        if custom_measurement != None:
+            df['recruitment'] = f'{custom_measurement}'
         else:
             df['recruitment'] = df[f'parasite_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
         q25 = df['recruitment'].quantile(0.25)
