@@ -1503,9 +1503,11 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
         cells = cells.assign(object_label=lambda x: 'o' + x['object_label'].astype(int).astype(str))
         cells = cells.assign(prcfo = lambda x: x['prcf'] + '_' + x['object_label'])
         cells_g_df, metadata = split_data(cells, 'prcfo', 'object_label')
+	merged_df = cells_g_df.copy()
         if verbose:
             print(f'cells: {len(cells)}')
             print(f'cells grouped: {len(cells_g_df)}')
+		
     if 'cytoplasm' in tables:
         cytoplasms = cytoplasms.assign(object_label=lambda x: 'o' + x['object_label'].astype(int).astype(str))
         cytoplasms = cytoplasms.assign(prcfo = lambda x: x['prcf'] + '_' + x['object_label'])
@@ -1514,14 +1516,16 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
         if verbose:
             print(f'cytoplasms: {len(cytoplasms)}')
             print(f'cytoplasms grouped: {len(cytoplasms_g_df)}')
+		
     if 'nucleus' in tables:
+        if not 'cell' in tables:
+            cells_g_df = pd.DataFrame()
         nuclei = nuclei.dropna(subset=['cell_id'])
         nuclei = nuclei.assign(object_label=lambda x: 'o' + x['object_label'].astype(int).astype(str))
         nuclei = nuclei.assign(cell_id=lambda x: 'o' + x['cell_id'].astype(int).astype(str))
         nuclei = nuclei.assign(prcfo = lambda x: x['prcf'] + '_' + x['cell_id'])
         nuclei['nuclei_prcfo_count'] = nuclei.groupby('prcfo')['prcfo'].transform('count')
         if include_multinucleated == False:
-            #nuclei = nuclei[~nuclei['prcfo'].duplicated()]
             nuclei = nuclei[nuclei['nuclei_prcfo_count']==1]
         nuclei_g_df, _ = split_data(nuclei, 'prcfo', 'cell_id')
         if verbose:
@@ -1531,7 +1535,10 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
             merged_df = merged_df.merge(nuclei_g_df, left_index=True, right_index=True)
         else:
             merged_df = cells_g_df.merge(nuclei_g_df, left_index=True, right_index=True)
+		
     if 'parasite' in tables:
+        if not 'cell' in tables:
+            cells_g_df = pd.DataFrame()
         parasites = parasites.dropna(subset=['cell_id'])
         parasites = parasites.assign(object_label=lambda x: 'o' + x['object_label'].astype(int).astype(str))
         parasites = parasites.assign(cell_id=lambda x: 'o' + x['cell_id'].astype(int).astype(str))
