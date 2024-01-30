@@ -1972,19 +1972,31 @@ def merge_and_save_to_database(morph_df, intensity_df, table_type, source_folder
         merged_df['path_name'] = os.path.join(source_folder, file_name + '.npy')
         merged_df[['plate', 'row', 'col', 'field', 'prcf']] = merged_df['file_name'].apply(lambda x: pd.Series(map_wells(x)))
         cols = merged_df.columns.tolist()  # get the list of all columns
+        
         if table_type == 'cell' or table_type == 'cytoplasm':
             column_list = ['object_label', 'plate', 'row', 'col', 'field', 'prcf', 'file_name', 'path_name']
         elif table_type == 'nucleus' or table_type == 'parasite':
             column_list = ['object_label', 'cell_id', 'plate', 'row', 'col', 'field', 'prcf', 'file_name', 'path_name']
         else:
             raise ValueError(f"Invalid table_type: {table_type}")
+            
         # Check if all columns in column_list are in cols
         missing_columns = [col for col in column_list if col not in cols]
+
+        if len(missing_columns) == 1 and missing_columns[0] == 'cell_id':
+            missing_columns = False
+            column_list = ['object_label', 'plate', 'row', 'col', 'field', 'prcf', 'file_name', 'path_name']
+        
         if missing_columns:
             raise ValueError(f"Columns missing in DataFrame: {missing_columns}")
+        
         for i, col in enumerate(column_list):
             cols.insert(i, cols.pop(cols.index(col)))
+            
         merged_df = merged_df[cols]  # rearrange the columns
+        if table_type == 'nucleus' or table_type == 'parasite':
+        
+        
         if len(merged_df) > 0:
             try:
                 conn = sqlite3.connect(f'{source_folder}/measurements/measurements.db', timeout=5)
