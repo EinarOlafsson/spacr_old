@@ -499,7 +499,8 @@ def remove_outside_objects(stack, cell_dim, nucleus_dim, parasite_dim):
 
 def plot_merged(src, src_list=None, cmap='inferno', cell_mask_dim=4, nucleus_mask_dim=5, parasite_mask_dim=6, channel_dims=[0,1,2,3], figuresize=20, nr=1, print_object_number=True, normalize=False, normalization_percentiles=[1,99], overlay=True, overlay_chans=[3,2,0], outline_thickness=3, outline_color='gbr', backgrounds=[100,100,100,100], remove_background=False, filter_objects=False, filter_min_max=[[0,100000],[0,100000],[0,100000],[0,100000]], include_multinucleated=True, include_multiinfected=True, include_noninfected=True, advanced_filter=False, verbose=False):
     mask_dims = [cell_mask_dim, nucleus_mask_dim, parasite_mask_dim]
-    
+    mask_dims = [element for element in mask_dims if element is not None]
+	
     if verbose:
         if isinstance(src, str):
             print(f'src:{src}, cmap:{cmap}, mask_dims:{mask_dims}, channel_dims:{channel_dims}, figuresize:{figuresize}, nr:{nr}, print_object_number:{print_object_number}, normalize:{normalize}, normalization_percentiles:{normalization_percentiles}, overlay:{overlay}, overlay_chans:{overlay_chans}, outline_thickness:{outline_thickness}, outline_color:{outline_color}, backgrounds:{backgrounds}, remove_background:{remove_background},filter_objects:{filter_objects},filter_min_max:{filter_min_max},verbose:{verbose}')
@@ -2888,7 +2889,50 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
             torch.cuda.empty_cache()
 	#Concatinate stack with masks
         load_and_concatenate_arrays(src, channels, cell_chann_dim, nucleus_chann_dim, parasite_chann_dim)
-    
+    	if plot:
+            plot_dims = len(channels)
+            overlay_channels = [2,1,0]
+            cell_mask_dim = nucleus_mask_dim = parasite_mask_dim = None
+            plot_counter = plot_dims
+            if isinstance(backgrounds, list):
+            	backgrounds = 100
+            
+            if cell_chann_dim is not None:
+                cell_mask_dim = plot_counter
+                plot_counter += 1
+
+            if nucleus_chann_dim is not None:
+                nucleus_mask_dim = plot_counter
+                plot_counter += 1
+
+            if parasite_chann_dim is not None:
+                parasite_mask_dim = plot_counter
+
+            plot_merged(src+'/merged',
+                        src_list=None,
+                        cmap='inferno', 
+                        cell_mask_dim=cell_mask_dim,
+                        nucleus_mask_dim=nucleus_mask_dim,
+                        parasite_mask_dim=parasite_mask_dim,
+                        channel_dims=channels, 
+                        figuresize=20, 
+                        nr=examples_to_plot,
+                        print_object_number=True, 
+                        normalize=True, 
+                        normalization_percentiles=[1,99], 
+                        overlay=True,
+                        overlay_chans=overlay_channels, # [3,2,0],
+                        outline_thickness=3, 
+                        outline_color='gbr', 
+                        backgrounds=backgrounds, 
+                        remove_background=remove_background, 
+                        filter_objects=False, 
+                        filter_min_max=None, 
+                        include_multinucleated=True,
+                        include_multiinfected=True,
+                        include_noninfected=True,
+                        advanced_filter=False,
+                        verbose=True)
     torch.cuda.empty_cache()
     gc.collect()
     return
