@@ -1651,6 +1651,8 @@ def morphological_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_
         cell_props = calculate_zernike(cell_mask, cell_props, degree=degree)
         prop_ls = prop_ls + [cell_props]
         ls = ls + ['cell']
+    else:
+        ls = ls + [pd.DataFrame()]
 
     if settings['nuclei_mask_dim'] is not None:
         nucleus_props = pd.DataFrame(regionprops_table(nuclei_mask, properties=morphological_props))
@@ -1659,6 +1661,8 @@ def morphological_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_
             nucleus_props = pd.merge(nucleus_props, cell_to_nucleus, left_on='label', right_on='nucleus', how='left')
         prop_ls = prop_ls + [nucleus_props]
         ls = ls + ['nucleus']
+    else:
+        ls = ls + [pd.DataFrame()]
     
     if settings['parasite_mask_dim'] is not None:
         parasite_props = pd.DataFrame(regionprops_table(parasite_mask, properties=morphological_props))
@@ -1667,29 +1671,23 @@ def morphological_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_
             parasite_props = pd.merge(parasite_props, cell_to_parasite, left_on='label', right_on='parasite', how='left')
         prop_ls = prop_ls + [parasite_props]
         ls = ls + ['parasite']
+    else:
+        ls = ls + [pd.DataFrame()]
 
     if settings['cytoplasm']:
         cytoplasm_props = pd.DataFrame(regionprops_table(cytoplasm_mask, properties=morphological_props))
         prop_ls = prop_ls + [cytoplasm_props]
         ls = ls + ['cytoplasm']
-        #cytoplasm_props = calculate_zernike(cytoplasm_mask, cytoplasm_props, degree=degree)
-    
-    #prop_ls = [cell_props, nucleus_props, parasite_props, cytoplasm_props]
-    #ls = ['cell', 'nucleus', 'parasite', 'cytoplasm']
+    else:
+        ls = ls + [pd.DataFrame()]
+
     df_ls = []
     for i,df in enumerate(prop_ls):
         df.columns = [f'{ls[i]}_{col}' for col in df.columns]
         df = df.rename(columns={col: 'label' for col in df.columns if 'label' in col})
         df_ls.append(df)
     
-    if len(df_ls) == 1:
-    	return df_ls[0], pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
-    if len(df_ls) == 2:
-    	return df_ls[0], df_ls[1], pd.DataFrame(), pd.DataFrame()
-    if len(df_ls) == 3:
-    	return df_ls[0], df_ls[1], df_ls[2], pd.DataFrame()
-    if len(df_ls) == 4:
-    	return df_ls[0], df_ls[1], df_ls[2], df_ls[3]
+    return df_ls[0], df_ls[1], df_ls[2], df_ls[3]
 
 def intensity_percentiles(region):
     percentiles = np.percentile(region.intensity_image.flatten(), [5, 10, 25, 50, 75, 85, 95])
@@ -2126,7 +2124,6 @@ def measure_crop_core(index, time_ls, file, settings):
             #before = data[:, :, len(settings['channels'])+1:]
             plot_cropped_arrays(data)
 
-        #extract image, cell, nucleus and parasite arrays
         channel_arrays = data[:, :, settings['channels']].astype(data_type)        
         if settings['cell_mask_dim'] is not None:
             cell_mask = data[:, :, settings['cell_mask_dim']].astype(data_type)
@@ -2134,6 +2131,8 @@ def measure_crop_core(index, time_ls, file, settings):
                 cell_mask = filter_object(cell_mask, settings['cell_min_size']) # Filter out small cells
         else:
             cell_mask = np.zeros_like(data[:, :, 0])
+	    settings['cytoplasm'] = False
+	    settings['include_uninfected'] = True
 
         if settings['nuclei_mask_dim'] is not None:
             nuclei_mask = data[:, :, settings['nuclei_mask_dim']].astype(data_type)
