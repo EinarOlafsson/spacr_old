@@ -2212,12 +2212,19 @@ def generate_training_dataset(src, mode='annotation', annotation_column='test', 
         
         df = annotate_conditions(df, cells=['HeLa'], cell_loc=None, parasites=['parasite'], parasite_loc=None, treatments=classes, treatment_loc=class_metadata, types = ['col','col',metadata_type_by])
         [png_list_df] = read_db(db_loc=db_path, tables=['png_list'])
-
-        print(f'Classes will be defined by the Q1 and Q3 quantiles of recruitment (parasite/cytoplasm for channel {channel_of_interest})')
+	    
         if custom_measurement != None:
-            df['recruitment'] = f'{custom_measurement}'
+            if isinstance(custom_measurement, list):
+                if len() == 2:
+                    print(f'Classes will be defined by the Q1 and Q3 quantiles of recruitment ({custom_measurement[0]}/{custom_measurement[1]})')
+                     df['recruitment'] = df[f'{custom_measurement[0]}']/df[f'{custom_measurement[1]}']
+                if len() == 1:
+                    print(f'Classes will be defined by the Q1 and Q3 quantiles of recruitment ({custom_measurement[0]})')
+                     df['recruitment'] = df[f'{custom_measurement[0]}']
         else:
+            print(f'Classes will be defined by the Q1 and Q3 quantiles of recruitment (parasite/cytoplasm for channel {channel_of_interest})')
             df['recruitment'] = df[f'parasite_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
+		
         q25 = df['recruitment'].quantile(0.25)
         q75 = df['recruitment'].quantile(0.75)
         df_lower = df[df['recruitment'] <= q25]
