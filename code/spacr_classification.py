@@ -2165,7 +2165,7 @@ def generate_dataset_from_lists(dst, class_data, classes, test_split=0.1):
 
     return
 
-def generate_training_dataset(src, mode='annotation', annotation_column='test', annotated_classes=[1,2], classes=['nc','pc'], size=200, test_split=0.1, class_metadata=[['c1'],['c2']], metadata_type_by='col', channel_of_interest=3):
+def generate_training_dataset(src, mode='annotation', annotation_column='test', annotated_classes=[1,2], classes=['nc','pc'], size=200, test_split=0.1, class_metadata=[['c1'],['c2']], metadata_type_by='col', channel_of_interest=3, custom_measurement=None):
     
     db_path = os.path.join(src, 'measurements','measurements.db')
     dst = os.path.join(src, 'datasets', 'training')
@@ -2206,7 +2206,10 @@ def generate_training_dataset(src, mode='annotation', annotation_column='test', 
         [png_list_df] = read_db(db_loc=db_path, tables=['png_list'])
 
         print(f'Classes will be defined by the Q1 and Q3 quantiles of recruitment (parasite/cytoplasm for channel {channel_of_interest})')
-        df['recruitment'] = df[f'parasite_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
+	if not custom_measurement == None:
+		df['recruitment'] = f'custom_measurement'
+	else:
+        	df['recruitment'] = df[f'parasite_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
         q25 = df['recruitment'].quantile(0.25)
         q75 = df['recruitment'].quantile(0.75)
         df_lower = df[df['recruitment'] <= q25]
