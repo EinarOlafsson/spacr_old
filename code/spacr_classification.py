@@ -2217,10 +2217,10 @@ def generate_training_dataset(src, mode='annotation', annotation_column='test', 
             if isinstance(custom_measurement, list):
                 if len() == 2:
                     print(f'Classes will be defined by the Q1 and Q3 quantiles of recruitment ({custom_measurement[0]}/{custom_measurement[1]})')
-                     df['recruitment'] = df[f'{custom_measurement[0]}']/df[f'{custom_measurement[1]}']
+                    df['recruitment'] = df[f'{custom_measurement[0]}']/df[f'{custom_measurement[1]}']
                 if len() == 1:
                     print(f'Classes will be defined by the Q1 and Q3 quantiles of recruitment ({custom_measurement[0]})')
-                     df['recruitment'] = df[f'{custom_measurement[0]}']
+                    df['recruitment'] = df[f'{custom_measurement[0]}']
         else:
             print(f'Classes will be defined by the Q1 and Q3 quantiles of recruitment (parasite/cytoplasm for channel {channel_of_interest})')
             df['recruitment'] = df[f'parasite_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
