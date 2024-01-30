@@ -2361,16 +2361,17 @@ def save_settings_to_db(settings):
     conn.close()
 
 def measure_crop(settings):
-
     #general settings
     settings['merge_edge_parasite_cells'] = True
     settings['radial_dist'] = True
     settings['calculate_correlation'] = True
     settings['manders_thresholds'] = [15,85,95]
-    #settings['include_uninfected'] = False
     settings['homogeneity'] = True
     settings['homogeneity_distances'] = [8,16,32]
     settings['save_arrays'] = False
+    
+    if settings['cell_mask_dim'] is None:
+    	settings['include_uninfected'] = True
     
     if settings['cell_mask_dim'] is not None and settings['parasite_min_size'] is not None:
     	settings['cytoplasm'] = True
