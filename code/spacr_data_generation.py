@@ -2198,14 +2198,15 @@ def measure_crop_core(index, time_ls, file, settings):
             plot_cropped_arrays(data)
 
         if settings['save_measurements']:
+		
             cell_df, nucleus_df, parasite_df, cytoplasm_df = morphological_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask, settings)
             cell_intensity_df, nucleus_intensity_df, parasite_intensity_df, cytoplasm_intensity_df = intensity_measurements(cell_mask, nuclei_mask, parasite_mask, cytoplasm_mask, channel_arrays, settings, sizes=[1, 2, 3, 4, 5], periphery=True, outside=True)
-            
-            cell_merged_df = merge_and_save_to_database(cell_df, cell_intensity_df, 'cell', source_folder, file_name, settings['experiment'])
-            
-            nucleus_merged_df = merge_and_save_to_database(nucleus_df, nucleus_intensity_df, 'nucleus', source_folder, file_name, settings['experiment'])
-            
-            parasite_merged_df = merge_and_save_to_database(parasite_df, parasite_intensity_df, 'parasite', source_folder, file_name, settings['experiment'])
+            if settings['cell_mask_dim'] is not None:
+            	cell_merged_df = merge_and_save_to_database(cell_df, cell_intensity_df, 'cell', source_folder, file_name, settings['experiment'])
+            if settings['nuclei_mask_dim'] is not None:
+            	nucleus_merged_df = merge_and_save_to_database(nucleus_df, nucleus_intensity_df, 'nucleus', source_folder, file_name, settings['experiment'])
+            if settings['parasite_mask_dim'] is not None:
+            	parasite_merged_df = merge_and_save_to_database(parasite_df, parasite_intensity_df, 'parasite', source_folder, file_name, settings['experiment'])
             if settings['cytoplasm']:
             	cytoplasm_merged_df = merge_and_save_to_database(cytoplasm_df, cytoplasm_intensity_df, 'cytoplasm', source_folder, file_name, settings['experiment'])
 
