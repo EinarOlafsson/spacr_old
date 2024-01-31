@@ -2445,12 +2445,12 @@ def measure_crop(settings):
 
 def load_and_concatenate_arrays(src, channels, cell_chann_dim, nucleus_chann_dim, parasite_chann_dim):
     folder_paths = [os.path.join(src+'/stack')]
-    if cell_chann_dim is not None:
-        folder_paths = folder_paths + [os.path.join(src+'/norm_channel_stack/cell_mask_stack')]
-    if nucleus_chann_dim is not None:
-        folder_paths = folder_paths + [os.path.join(src+'/norm_channel_stack/nuclei_mask_stack')]
-    if parasite_chann_dim is not None:
-        folder_paths = folder_paths + [os.path.join(src+'/norm_channel_stack/parasite_mask_stack')]
+    if cell_chann_dim is not None or os.path.exists(os.path.join(src, 'norm_channel_stack', 'cell_mask_stack')):
+        folder_paths = folder_paths + [os.path.join(src, 'norm_channel_stack','cell_mask_stack')]
+    if nucleus_chann_dim is not None or os.path.exists(os.path.join(src, 'norm_channel_stack', 'nuclei_mask_stack')):
+        folder_paths = folder_paths + [os.path.join(src, 'norm_channel_stack','nuclei_mask_stack')]
+    if parasite_chann_dim is not None or os.path.exists(os.path.join(src, 'norm_channel_stack', 'parasite_mask_stack')):
+        folder_paths = folder_paths + [os.path.join(src, 'norm_channel_stack','parasite_mask_stack')]
 	
     output_folder = src+'/merged'
     reference_folder = folder_paths[0]
