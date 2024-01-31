@@ -454,9 +454,10 @@ class modify_masks:
 
             print(f"Saving mask to: {save_path}")  # Debug print
             imageio.imwrite(save_path, resized_mask)
-    
-    # Zoom Functions
 
+    ####################################################################################################
+    # Zoom Functions #
+    ####################################################################################################
     def set_zoom_rectangle_start(self, event):
         if self.zoom_active:
             self.zoom_rectangle_start = (event.x, event.y)
