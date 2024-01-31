@@ -338,7 +338,7 @@ def generate_cp_masks(src, model_name, channels, diameter, regex='.tif', flow_th
     identify_masks(paths, dst, model_name, channels, diameter,  flow_threshold=flow_threshold, cellprob_threshold=cellprob_threshold, figuresize=figuresize, cmap=cmap, verbose=verbose, plot=plot, save=save, custom_model=custom_model)
 
 def train_cellpose(img_src, mask_src, model_name='toxopv', model_type='cyto', nchan=2, channels=[0, 0], learning_rate=0.2, weight_decay=1e-05, batch_size=8, n_epochs=500):
-    model_name=f'{model_name}_epochs_{n_epochs}'.CP_model'
+    model_name=f'{model_name}_epochs_{n_epochs}.CP_model'
     # Load training data
     train_images, train_masks, _, _, _, _ = io.load_train_test_data(img_src, mask_src, mask_filter='')
 
