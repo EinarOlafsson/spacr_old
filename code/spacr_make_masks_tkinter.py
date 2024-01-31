@@ -444,7 +444,7 @@ class modify_masks:
     def save_mask(self):
         if self.current_image_index < len(self.image_filenames):
             original_size = self.original_size
-            resized_mask = resize(self.mask, original_size, preserve_range=True).astype(np.uint16)
+            resized_mask = resize(self.mask, original_size, order=0, preserve_range=True).astype(np.uint16)
             resized_mask, _ = label(resized_mask > 0)
             save_folder = os.path.join(self.folder_path, 'masks')
             if not os.path.exists(save_folder):
