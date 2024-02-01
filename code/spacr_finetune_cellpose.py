@@ -526,5 +526,5 @@ def compare_masks(dir1, dir2, dir3, verbose=False):
             })
         else:
             print(f'Cannot find {path1} or {path2} or {path3}')
-    fig = plot_comparison_results(comparison_results)
+    fig = plot_comparison_results(results)
     return results, fig
