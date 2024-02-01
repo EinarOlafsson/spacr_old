@@ -444,7 +444,6 @@ class modify_masks:
     def save_mask(self):
         if self.current_image_index < len(self.image_filenames):
             original_size = self.original_size
-            print(self.mask.shape)
             if self.mask.shape != original_size:
                 resized_mask = resize(self.mask, original_size, order=0, preserve_range=True).astype(np.uint16)
             else:
