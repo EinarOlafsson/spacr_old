@@ -129,7 +129,7 @@ env_name = "spacr_finetune_cellpose"
 
 conda_PATH, python_PATH, pip_PATH, env_PATH = get_paths(env_name)
 
-dependencies = ["pandas", "ipykernel", "scikit-learn", "scikit-image", "scikit-learn", "seaborn", "matplotlib", "ipywidgets"]
+dependencies = ["pandas", "ipykernel", "scikit-learn", "scikit-image", "seaborn", "matplotlib", "ipywidgets"]
 
 if not os.path.exists(env_PATH):
 
@@ -171,7 +171,7 @@ import matplotlib.pyplot as plt
 from skimage.morphology import binary_dilation, binary_erosion
 from skimage.metrics import adapted_rand_error as rand_error
 from skimage.measure import label, regionprops
-from sklearn.metrics import average_precision_score
+#from sklearn.metrics import average_precision_score
 import warnings
 
 # Filter out the specific warning
@@ -460,7 +460,7 @@ def plot_comparison_results(comparison_results):
     df_jaccard = df_melted[df_melted['metric'].str.contains('jaccard')]
     df_dice = df_melted[df_melted['metric'].str.contains('dice')]
     df_boundary_f1 = df_melted[df_melted['metric'].str.contains('boundary_f1')]
-    df_ap = df_melted[df_melted['metric'].str.contains('ap')]
+    df_ap = df_melted[df_melted['metric'].str.contains('average_precision')]
     fig, axs = plt.subplots(1, 4, figsize=(40, 10))
     
     # Jaccard Index Plot
@@ -503,60 +503,35 @@ def compare_masks(dir1, dir2, dir3, verbose=False):
     cond_2 = os.path.basename(dir2)
     cond_3 = os.path.basename(dir3)
     for filename in filenames:
+        print(f'Processing image:{index+1}', end='\r', flush=True)
         path1 = os.path.join(dir1, filename)
         path2 = os.path.join(dir2, filename)
         path3 = os.path.join(dir3, filename)
         if os.path.exists(path2) and os.path.exists(path3):
-            mask1 = read_mask(path1)
-            mask2 = read_mask(path2)
-            mask3 = read_mask(path3)
-            boundary_true1 = extract_boundaries(mask1)
-            boundary_true2 = extract_boundaries(mask2)
-            boundary_true3 = extract_boundaries(mask3)
-
-            pred_masks = [label(mask2), label(mask3)]  # Example for two sets of predictions
-            true_masks = label(mask1)  # Ground truth masks
             
-            true_masks_props = regionprops(true_masks)
-            true_masks = [prop.image for prop in true_masks_props]
+            mask1, mask2, mask3 = read_mask(path1), read_mask(path2), read_mask(path3)
+            boundary_true1, boundary_true2, boundary_true3 = extract_boundaries(mask1), extract_boundaries(mask2), extract_boundaries(mask3)
+                        
+            true_masks, pred_masks = [mask1], [mask2, mask3]  # Assuming mask1 is the ground truth for simplicity
+            true_labels, pred_labels_1, pred_labels_2 = label(mask1), label(mask2), label(mask3)
+            ap_scores = match_and_compute_ap([true_labels], [pred_labels_1, pred_labels_2])
 
-            ap_scores = []
-            for pred_mask_set in pred_masks:
-                pred_masks_props = regionprops(pred_mask_set)
-                pred_masks_individual = [prop.image for prop in pred_masks_props]
-                ious, matched_indices = match_masks(pred_masks_individual, true_masks)
-                ap = compute_ap(ious)
-                ap_scores.append(ap)
-            
             if verbose:
-                unique_values1 = np.unique(mask1)
-                unique_values2 = np.unique(mask2)
-                unique_values3 = np.unique(mask3)
-                print(f"Unique values in mask 1: {unique_values1}")
-                print(f"Unique values in mask 2: {unique_values2}")
-                print(f"Unique values in mask 3: {unique_values3}")
+                unique_values1, unique_values2, unique_values3 = np.unique(mask1),  np.unique(mask2), np.unique(mask3)
+                print(f"Unique values in mask 1: {unique_values1}, mask 2: {unique_values2}, mask 3: {unique_values3}")
                 visualize_masks(boundary_true1, boundary_true2, boundary_true3, title=f"Boundaries - {filename}")
-            boundary_f1_12 = boundary_f1_score(mask1, mask2)
-            boundary_f1_13 = boundary_f1_score(mask1, mask3)
-            boundary_f1_23 = boundary_f1_score(mask2, mask3)
             
+            boundary_f1_12, boundary_f1_13, boundary_f1_23 = boundary_f1_score(mask1, mask2), boundary_f1_score(mask1, mask3), boundary_f1_score(mask2, mask3)
+
             if (np.unique(mask1).size == 1 and np.unique(mask1)[0] == 0) and \
                (np.unique(mask2).size == 1 and np.unique(mask2)[0] == 0) and \
                (np.unique(mask3).size == 1 and np.unique(mask3)[0] == 0):
                 continue
+            
             if verbose:
-                unique_values4 = np.unique(boundary_f1_12)
-                unique_values5 = np.unique(boundary_f1_13)
-                unique_values6 = np.unique(boundary_f1_23)
-                print(f"Unique values in boundary mask 1: {unique_values4}")
-                print(f"Unique values in boundary mask 2: {unique_values5}")
-                print(f"Unique values in boundary mask 3: {unique_values6}")
+                unique_values4 = np.unique(boundary_f1_12), np.unique(boundary_f1_13), np.unique(boundary_f1_23)
+                print(f"Unique values in boundary mask 1: {unique_values4}, mask 2: {unique_values5}, mask 3: {unique_values6}")
                 visualize_masks(mask1, mask2, mask3, title=filename)
-            # Compute average precision for each pair
-            # Flatten masks for sklearn metrics computation
-            mask1_flat = mask1.flatten()
-            mask2_flat = mask2.flatten()
-            mask3_flat = mask3.flatten()
             
             jaccard12 = jaccard_index(mask1, mask2)
             dice12 = dice_coefficient(mask1, mask2)
@@ -565,11 +540,6 @@ def compare_masks(dir1, dir2, dir3, verbose=False):
             jaccard23 = jaccard_index(mask2, mask3)
             dice23 = dice_coefficient(mask2, mask3)    
 
-            # Compute AP scores - this is a simplification, assuming binary masks for demonstration
-            binary_ap_12 = average_precision_score(mask1_flat, mask2_flat)
-            binary_ap_13 = average_precision_score(mask1_flat, mask3_flat)
-            binary_ap_23 = average_precision_score(mask2_flat, mask3_flat)
-            
             results.append({
                 f'filename': filename,
                 f'jaccard_{cond_1}_{cond_2}': jaccard12,
@@ -581,11 +551,8 @@ def compare_masks(dir1, dir2, dir3, verbose=False):
                 f'boundary_f1_{cond_1}_{cond_2}': boundary_f1_12,
                 f'boundary_f1_{cond_1}_{cond_3}': boundary_f1_13,
                 f'boundary_f1_{cond_2}_{cond_3}': boundary_f1_23,
-                'average_precision_1_2': ap_scores[0],
-                'average_precision_1_3': ap_scores[1],
-                'binary_ap_1_2': ap_12,
-                'binary_ap_1_3': ap_13,
-                'binary_ap_2_3': ap_23
+                f'average_precision_1_2': ap_scores[0],
+                f'average_precision_1_3': ap_scores[1]
             })
         else:
             print(f'Cannot find {path1} or {path2} or {path3}')
