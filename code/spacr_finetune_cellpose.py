@@ -129,7 +129,7 @@ env_name = "spacr_finetune_cellpose"
 
 conda_PATH, python_PATH, pip_PATH, env_PATH = get_paths(env_name)
 
-dependencies = ["pandas", "ipykernel", "scikit-learn", "scikit-image", "seaborn", "matplotlib", "ipywidgets"]
+dependencies = ["pandas", "ipykernel", "scikit-learn", "scikit-image", "scikit-learn", "seaborn", "matplotlib", "ipywidgets"]
 
 if not os.path.exists(env_PATH):
 
@@ -169,6 +169,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from skimage.morphology import binary_dilation, binary_erosion
+from sklearn.metrics import average_precision_score
 import warnings
 
 # Filter out the specific warning
@@ -440,7 +441,9 @@ def plot_comparison_results(comparison_results):
     df_jaccard = df_melted[df_melted['metric'].str.contains('jaccard')]
     df_dice = df_melted[df_melted['metric'].str.contains('dice')]
     df_boundary_f1 = df_melted[df_melted['metric'].str.contains('boundary_f1')]
-    fig, axs = plt.subplots(1, 3, figsize=(30, 10))
+    df_ap = df_melted[df_melted['metric'].str.contains('ap')]
+    fig, axs = plt.subplots(1, 4, figsize=(40, 10))
+    
     # Jaccard Index Plot
     sns.boxplot(data=df_jaccard, x='metric', y='value', ax=axs[0], color='lightgrey')
     sns.stripplot(data=df_jaccard, x='metric', y='value', ax=axs[0], jitter=True, alpha=0.6)
@@ -462,6 +465,14 @@ def plot_comparison_results(comparison_results):
     axs[2].set_xticklabels(axs[2].get_xticklabels(), rotation=45, horizontalalignment='right')
     axs[2].set_xlabel('Comparison')
     axs[2].set_ylabel('Boundary F1 Score')
+    # AP scores plot
+    sns.boxplot(data=df_ap, x='metric', y='value', ax=axs[3], color='lightgrey')
+    sns.stripplot(data=df_ap, x='metric', y='value', ax=axs[3], jitter=True, alpha=0.6)
+    axs[3].set_title('Average Precision by Comparison')
+    axs[3].set_xticklabels(axs[3].get_xticklabels(), rotation=45, horizontalalignment='right')
+    axs[3].set_xlabel('Comparison')
+    axs[3].set_ylabel('Average Precision')
+    
     plt.tight_layout()
     plt.show()
     return fig
@@ -494,6 +505,7 @@ def compare_masks(dir1, dir2, dir3, verbose=False):
             boundary_f1_12 = boundary_f1_score(mask1, mask2)
             boundary_f1_13 = boundary_f1_score(mask1, mask3)
             boundary_f1_23 = boundary_f1_score(mask2, mask3)
+            
             if (np.unique(mask1).size == 1 and np.unique(mask1)[0] == 0) and \
                (np.unique(mask2).size == 1 and np.unique(mask2)[0] == 0) and \
                (np.unique(mask3).size == 1 and np.unique(mask3)[0] == 0):
@@ -506,12 +518,24 @@ def compare_masks(dir1, dir2, dir3, verbose=False):
                 print(f"Unique values in boundary mask 2: {unique_values5}")
                 print(f"Unique values in boundary mask 3: {unique_values6}")
                 visualize_masks(mask1, mask2, mask3, title=filename)
+            # Compute average precision for each pair
+            # Flatten masks for sklearn metrics computation
+            mask1_flat = mask1.flatten()
+            mask2_flat = mask2.flatten()
+            mask3_flat = mask3.flatten()
+            
             jaccard12 = jaccard_index(mask1, mask2)
             dice12 = dice_coefficient(mask1, mask2)
             jaccard13 = jaccard_index(mask1, mask3)
             dice13 = dice_coefficient(mask1, mask3)
             jaccard23 = jaccard_index(mask2, mask3)
-            dice23 = dice_coefficient(mask2, mask3)     
+            dice23 = dice_coefficient(mask2, mask3)    
+
+            # Compute AP scores - this is a simplification, assuming binary masks for demonstration
+            ap_12 = average_precision_score(mask1_flat, mask2_flat)
+            ap_13 = average_precision_score(mask1_flat, mask3_flat)
+            ap_23 = average_precision_score(mask2_flat, mask3_flat)
+            
             results.append({
                 f'filename': filename,
                 f'jaccard_{cond_1}_{cond_2}': jaccard12,
@@ -523,6 +547,9 @@ def compare_masks(dir1, dir2, dir3, verbose=False):
                 f'boundary_f1_{cond_1}_{cond_2}': boundary_f1_12,
                 f'boundary_f1_{cond_1}_{cond_3}': boundary_f1_13,
                 f'boundary_f1_{cond_2}_{cond_3}': boundary_f1_23
+                'ap_1_2': ap_12,
+                'ap_1_3': ap_13,
+                'ap_2_3': ap_23,
             })
         else:
             print(f'Cannot find {path1} or {path2} or {path3}')
