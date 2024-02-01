@@ -169,6 +169,8 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from skimage.morphology import binary_dilation, binary_erosion
+from skimage.metrics import adapted_rand_error as rand_error
+from skimage.measure import label, regionprops
 from sklearn.metrics import average_precision_score
 import warnings
 
@@ -377,21 +379,6 @@ def read_mask(mask_path):
     if mask.dtype != np.uint16:
         mask = img_as_uint(mask)
     return mask
-
-def visualize_masks(mask1, mask2, mask3, title="Masks Comparison"):
-    fig, axs = plt.subplots(1, 3, figsize=(30, 10))
-    norm = plt.Normalize(vmin=0, vmax=np.max([mask1.max(), mask2.max(), mask3.max()]))
-    axs[0].imshow(mask1, cmap='gray', norm=norm)
-    axs[0].set_title('Mask 1')
-    axs[0].axis('off')
-    axs[1].imshow(mask2, cmap='gray', norm=norm)
-    axs[1].set_title('Mask 2')
-    axs[1].axis('off')
-    axs[2].imshow(mask3, cmap='gray', norm=norm)
-    axs[2].set_title('Mask 3')
-    axs[2].axis('off')
-    plt.suptitle(title)
-    plt.show()
     
 def visualize_masks(mask1, mask2, mask3, title="Masks Comparison"):
     fig, axs = plt.subplots(1, 3, figsize=(30, 10))
@@ -407,6 +394,38 @@ def visualize_masks(mask1, mask2, mask3, title="Masks Comparison"):
         ax.axis('off')
     plt.suptitle(title)
     plt.show()
+
+def calculate_iou(mask1, mask2):
+    intersection = np.logical_and(mask1, mask2).sum()
+    union = np.logical_or(mask1, mask2).sum()
+    if union == 0:
+        return 0
+    else:
+        return intersection / union
+
+def match_masks(pred_masks, true_masks):
+    ious = []
+    matched_indices = []
+    for pred_mask in pred_masks:
+        max_iou = 0
+        matched_index = None
+        for i, true_mask in enumerate(true_masks):
+            iou = calculate_iou(pred_mask, true_mask)
+            if iou > max_iou:
+                max_iou = iou
+                matched_index = i
+        ious.append(max_iou)
+        matched_indices.append(matched_index)
+    return ious, matched_indices
+
+def compute_ap(ious, threshold=0.5):
+    tp = sum(iou >= threshold for iou in ious)
+    fp = sum(iou < threshold for iou in ious)
+    fn = len(true_masks) - len(set(matched_indices))  # Assuming true_masks is accessible
+    if (tp + fp + fn) == 0:
+        return 0
+    else:
+        return tp / (tp + fp + fn)
 
 def jaccard_index(mask1, mask2):
     intersection = np.logical_and(mask1, mask2)
@@ -494,6 +513,21 @@ def compare_masks(dir1, dir2, dir3, verbose=False):
             boundary_true1 = extract_boundaries(mask1)
             boundary_true2 = extract_boundaries(mask2)
             boundary_true3 = extract_boundaries(mask3)
+
+            pred_masks = [label(mask2), label(mask3)]  # Example for two sets of predictions
+            true_masks = label(mask1)  # Ground truth masks
+            
+            true_masks_props = regionprops(true_masks)
+            true_masks = [prop.image for prop in true_masks_props]
+
+            ap_scores = []
+            for pred_mask_set in pred_masks:
+                pred_masks_props = regionprops(pred_mask_set)
+                pred_masks_individual = [prop.image for prop in pred_masks_props]
+                ious, matched_indices = match_masks(pred_masks_individual, true_masks)
+                ap = compute_ap(ious)
+                ap_scores.append(ap)
+            
             if verbose:
                 unique_values1 = np.unique(mask1)
                 unique_values2 = np.unique(mask2)
@@ -532,9 +566,9 @@ def compare_masks(dir1, dir2, dir3, verbose=False):
             dice23 = dice_coefficient(mask2, mask3)    
 
             # Compute AP scores - this is a simplification, assuming binary masks for demonstration
-            ap_12 = average_precision_score(mask1_flat, mask2_flat)
-            ap_13 = average_precision_score(mask1_flat, mask3_flat)
-            ap_23 = average_precision_score(mask2_flat, mask3_flat)
+            binary_ap_12 = average_precision_score(mask1_flat, mask2_flat)
+            binary_ap_13 = average_precision_score(mask1_flat, mask3_flat)
+            binary_ap_23 = average_precision_score(mask2_flat, mask3_flat)
             
             results.append({
                 f'filename': filename,
@@ -546,10 +580,12 @@ def compare_masks(dir1, dir2, dir3, verbose=False):
                 f'dice_{cond_2}_{cond_3}': dice23,
                 f'boundary_f1_{cond_1}_{cond_2}': boundary_f1_12,
                 f'boundary_f1_{cond_1}_{cond_3}': boundary_f1_13,
-                f'boundary_f1_{cond_2}_{cond_3}': boundary_f1_23
-                'ap_1_2': ap_12,
-                'ap_1_3': ap_13,
-                'ap_2_3': ap_23,
+                f'boundary_f1_{cond_2}_{cond_3}': boundary_f1_23,
+                'average_precision_1_2': ap_scores[0],
+                'average_precision_1_3': ap_scores[1]
+                'binary_ap_1_2': ap_12,
+                'binary_ap_1_3': ap_13,
+                'binary_ap_2_3': ap_23,
             })
         else:
             print(f'Cannot find {path1} or {path2} or {path3}')
