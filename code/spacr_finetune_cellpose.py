@@ -401,32 +401,28 @@ def calculate_iou(mask1, mask2):
     union = np.logical_or(mask1, mask2).sum()
     return intersection / union if union != 0 else 0
     
-def compute_average_precision(matches, num_true_masks, num_pred_masks):
-    # Count of true positive matches
-    true_positives = len(matches)  # Corrected this line
-    false_positives = num_pred_masks - true_positives
-    false_negatives = num_true_masks - true_positives
-
-    if true_positives + false_positives > 0:
-        precision = true_positives / (true_positives + false_positives)
-    else:
-        precision = 0
-
-    if true_positives + false_negatives > 0:
-        recall = true_positives / (true_positives + false_negatives)
-    else:
-        recall = 0
-
-    return precision, recall
-
 def match_masks(true_masks, pred_masks, iou_threshold):
     matches = []
-    for true_mask in true_masks:
-        for pred_mask in pred_masks:
-            iou = calculate_iou(true_mask, pred_mask)
-            if iou >= iou_threshold:
-                matches.append((true_mask, pred_mask))  # Only change needed is in compute_average_precision
+    matched_true_masks_indices = set()  # Use set to store indices of matched true masks
+
+    for pred_mask in pred_masks:
+        for true_mask_index, true_mask in enumerate(true_masks):
+            if true_mask_index not in matched_true_masks_indices:
+                iou = calculate_iou(true_mask, pred_mask)
+                if iou >= iou_threshold:
+                    matches.append((true_mask, pred_mask))
+                    matched_true_masks_indices.add(true_mask_index)  # Store the index of the matched true mask
+                    break  # Move on to the next predicted mask
     return matches
+    
+def compute_average_precision(matches, num_true_masks, num_pred_masks):
+    TP = len(matches)
+    FP = num_pred_masks - TP
+    FN = num_true_masks - TP
+    precision = TP / (TP + FP) if TP + FP > 0 else 0
+    recall = TP / (TP + FN) if TP + FN > 0 else 0
+    return precision, recall
+
 
 def pad_to_same_shape(mask1, mask2):
     # Find the shape differences
@@ -447,12 +443,16 @@ def compute_ap_over_iou_thresholds(true_masks, pred_masks, iou_thresholds):
     for iou_threshold in iou_thresholds:
         matches = match_masks(true_masks, pred_masks, iou_threshold)
         precision, recall = compute_average_precision(matches, len(true_masks), len(pred_masks))
+        # Check that precision and recall are within the range [0, 1]
+        if not 0 <= precision <= 1 or not 0 <= recall <= 1:
+            raise ValueError(f'Precision or recall out of bounds. Precision: {precision}, Recall: {recall}')
         precision_recall_pairs.append((precision, recall))
-    precisions, recalls = zip(*precision_recall_pairs)
-    sorted_indices = np.argsort(recalls)
-    sorted_precisions = np.array(precisions)[sorted_indices]
-    sorted_recalls = np.array(recalls)[sorted_indices]
-    return np.trapz(sorted_precisions, sorted_recalls)
+
+    # Sort by recall values
+    precision_recall_pairs = sorted(precision_recall_pairs, key=lambda x: x[1])
+    sorted_precisions = [p[0] for p in precision_recall_pairs]
+    sorted_recalls = [p[1] for p in precision_recall_pairs]
+    return np.trapz(sorted_precisions, x=sorted_recalls)
     
 def compute_segmentation_ap(true_masks, pred_masks, iou_thresholds=np.linspace(0.5, 0.95, 10)):
     true_mask_labels = label(true_masks)
@@ -547,7 +547,7 @@ def compare_masks(dir1, dir2, dir3, verbose=False):
     cond_3 = os.path.basename(dir3)
     for index, filename in enumerate(filenames):
         print(f'Processing image:{index+1}', end='\r', flush=True)
-        path1 = os.path.join(dir1, filename), os.path.join(dir2, filename), os.path.join(dir3, filename)
+        path1, path2, path3 = os.path.join(dir1, filename), os.path.join(dir2, filename), os.path.join(dir3, filename)
         if os.path.exists(path2) and os.path.exists(path3):
             
             mask1, mask2, mask3 = read_mask(path1), read_mask(path2), read_mask(path3)
