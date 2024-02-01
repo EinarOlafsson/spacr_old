@@ -129,7 +129,7 @@ env_name = "spacr_finetune_cellpose"
 
 conda_PATH, python_PATH, pip_PATH, env_PATH = get_paths(env_name)
 
-dependencies = ["pandas", "ipykernel", "scikit-learn", "scikit-image", "seaborn", "matplotlib", "ipywidgets"]
+dependencies = ["pandas", "ipykernel", "scikit-learn", "scikit-image", "scikit-learn", "seaborn", "matplotlib", "ipywidgets"]
 
 if not os.path.exists(env_PATH):
 
@@ -171,7 +171,7 @@ import matplotlib.pyplot as plt
 from skimage.morphology import binary_dilation, binary_erosion
 from skimage.metrics import adapted_rand_error as rand_error
 from skimage.measure import label, regionprops
-#from sklearn.metrics import average_precision_score
+from sklearn.metrics import precision_recall_curve
 import warnings
 
 # Filter out the specific warning
@@ -396,27 +396,70 @@ def visualize_masks(mask1, mask2, mask3, title="Masks Comparison"):
     plt.show()
 
 def calculate_iou(mask1, mask2):
+    mask1, mask2 = pad_to_same_shape(mask1, mask2)
     intersection = np.logical_and(mask1, mask2).sum()
     union = np.logical_or(mask1, mask2).sum()
-    if union == 0:
-        return 0
-    else:
-        return intersection / union
+    return intersection / union if union != 0 else 0
+    
+def compute_average_precision(matches, num_true_masks, num_pred_masks):
+    # Count of true positive matches
+    true_positives = len(matches)  # Corrected this line
+    false_positives = num_pred_masks - true_positives
+    false_negatives = num_true_masks - true_positives
 
-def match_masks(pred_masks, true_masks):
-    ious = []
-    matched_indices = []
-    for pred_mask in pred_masks:
-        max_iou = 0
-        matched_index = None
-        for i, true_mask in enumerate(true_masks):
-            iou = calculate_iou(pred_mask, true_mask)
-            if iou > max_iou:
-                max_iou = iou
-                matched_index = i
-        ious.append(max_iou)
-        matched_indices.append(matched_index)
-    return ious, matched_indices
+    if true_positives + false_positives > 0:
+        precision = true_positives / (true_positives + false_positives)
+    else:
+        precision = 0
+
+    if true_positives + false_negatives > 0:
+        recall = true_positives / (true_positives + false_negatives)
+    else:
+        recall = 0
+
+    return precision, recall
+
+def match_masks(true_masks, pred_masks, iou_threshold):
+    matches = []
+    for true_mask in true_masks:
+        for pred_mask in pred_masks:
+            iou = calculate_iou(true_mask, pred_mask)
+            if iou >= iou_threshold:
+                matches.append((true_mask, pred_mask))  # Only change needed is in compute_average_precision
+    return matches
+
+def pad_to_same_shape(mask1, mask2):
+    # Find the shape differences
+    shape_diff = np.array([max(mask1.shape[0], mask2.shape[0]) - mask1.shape[0], 
+                           max(mask1.shape[1], mask2.shape[1]) - mask1.shape[1]])
+    pad_mask1 = ((0, shape_diff[0]), (0, shape_diff[1]))
+    shape_diff = np.array([max(mask1.shape[0], mask2.shape[0]) - mask2.shape[0], 
+                           max(mask1.shape[1], mask2.shape[1]) - mask2.shape[1]])
+    pad_mask2 = ((0, shape_diff[0]), (0, shape_diff[1]))
+    
+    padded_mask1 = np.pad(mask1, pad_mask1, mode='constant', constant_values=0)
+    padded_mask2 = np.pad(mask2, pad_mask2, mode='constant', constant_values=0)
+    
+    return padded_mask1, padded_mask2
+    
+def compute_ap_over_iou_thresholds(true_masks, pred_masks, iou_thresholds):
+    precision_recall_pairs = []
+    for iou_threshold in iou_thresholds:
+        matches = match_masks(true_masks, pred_masks, iou_threshold)
+        precision, recall = compute_average_precision(matches, len(true_masks), len(pred_masks))
+        precision_recall_pairs.append((precision, recall))
+    precisions, recalls = zip(*precision_recall_pairs)
+    sorted_indices = np.argsort(recalls)
+    sorted_precisions = np.array(precisions)[sorted_indices]
+    sorted_recalls = np.array(recalls)[sorted_indices]
+    return np.trapz(sorted_precisions, sorted_recalls)
+    
+def compute_segmentation_ap(true_masks, pred_masks, iou_thresholds=np.linspace(0.5, 0.95, 10)):
+    true_mask_labels = label(true_masks)
+    pred_mask_labels = label(pred_masks)
+    true_mask_regions = [region.image for region in regionprops(true_mask_labels)]
+    pred_mask_regions = [region.image for region in regionprops(pred_mask_labels)]
+    return compute_ap_over_iou_thresholds(true_mask_regions, pred_mask_regions, iou_thresholds)
 
 def compute_ap(ious, threshold=0.5):
     tp = sum(iou >= threshold for iou in ious)
@@ -502,19 +545,19 @@ def compare_masks(dir1, dir2, dir3, verbose=False):
     cond_1 = os.path.basename(dir1)
     cond_2 = os.path.basename(dir2)
     cond_3 = os.path.basename(dir3)
-    for filename in filenames:
+    for index, filename in enumerate(filenames):
         print(f'Processing image:{index+1}', end='\r', flush=True)
-        path1 = os.path.join(dir1, filename)
-        path2 = os.path.join(dir2, filename)
-        path3 = os.path.join(dir3, filename)
+        path1 = os.path.join(dir1, filename), os.path.join(dir2, filename), os.path.join(dir3, filename)
         if os.path.exists(path2) and os.path.exists(path3):
             
             mask1, mask2, mask3 = read_mask(path1), read_mask(path2), read_mask(path3)
             boundary_true1, boundary_true2, boundary_true3 = extract_boundaries(mask1), extract_boundaries(mask2), extract_boundaries(mask3)
-                        
+            
+            
             true_masks, pred_masks = [mask1], [mask2, mask3]  # Assuming mask1 is the ground truth for simplicity
             true_labels, pred_labels_1, pred_labels_2 = label(mask1), label(mask2), label(mask3)
-            ap_scores = match_and_compute_ap([true_labels], [pred_labels_1, pred_labels_2])
+            average_precision_0, average_precision_1 = compute_segmentation_ap(mask1, mask2), compute_segmentation_ap(mask1, mask3)
+            ap_scores = [average_precision_0, average_precision_1]
 
             if verbose:
                 unique_values1, unique_values2, unique_values3 = np.unique(mask1),  np.unique(mask2), np.unique(mask3)
@@ -551,8 +594,8 @@ def compare_masks(dir1, dir2, dir3, verbose=False):
                 f'boundary_f1_{cond_1}_{cond_2}': boundary_f1_12,
                 f'boundary_f1_{cond_1}_{cond_3}': boundary_f1_13,
                 f'boundary_f1_{cond_2}_{cond_3}': boundary_f1_23,
-                f'average_precision_1_2': ap_scores[0],
-                f'average_precision_1_3': ap_scores[1]
+                f'average_precision_{cond_1}_{cond_2}': ap_scores[0],
+                f'average_precision_{cond_1}_{cond_3}': ap_scores[1]
             })
         else:
             print(f'Cannot find {path1} or {path2} or {path3}')
