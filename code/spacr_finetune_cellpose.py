@@ -321,21 +321,7 @@ def identify_masks(paths, dst, model_name, channels, diameter, flow_threshold=30
             output_filename = os.path.join(dst, filename)
             cv2.imwrite(output_filename, mask)
     return
-
-def generate_cp_masks(src, model_name, channels, diameter, regex='.tif', flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False, custom_model=None):
-    dst = os.path.join(src,'masks')
-    os.makedirs(dst, exist_ok=True)
-    paths = []
     
-    for filename in os.listdir(src):
-        path = os.path.join(src, filename)
-        
-        if filename.endswith('.tif'):
-            if re.search(regex, filename):
-                paths.append(path)
-    
-    identify_masks(paths, dst, model_name, channels, diameter,  flow_threshold=flow_threshold, cellprob_threshold=cellprob_threshold, figuresize=figuresize, cmap=cmap, verbose=verbose, plot=plot, save=save, custom_model=custom_model)
-
 def train_cellpose(img_src, mask_src, model_name='toxopv', model_type='cyto', nchan=2, channels=[0, 0], learning_rate=0.2, weight_decay=1e-05, batch_size=8, n_epochs=500):
 
     print(f'Paramiters - model_type:{model_type} learning_rate:{learning_rate} weight_decay:{weight_decay} batch_size{batch_size} n_epochs{n_epochs}')
@@ -369,4 +355,19 @@ def train_cellpose(img_src, mask_src, model_name='toxopv', model_type='cyto', nc
                 save_path=model_save_path,
                 model_name=model_name)
 
-    return print(f"Model saved at: {model_save_path}")
+    return print(f"Model saved at: {model_save_path}/{model_name}")
+
+def generate_cp_masks(src, model_name, channels, diameter, regex='.tif', flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False, custom_model=None):
+    dst = os.path.join(src,'masks')
+    os.makedirs(dst, exist_ok=True)
+    paths = []
+    
+    for filename in os.listdir(src):
+        path = os.path.join(src, filename)
+        
+        if filename.endswith('.tif'):
+            if re.search(regex, filename):
+                paths.append(path)
+    
+    identify_masks(paths, dst, model_name, channels, diameter,  flow_threshold=flow_threshold, cellprob_threshold=cellprob_threshold, figuresize=figuresize, cmap=cmap, verbose=verbose, plot=plot, save=save, custom_model=custom_model)
+
