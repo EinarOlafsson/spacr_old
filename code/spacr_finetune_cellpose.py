@@ -434,6 +434,38 @@ def boundary_f1_score(mask_true, mask_pred, dilation_radius=1):
     f1 = 2 * (precision * recall) / (precision + recall + 1e-6)
     return f1
 
+def plot_comparison_results(comparison_results):
+    df = pd.DataFrame(comparison_results)
+    df_melted = pd.melt(df, id_vars=['filename'], var_name='metric', value_name='value')
+    df_jaccard = df_melted[df_melted['metric'].str.contains('jaccard')]
+    df_dice = df_melted[df_melted['metric'].str.contains('dice')]
+    df_boundary_f1 = df_melted[df_melted['metric'].str.contains('boundary_f1')]
+    fig, axs = plt.subplots(1, 3, figsize=(30, 10))
+    # Jaccard Index Plot
+    sns.boxplot(data=df_jaccard, x='metric', y='value', ax=axs[0], color='lightgrey')
+    sns.stripplot(data=df_jaccard, x='metric', y='value', ax=axs[0], jitter=True, alpha=0.6)
+    axs[0].set_title('Jaccard Index by Comparison')
+    axs[0].set_xticklabels(axs[0].get_xticklabels(), rotation=45, horizontalalignment='right')
+    axs[0].set_xlabel('Comparison')
+    axs[0].set_ylabel('Jaccard Index')
+    # Dice Coefficient Plot
+    sns.boxplot(data=df_dice, x='metric', y='value', ax=axs[1], color='lightgrey')
+    sns.stripplot(data=df_dice, x='metric', y='value', ax=axs[1], jitter=True, alpha=0.6)
+    axs[1].set_title('Dice Coefficient by Comparison')
+    axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=45, horizontalalignment='right')
+    axs[1].set_xlabel('Comparison')
+    axs[1].set_ylabel('Dice Coefficient')
+    # Border F1 scores
+    sns.boxplot(data=df_boundary_f1, x='metric', y='value', ax=axs[2], color='lightgrey')
+    sns.stripplot(data=df_boundary_f1, x='metric', y='value', ax=axs[2], jitter=True, alpha=0.6)
+    axs[2].set_title('Boundary F1 Score by Comparison')
+    axs[2].set_xticklabels(axs[2].get_xticklabels(), rotation=45, horizontalalignment='right')
+    axs[2].set_xlabel('Comparison')
+    axs[2].set_ylabel('Boundary F1 Score')
+    plt.tight_layout()
+    plt.show()
+    return fig
+    
 def compare_masks(dir1, dir2, dir3, verbose=False):
     filenames = os.listdir(dir1)
     results = []
@@ -494,35 +526,5 @@ def compare_masks(dir1, dir2, dir3, verbose=False):
             })
         else:
             print(f'Cannot find {path1} or {path2} or {path3}')
-    return results
-    
-def plot_comparison_results(comparison_results):
-    df = pd.DataFrame(comparison_results)
-    df_melted = pd.melt(df, id_vars=['filename'], var_name='metric', value_name='value')
-    df_jaccard = df_melted[df_melted['metric'].str.contains('jaccard')]
-    df_dice = df_melted[df_melted['metric'].str.contains('dice')]
-    df_boundary_f1 = df_melted[df_melted['metric'].str.contains('boundary_f1')]
-    fig, axs = plt.subplots(1, 3, figsize=(30, 10))
-    # Jaccard Index Plot
-    sns.boxplot(data=df_jaccard, x='metric', y='value', ax=axs[0], color='lightgrey')
-    sns.stripplot(data=df_jaccard, x='metric', y='value', ax=axs[0], jitter=True, alpha=0.6)
-    axs[0].set_title('Jaccard Index by Comparison')
-    axs[0].set_xticklabels(axs[0].get_xticklabels(), rotation=45, horizontalalignment='right')
-    axs[0].set_xlabel('Comparison')
-    axs[0].set_ylabel('Jaccard Index')
-    # Dice Coefficient Plot
-    sns.boxplot(data=df_dice, x='metric', y='value', ax=axs[1], color='lightgrey')
-    sns.stripplot(data=df_dice, x='metric', y='value', ax=axs[1], jitter=True, alpha=0.6)
-    axs[1].set_title('Dice Coefficient by Comparison')
-    axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=45, horizontalalignment='right')
-    axs[1].set_xlabel('Comparison')
-    axs[1].set_ylabel('Dice Coefficient')
-    # Border F1 scores
-    sns.boxplot(data=df_boundary_f1, x='metric', y='value', ax=axs[2], color='lightgrey')
-    sns.stripplot(data=df_boundary_f1, x='metric', y='value', ax=axs[2], jitter=True, alpha=0.6)
-    axs[2].set_title('Boundary F1 Score by Comparison')
-    axs[2].set_xticklabels(axs[2].get_xticklabels(), rotation=45, horizontalalignment='right')
-    axs[2].set_xlabel('Comparison')
-    axs[2].set_ylabel('Boundary F1 Score')
-    plt.tight_layout()
-    plt.show()
+    fig = plot_comparison_results(comparison_results)
+    return results, fig
