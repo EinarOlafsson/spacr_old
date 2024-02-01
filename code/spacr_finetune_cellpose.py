@@ -162,6 +162,19 @@ from collections import deque
 from matplotlib.patches import Polygon
 import matplotlib as mpl
 
+import imageio.v2 as imageio2
+from skimage import img_as_uint
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from skimage.morphology import binary_dilation, binary_erosion
+import warnings
+
+# Filter out the specific warning
+warnings.filterwarnings('ignore', message='Downcasting int32 to uint16 without scaling because max value*')
+warnings.filterwarnings('ignore', message="set_ticklabels() should only be used with a fixed number of ticks*")
+
 def generate_cellpose_dataset(src, dst, channel, number):
     if channel == 1:
         channel = '01'
@@ -174,32 +187,22 @@ def generate_cellpose_dataset(src, dst, channel, number):
         shutil.copy(path,new_path)
 
 def normalize_to_dtype(array, q1=2, q2=98, percentiles=None):
-    # Ensure array is at least 3D
     if len(array.shape) == 2:
         array = np.expand_dims(array, axis=-1)
-
     num_channels = array.shape[-1]
     new_stack = np.empty_like(array)
-
     for channel in range(num_channels):
         img = array[..., channel]
         non_zero_img = img[img > 0]
-
-        # Determine min and max for intensity scaling
         if non_zero_img.size > 0:
             img_min = np.percentile(non_zero_img, q1)
             img_max = np.percentile(non_zero_img, q2)
         else:
             img_min, img_max = (percentiles[channel] if percentiles and channel < len(percentiles)
                                 else (img.min(), img.max()))
-
-        # Rescale intensity
         new_stack[..., channel] = rescale_intensity(img, in_range=(img_min, img_max), out_range='dtype')
-
-    # Remove the added dimension for 2D input
     if new_stack.shape[-1] == 1:
         new_stack = np.squeeze(new_stack, axis=-1)
-
     return new_stack
 
 def plot_arrays(src, figuresize=50, cmap='inferno', nr=1, normalize=True, q1=1, q2=99):
@@ -235,18 +238,15 @@ def plot_arrays(src, figuresize=50, cmap='inferno', nr=1, normalize=True, q1=1, 
 def print_mask_and_flows(stack, mask, flows):
     # Create subplots: 1 for image, 1 for mask, rest for each flow
     fig, axs = plt.subplots(1,  3, figsize=(40, 5))
-
     # Plot the original image
     axs[0].imshow(stack[:, :, 0], cmap='gray')
     #axs[0].imshow(stack, cmap='gray')
     axs[0].set_title('Original Image')
     axs[0].axis('off')
-
     # Plot the mask
     axs[1].imshow(mask, cmap='gray')
     axs[1].set_title('Mask')
     axs[1].axis('off')
-
     # Plot flow
     axs[2].imshow(flows[0], cmap='jet')
     axs[2].set_title(f'Flows')
@@ -371,3 +371,158 @@ def generate_cp_masks(src, model_name, channels, diameter, regex='.tif', flow_th
     
     identify_masks(paths, dst, model_name, channels, diameter,  flow_threshold=flow_threshold, cellprob_threshold=cellprob_threshold, figuresize=figuresize, cmap=cmap, verbose=verbose, plot=plot, save=save, custom_model=custom_model)
 
+def read_mask(mask_path):
+    mask = imageio2.imread(mask_path)
+    if mask.dtype != np.uint16:
+        mask = img_as_uint(mask)
+    return mask
+
+def visualize_masks(mask1, mask2, mask3, title="Masks Comparison"):
+    fig, axs = plt.subplots(1, 3, figsize=(30, 10))
+    norm = plt.Normalize(vmin=0, vmax=np.max([mask1.max(), mask2.max(), mask3.max()]))
+    axs[0].imshow(mask1, cmap='gray', norm=norm)
+    axs[0].set_title('Mask 1')
+    axs[0].axis('off')
+    axs[1].imshow(mask2, cmap='gray', norm=norm)
+    axs[1].set_title('Mask 2')
+    axs[1].axis('off')
+    axs[2].imshow(mask3, cmap='gray', norm=norm)
+    axs[2].set_title('Mask 3')
+    axs[2].axis('off')
+    plt.suptitle(title)
+    plt.show()
+    
+def visualize_masks(mask1, mask2, mask3, title="Masks Comparison"):
+    fig, axs = plt.subplots(1, 3, figsize=(30, 10))
+    for ax, mask, title in zip(axs, [mask1, mask2, mask3], ['Mask 1', 'Mask 2', 'Mask 3']):
+        # If the mask is binary, we can skip normalization
+        if np.isin(mask, [0, 1]).all():
+            ax.imshow(mask, cmap='gray')
+        else:
+            # Normalize the image for displaying purposes
+            norm = plt.Normalize(vmin=0, vmax=mask.max())
+            ax.imshow(mask, cmap='gray', norm=norm)
+        ax.set_title(title)
+        ax.axis('off')
+    plt.suptitle(title)
+    plt.show()
+
+def jaccard_index(mask1, mask2):
+    intersection = np.logical_and(mask1, mask2)
+    union = np.logical_or(mask1, mask2)
+    return np.sum(intersection) / np.sum(union)
+
+def dice_coefficient(mask1, mask2):
+    intersection = np.sum(mask1[mask2 == 1]) * 2.0
+    total = np.sum(mask1) + np.sum(mask2)
+    return intersection / total
+
+def extract_boundaries(mask, dilation_radius=1):
+    binary_mask = (mask > 0).astype(np.uint8)
+    struct_elem = np.ones((dilation_radius*2+1, dilation_radius*2+1))
+    dilated = binary_dilation(binary_mask, footprint=struct_elem)
+    eroded = binary_erosion(binary_mask, footprint=struct_elem)
+    boundary = dilated ^ eroded
+    return boundary
+
+def boundary_f1_score(mask_true, mask_pred, dilation_radius=1):
+    boundary_true = extract_boundaries(mask_true, dilation_radius)
+    boundary_pred = extract_boundaries(mask_pred, dilation_radius)
+    intersection = np.logical_and(boundary_true, boundary_pred)
+    precision = np.sum(intersection) / (np.sum(boundary_pred) + 1e-6)
+    recall = np.sum(intersection) / (np.sum(boundary_true) + 1e-6)
+    f1 = 2 * (precision * recall) / (precision + recall + 1e-6)
+    return f1
+
+def compare_masks(dir1, dir2, dir3, verbose=False):
+    filenames = os.listdir(dir1)
+    results = []
+    cond_1 = os.path.basename(dir1)
+    cond_2 = os.path.basename(dir2)
+    cond_3 = os.path.basename(dir3)
+    for filename in filenames:
+        path1 = os.path.join(dir1, filename)
+        path2 = os.path.join(dir2, filename)
+        path3 = os.path.join(dir3, filename)
+        if os.path.exists(path2) and os.path.exists(path3):
+            mask1 = read_mask(path1)
+            mask2 = read_mask(path2)
+            mask3 = read_mask(path3)
+            boundary_true1 = extract_boundaries(mask1)
+            boundary_true2 = extract_boundaries(mask2)
+            boundary_true3 = extract_boundaries(mask3)
+            if verbose:
+                unique_values1 = np.unique(mask1)
+                unique_values2 = np.unique(mask2)
+                unique_values3 = np.unique(mask3)
+                print(f"Unique values in mask 1: {unique_values1}")
+                print(f"Unique values in mask 2: {unique_values2}")
+                print(f"Unique values in mask 3: {unique_values3}")
+                visualize_masks(boundary_true1, boundary_true2, boundary_true3, title=f"Boundaries - {filename}")
+            boundary_f1_12 = boundary_f1_score(mask1, mask2)
+            boundary_f1_13 = boundary_f1_score(mask1, mask3)
+            boundary_f1_23 = boundary_f1_score(mask2, mask3)
+            if (np.unique(mask1).size == 1 and np.unique(mask1)[0] == 0) and \
+               (np.unique(mask2).size == 1 and np.unique(mask2)[0] == 0) and \
+               (np.unique(mask3).size == 1 and np.unique(mask3)[0] == 0):
+                continue
+            if verbose:
+                unique_values4 = np.unique(boundary_f1_12)
+                unique_values5 = np.unique(boundary_f1_13)
+                unique_values6 = np.unique(boundary_f1_23)
+                print(f"Unique values in boundary mask 1: {unique_values4}")
+                print(f"Unique values in boundary mask 2: {unique_values5}")
+                print(f"Unique values in boundary mask 3: {unique_values6}")
+                visualize_masks(mask1, mask2, mask3, title=filename)
+            jaccard12 = jaccard_index(mask1, mask2)
+            dice12 = dice_coefficient(mask1, mask2)
+            jaccard13 = jaccard_index(mask1, mask3)
+            dice13 = dice_coefficient(mask1, mask3)
+            jaccard23 = jaccard_index(mask2, mask3)
+            dice23 = dice_coefficient(mask2, mask3)     
+            results.append({
+                f'filename': filename,
+                f'jaccard_{cond_1}_{cond_2}': jaccard12,
+                f'dice_{cond_1}_{cond_2}': dice12,
+                f'jaccard_{cond_1}_{cond_3}': jaccard13,
+                f'dice_{cond_1}_{cond_3}': dice13,
+                f'jaccard_{cond_2}_{cond_3}': jaccard23,
+                f'dice_{cond_2}_{cond_3}': dice23,
+                f'boundary_f1_{cond_1}_{cond_2}': boundary_f1_12,
+                f'boundary_f1_{cond_1}_{cond_3}': boundary_f1_13,
+                f'boundary_f1_{cond_2}_{cond_3}': boundary_f1_23
+            })
+        else:
+            print(f'Cannot find {path1} or {path2} or {path3}')
+    return results
+    
+def plot_comparison_results(comparison_results):
+    df = pd.DataFrame(comparison_results)
+    df_melted = pd.melt(df, id_vars=['filename'], var_name='metric', value_name='value')
+    df_jaccard = df_melted[df_melted['metric'].str.contains('jaccard')]
+    df_dice = df_melted[df_melted['metric'].str.contains('dice')]
+    df_boundary_f1 = df_melted[df_melted['metric'].str.contains('boundary_f1')]
+    fig, axs = plt.subplots(1, 3, figsize=(30, 10))
+    # Jaccard Index Plot
+    sns.boxplot(data=df_jaccard, x='metric', y='value', ax=axs[0], color='lightgrey')
+    sns.stripplot(data=df_jaccard, x='metric', y='value', ax=axs[0], jitter=True, alpha=0.6)
+    axs[0].set_title('Jaccard Index by Comparison')
+    axs[0].set_xticklabels(axs[0].get_xticklabels(), rotation=45, horizontalalignment='right')
+    axs[0].set_xlabel('Comparison')
+    axs[0].set_ylabel('Jaccard Index')
+    # Dice Coefficient Plot
+    sns.boxplot(data=df_dice, x='metric', y='value', ax=axs[1], color='lightgrey')
+    sns.stripplot(data=df_dice, x='metric', y='value', ax=axs[1], jitter=True, alpha=0.6)
+    axs[1].set_title('Dice Coefficient by Comparison')
+    axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=45, horizontalalignment='right')
+    axs[1].set_xlabel('Comparison')
+    axs[1].set_ylabel('Dice Coefficient')
+    # Border F1 scores
+    sns.boxplot(data=df_boundary_f1, x='metric', y='value', ax=axs[2], color='lightgrey')
+    sns.stripplot(data=df_boundary_f1, x='metric', y='value', ax=axs[2], jitter=True, alpha=0.6)
+    axs[2].set_title('Boundary F1 Score by Comparison')
+    axs[2].set_xticklabels(axs[2].get_xticklabels(), rotation=45, horizontalalignment='right')
+    axs[2].set_xlabel('Comparison')
+    axs[2].set_ylabel('Boundary F1 Score')
+    plt.tight_layout()
+    plt.show()
