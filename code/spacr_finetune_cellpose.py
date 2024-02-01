@@ -582,10 +582,10 @@ def compare_masks(dir1, dir2, dir3, verbose=False):
                 f'boundary_f1_{cond_1}_{cond_3}': boundary_f1_13,
                 f'boundary_f1_{cond_2}_{cond_3}': boundary_f1_23,
                 'average_precision_1_2': ap_scores[0],
-                'average_precision_1_3': ap_scores[1]
+                'average_precision_1_3': ap_scores[1],
                 'binary_ap_1_2': ap_12,
                 'binary_ap_1_3': ap_13,
-                'binary_ap_2_3': ap_23,
+                'binary_ap_2_3': ap_23
             })
         else:
             print(f'Cannot find {path1} or {path2} or {path3}')
