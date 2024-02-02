@@ -1469,6 +1469,7 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
         if 'parasite' in tables:
             if len(tables) == 1:
                 parasite = dfs[0]
+                print(len(parasite))
             else:
                 parasite = dfs[2]
             if verbose:
@@ -1542,7 +1543,7 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
     if 'parasite' in tables:
         if not 'cell' in tables:
             cells_g_df = pd.DataFrame()
-            merged_df = pd.DataFrame()
+            merged_df = []
         try:
             parasites = parasites.dropna(subset=['cell_id'])
 
@@ -1568,8 +1569,11 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
         if verbose:
             print(f'parasites: {len(parasites)}')
             print(f'parasites grouped: {len(parasites_g_df)}')
-        merged_df = merged_df.merge(parasites_g_df, left_index=True, right_index=True)
-    
+        if len(merged_df) == 0:
+            merged_df = parasites_g_df
+        else:
+            merged_df = merged_df.merge(parasites_g_df, left_index=True, right_index=True)
+        
     #Add prc column (plate row column)
     metadata = metadata.assign(prc = lambda x: x['plate'] + '_' + x['row'] + '_' +x['col'])
 
@@ -2185,7 +2189,7 @@ def generate_dataset_from_lists(dst, class_data, classes, test_split=0.1):
 
     return
 
-def generate_training_dataset(src, mode='annotation', annotation_column='test', annotated_classes=[1,2], classes=['nc','pc'], size=200, test_split=0.1, class_metadata=[['c1'],['c2']], metadata_type_by='col', channel_of_interest=3, custom_measurement=None, tables=None):
+def generate_training_dataset(src, mode='annotation', annotation_column='test', annotated_classes=[1,2], classes=['nc','pc'], size=200, test_split=0.1, class_metadata=[['c1'],['c2']], metadata_type_by='col', channel_of_interest=3, custom_measurement=None, tables=None, png_type='cell_png'):
     
     db_path = os.path.join(src, 'measurements','measurements.db')
     dst = os.path.join(src, 'datasets', 'training')
@@ -2223,15 +2227,23 @@ def generate_training_dataset(src, mode='annotation', annotation_column='test', 
                                     include_multiinfected=True,
                                     include_noninfected=True)
         
+        print('length df 1', len(df))
+        
         df = annotate_conditions(df, cells=['HeLa'], cell_loc=None, parasites=['parasite'], parasite_loc=None, treatments=classes, treatment_loc=class_metadata, types = ['col','col',metadata_type_by])
+        print('length df 2', len(df))
         [png_list_df] = read_db(db_loc=db_path, tables=['png_list'])
 	    
         if custom_measurement != None:
+        
+            if not isinstance(custom_measurement, list):
+                 print(f'custom_measurement should be a list, add [ measurement_1,  measurement_2 ] or [ measurement ]')
+                 return
+        	
             if isinstance(custom_measurement, list):
-                if len() == 2:
+                if len(custom_measurement) == 2:
                     print(f'Classes will be defined by the Q1 and Q3 quantiles of recruitment ({custom_measurement[0]}/{custom_measurement[1]})')
                     df['recruitment'] = df[f'{custom_measurement[0]}']/df[f'{custom_measurement[1]}']
-                if len() == 1:
+                if len(custom_measurement) == 1:
                     print(f'Classes will be defined by the Q1 and Q3 quantiles of recruitment ({custom_measurement[0]})')
                     df['recruitment'] = df[f'{custom_measurement[0]}']
         else:
@@ -2243,11 +2255,12 @@ def generate_training_dataset(src, mode='annotation', annotation_column='test', 
         df_lower = df[df['recruitment'] <= q25]
         df_upper = df[df['recruitment'] >= q75]
         
-        class_paths_lower = get_paths_from_db(df=df_lower, png_df=png_list_df, image_type='cell_png')
+        class_paths_lower = get_paths_from_db(df=df_lower, png_df=png_list_df, image_type=png_type)
+        
         class_paths_lower = random.sample(class_paths_lower['png_path'].tolist(), size)
         class_paths_ls.append(class_paths_lower)
         
-        class_paths_upper = get_paths_from_db(df=df_upper, png_df=png_list_df, image_type='cell_png')
+        class_paths_upper = get_paths_from_db(df=df_upper, png_df=png_list_df, image_type=png_type)
         class_paths_upper = random.sample(class_paths_upper['png_path'].tolist(), size)
         class_paths_ls.append(class_paths_upper)
     
