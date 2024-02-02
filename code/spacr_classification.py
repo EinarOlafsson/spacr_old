@@ -1542,7 +1542,11 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
     if 'parasite' in tables:
         if not 'cell' in tables:
             cells_g_df = pd.DataFrame()
-        parasites = parasites.dropna(subset=['cell_id'])
+        try:
+		parasites = parasites.dropna(subset=['cell_id'])
+	except:
+		parasites = parasites.dropna(subset=['parasite_id'])
+
         parasites = parasites.assign(object_label=lambda x: 'o' + x['object_label'].astype(int).astype(str))
         parasites = parasites.assign(cell_id=lambda x: 'o' + x['cell_id'].astype(int).astype(str))
         parasites = parasites.assign(prcfo = lambda x: x['prcf'] + '_' + x['cell_id'])
