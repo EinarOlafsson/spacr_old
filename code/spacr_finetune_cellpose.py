@@ -180,13 +180,18 @@ warnings.filterwarnings('ignore', message="set_ticklabels() should only be used 
 
 def generate_cellpose_train_set(folders, dst, min_objects=5):
     os.makedirs(dst, exist_ok=True)
+    os.makedirs(os.path.join(dst,'masks'), exist_ok=True)
+    os.makedirs(os.path.join(dst,'imgs'), exist_ok=True)
+    
     for folder in folders:
         mask_folder = os.path.join(folder, 'masks')
         experiment_id = os.path.basename(folder)
         for filename in os.listdir(mask_folder):  # List the contents of the directory
             path = os.path.join(mask_folder, filename)
+            img_path = os.path.join(folder, filename)
             newname = experiment_id + '_' + filename
-            newpath = os.path.join(dst, newname)  # Full destination path
+            new_mask = os.path.join(dst, 'masks', newname)
+            new_img = os.path.join(dst, 'imgs', newname)
 
             mask = cv2.imread(path, cv2.IMREAD_UNCHANGED)
             if mask is None:
@@ -196,9 +201,10 @@ def generate_cellpose_train_set(folders, dst, min_objects=5):
             nr_of_objects = len(np.unique(mask)) - 1  # Assuming 0 is background
             if nr_of_objects >= min_objects:  # Use >= to include min_objects
                 try:
-                    shutil.copy(path, newpath)
+                    shutil.copy(path, new_mask)
+                    shutil.copy(img_path, new_img)
                 except Exception as e:
-                    print(f"Error copying {path} to {newpath}: {e}")
+                    print(f"Error copying {path} to {new_mask}: {e}")
 
 #def generate_cellpose_dataset(src, dst, channel, number):
 #    if channel == 1:
