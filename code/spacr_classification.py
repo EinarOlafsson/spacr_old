@@ -1542,11 +1542,14 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
     if 'parasite' in tables:
         if not 'cell' in tables:
             cells_g_df = pd.DataFrame()
+            merged_df = pd.DataFrame()
         try:
-		parasites = parasites.dropna(subset=['cell_id'])
-	except:
-		parasites = parasites.dropna(subset=['parasite_id'])
+            parasites = parasites.dropna(subset=['cell_id'])
 
+        except:
+            parasites['cell_id'] = parasites['object_label']
+            parasites = parasites.dropna(subset=['cell_id'])
+		
         parasites = parasites.assign(object_label=lambda x: 'o' + x['object_label'].astype(int).astype(str))
         parasites = parasites.assign(cell_id=lambda x: 'o' + x['cell_id'].astype(int).astype(str))
         parasites = parasites.assign(prcfo = lambda x: x['prcf'] + '_' + x['cell_id'])
@@ -1558,7 +1561,10 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
                 parasites = parasites[parasites['parasite_prcfo_count']<=1]
         if isinstance(include_multiinfected, float):
             parasites = parasites[parasites['parasite_prcfo_count']<=include_multiinfected]
-        parasites_g_df, _ = split_data(parasites, 'prcfo', 'cell_id')
+        if not 'cell' in tables:
+        	parasites_g_df, metadata = split_data(parasites, 'prcfo', 'cell_id')
+        else:
+        	parasites_g_df, _ = split_data(parasites, 'prcfo', 'cell_id')
         if verbose:
             print(f'parasites: {len(parasites)}')
             print(f'parasites grouped: {len(parasites_g_df)}')
