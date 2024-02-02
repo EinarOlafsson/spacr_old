@@ -1460,14 +1460,17 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
             cell = dfs[0]
             if verbose:
                 print(f'plate: {i+1} cells:{len(cell)}')
-
+	# see parasites logic, copy logic to other tables #here
         if 'nucleus' in tables:
             nucleus = dfs[1]
             if verbose:
                 print(f'plate: {i+1} nuclei:{len(nucleus)} ')
 
         if 'parasite' in tables:
-            parasite = dfs[2]
+            if len(tables) == 1:
+                parasite = dfs[0]
+            else:
+                parasite = dfs[2]
             if verbose:
                 print(f'plate: {i+1} parasites:{len(parasite)}')
         
