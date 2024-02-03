@@ -366,7 +366,7 @@ def train_cellpose(img_src, mask_src, model_name='toxopv', model_type='cyto', nc
     os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
 
     # Train the model
-    model.train(train_data=X_train #(list of arrays (2D or 3D)) – images for training
+    model.train(train_data=X_train, #(list of arrays (2D or 3D)) – images for training
                 train_labels=y_train, #(list of arrays (2D or 3D)) – labels for train_data, where 0=no masks; 1,2,…=mask labels can include flows as additional images
                 train_files=img_files, #(list of strings) – file names for images in train_data (to save flows for future runs)
                 test_data=X_val, #(list of arrays (2D or 3D)) – images for testing
