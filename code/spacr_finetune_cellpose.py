@@ -501,7 +501,7 @@ def load_images_and_labels(image_dir, secondary_image_dir=None, label_dir, image
 
     return normalized_images, labels, image_names, label_names
 
-def train_cellpose(img_src, secondary_image_dir, mask_src, model_name='toxopv', model_type='cyto', channels=[0, 0], learning_rate=0.2, weight_decay=1e-05, batch_size=8, n_epochs=500, test_src=None, signal_thresholds=[1000], verbose=False):
+def train_cellpose(img_src, secondary_image_dir, mask_src, model_name='toxopv', model_type='cyto', channels=[0, 0], learning_rate=0.2, weight_decay=1e-05, batch_size=8, n_epochs=500, signal_thresholds=[1000], verbose=False):
     
     print(f'Paramiters - model_type:{model_type} learning_rate:{learning_rate} weight_decay:{weight_decay} batch_size:{batch_size} n_epochs:{n_epochs}')
     
