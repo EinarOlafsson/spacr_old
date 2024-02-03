@@ -893,7 +893,13 @@ def concatenate_channel(src, channels, randomize=True, timelapse=False, batch_si
     print(f'\nAll files concatenated and saved to:{channel_stack_loc}')
     return channel_stack_loc
 
-def normalize_stack(src, backgrounds=[100,100,100,100], remove_background=False, lower_quantile=0.01, save_dtype=np.float32, signal_to_noise=5, min_highs=[1000, 1000, 1000, 1000], correct_illumination=False):
+def normalize_stack(src, backgrounds=100, remove_background=False, lower_quantile=0.01, save_dtype=np.float32, signal_to_noise=5, signal_thresholds=1000, correct_illumination=False):
+    if isinstance(signal_thresholds, int):
+	signal_thresholds = [signal_thresholds]*4
+	    
+    if isinstance(backgrounds, int):
+	backgrounds = [backgrounds]*4
+
     paths = [os.path.join(src, file) for file in os.listdir(src) if file.endswith('.npz')]
     output_fldr = os.path.join(os.path.dirname(src), 'norm_channel_stack')
     os.makedirs(output_fldr, exist_ok=True)
@@ -907,9 +913,9 @@ def normalize_stack(src, backgrounds=[100,100,100,100], remove_background=False,
         name, _ = os.path.splitext(file)
         
         for chan_index, channel in enumerate(range(stack.shape[-1])):
-            single_channel = stack[:, :, :, channel]  # Extract the specific channel
+            single_channel = stack[:, :, :, channel]
             background = backgrounds[chan_index]
-            min_high = min_highs[chan_index]
+            signal_threshold = signal_thresholds[chan_index]
             if remove_background:
                 single_channel[single_channel < background] = 0
             if correct_illumination:
@@ -921,7 +927,7 @@ def normalize_stack(src, backgrounds=[100,100,100,100], remove_background=False,
             global_lower = np.quantile(non_zero_single_channel, lower_quantile)
             for upper_p in np.linspace(0.98, 1.0, num=100).tolist():
                 global_upper = np.quantile(non_zero_single_channel, upper_p)
-                if global_upper >= min_high:
+                if global_upper >= signal_threshold:
                     break
             
             #Normalize the pixels in each image to the global quantiles and then dtype.
@@ -2508,7 +2514,7 @@ def load_and_concatenate_arrays(src, channels, cell_chann_dim, nucleus_chann_dim
         print(f'Files merged: {count}/{all_imgs}', end='\r', flush=True)
     return
 
-def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img_format='.tif', bitdepth='uint16', cmap='inferno', figuresize=15, normalize=False, nr=1, plot=False, mask_channels=[0,1,2], batch_size=100, timelapse=False, remove_background=False, backgrounds=[50,50,50,50], lower_quantile=0.01, save_dtype=np.float32, min_highs=[2000, 2000, 2000, 2000], correct_illumination=False, randomize=True, signal_to_noise=5, generate_movies=False, all_to_mip=False, fps=2, pick_slice=False, skip_mode='01'):
+def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img_format='.tif', bitdepth='uint16', cmap='inferno', figuresize=15, normalize=False, nr=1, plot=False, mask_channels=[0,1,2], batch_size=100, timelapse=False, remove_background=False, backgrounds=100, lower_quantile=0.01, save_dtype=np.float32, signal_thresholds=1000, correct_illumination=False, randomize=True, signal_to_noise=5, generate_movies=False, all_to_mip=False, fps=2, pick_slice=False, skip_mode='01'):
     print(f'========== settings ==========')
     print(f'source == {src}')
     print(f'Bitdepth: {bitdepth}: cmap:{cmap}: figuresize:{figuresize}')
@@ -2578,7 +2584,7 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
                     backgrounds=backgrounds,
                     lower_quantile=lower_quantile,
                     save_dtype=save_dtype,
-                    min_highs=min_highs,
+                    signal_thresholds=signal_thresholds,
                     correct_illumination=correct_illumination,
                     signal_to_noise=signal_to_noise, 
                     remove_background=remove_background)
@@ -2793,7 +2799,6 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
     count = False
     timelapse = False
     normalize_plots = True
-    #fps = 2
 
     if preprocess and not masks:
         print(f'WARNING: channels for mask generation are defined when preprocess = True')
@@ -2803,27 +2808,16 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
     cellpose_channels = [item for item in mask_channels if item is not None]
 
     if isinstance(merge, bool):
-        merge = [merge, merge, merge]
-    if isinstance(merge, list):
-        merge = merge
-
+        merge = [merge]*3
     if isinstance(save, bool):
-        save = [save, save, save]
-    if isinstance(save, list):
-        save = save
-
+        save = []*3
     if isinstance(count, bool):
-        count = [count, count, count]
-    if isinstance(count, list):
-        count = count
-
+        count = [count]*4
     if isinstance(backgrounds, int):
-        backgrounds = [backgrounds, backgrounds, backgrounds, backgrounds]
-        min_highs = backgrounds*signal_to_noise
-    if isinstance(backgrounds, list):
-        backgrounds = backgrounds
-        min_highs = backgrounds*signal_to_noise    
-    
+        backgrounds = [backgrounds]*4
+        signal_thresholds = backgrounds*signal_to_noise
+    else:
+        signal_thresholds = backgrounds*signal_to_noise
     if preprocess: 
         preprocess_img_data(src,
                             metadata_type=metadata_type,
@@ -2837,7 +2831,7 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
                             backgrounds=backgrounds,
                             lower_quantile=lower_quantile,
                             save_dtype=np.float32,
-                            min_highs=min_highs,
+                            signal_thresholds=signal_thresholds,
                             correct_illumination=False,
                             randomize=randomize,
                             signal_to_noise=signal_to_noise,
