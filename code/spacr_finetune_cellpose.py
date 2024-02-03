@@ -411,7 +411,7 @@ def normalize_and_visualize(image, normalized_image, title=""):
     
     plt.show()
 
-def load_images_and_labels(image_dir, secondary_image_dir=None, label_dir, image_extension="*.tif", label_extension="*.tif", signal_thresholds=[1000], channels=None, visualize=False):
+def load_images_and_labels(image_dir, label_dir, secondary_image_dir=None, image_extension="*.tif", label_extension="*.tif", signal_thresholds=[1000], channels=None, visualize=False):
     
     if isinstance(signal_thresholds, int):
         signal_thresholds = [signal_thresholds] * (len(channels) if channels is not None else 1)
@@ -501,7 +501,7 @@ def load_images_and_labels(image_dir, secondary_image_dir=None, label_dir, image
 
     return normalized_images, labels, image_names, label_names
 
-def train_cellpose(img_src, secondary_image_dir, mask_src, model_name='toxopv', model_type='cyto', channels=[0, 0], learning_rate=0.2, weight_decay=1e-05, batch_size=8, n_epochs=500, signal_thresholds=[1000], verbose=False):
+def train_cellpose(img_src, mask_src, secondary_image_dir, model_name='toxopv', model_type='cyto', channels=[0, 0], learning_rate=0.2, weight_decay=1e-05, batch_size=8, n_epochs=500, signal_thresholds=[1000], verbose=False):
     
     print(f'Paramiters - model_type:{model_type} learning_rate:{learning_rate} weight_decay:{weight_decay} batch_size:{batch_size} n_epochs:{n_epochs}')
     
@@ -511,7 +511,7 @@ def train_cellpose(img_src, secondary_image_dir, mask_src, model_name='toxopv', 
     model = models.CellposeModel(gpu=True, model_type=model_type)
     
     # Load training data
-    images, masks, image_names, mask_names = load_images_and_labels(image_dir=img_src, secondary_image_dir=secondary_image_dir, label_dir=mask_src, signal_thresholds=signal_thresholds, channels=channels, visualize=verbose)
+    images, masks, image_names, mask_names = load_images_and_labels(image_dir=img_src, label_dir=mask_src, secondary_image_dir=secondary_image_dir, signal_thresholds=signal_thresholds, channels=channels, visualize=verbose)
     #images, masks, image_names, mask_names = load_images_and_labels(img_src, mask_src, image_extension="*.tif", label_extension="*.tif")
 
     if model_type == 'cyto':
