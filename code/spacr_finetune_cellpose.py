@@ -288,7 +288,7 @@ def print_mask_and_flows(stack, mask, flows):
     fig.tight_layout()
     plt.show()
     
-def identify_masks(paths, dst, model_name, channels, diameter, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False, custom_model=None):
+def identify_masks(src, dst, model_name, channels, diameter, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False, custom_model=None, signal_thresholds=1000):
     print('========== generating masks ==========')
     print('Torch available:', torch.cuda.is_available())
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -306,37 +306,26 @@ def identify_masks(paths, dst, model_name, channels, diameter, flow_threshold=30
     print(f'Using channels: {chans} for model of type {model_name}')
     
     if verbose == True:
-        #print(f'Settings: minimum_size: {minimum_size}, maximum_size:{maximum_size}')
         print(f'Cellpose settings: Model: {model_name}, channels: {channels}, cellpose_chans: {chans}, diameter:{diameter}, flow_threshold:{flow_threshold}, cellprob_threshold:{cellprob_threshold}')
         
     time_ls = []
-    
-    for file_index, path in enumerate(paths):
-        print(file_index, path)
-        stack = cv2.imread(path).astype(np.float32)
-        stack = stack[:, :, channels]
-        filename = os.path.basename(path)
-        start = time.time()
-        stack = normalize_to_dtype(stack, q1=2,q2=98)
         
-        if stack.max() > 1:
-            stack = stack / stack.max()
-                                        
+    images, _, image_names, _ = load_images_and_labels(image_dir=src, label_dir=None, secondary_image_dir=None, signal_thresholds=signal_thresholds, channels=channels, visualize=verbose)
+    
+    for file_index, stack in enumerate(images):
+	start = time.time()
         results = model.eval(x=stack,
-                         normalize=False,
-                         channels=chans,
-                         channel_axis=3,
-                         diameter=diameter,
-                         flow_threshold=flow_threshold,
-                         cellprob_threshold=cellprob_threshold,
-                         rescale=None,
-                         resample=True,
-                         net_avg=True,
-                         progress=None)
+                     normalize=False,
+                     channels=chans,
+                     channel_axis=3,
+                     diameter=diameter,
+                     flow_threshold=flow_threshold,
+                     cellprob_threshold=cellprob_threshold,
+                     rescale=None,
+                     resample=True,
+                     net_avg=True,
+                     progress=None)
 
-        print(len(results))
-
-        # Unpack the results based on the number of returned values
         if len(results) == 4:
             mask, flows, _, _ = results
         elif len(results) == 3:
@@ -348,11 +337,11 @@ def identify_masks(paths, dst, model_name, channels, diameter, flow_threshold=30
         duration = (stop - start)
         time_ls.append(duration)
         average_time = np.mean(time_ls) if len(time_ls) > 0 else 0
-        print(f'Processing {file_index+1}/{len(paths)} images : Time/image {average_time:.3f} sec', end='\r', flush=True)
+        print(f'Processing {file_index+1}/{len(images)} images : Time/image {average_time:.3f} sec', end='\r', flush=True)
         if plot:
             print_mask_and_flows(stack, mask, flows)
         if save:
-            output_filename = os.path.join(dst, filename)
+            output_filename = os.path.join(dst, image_names[file_index])
             cv2.imwrite(output_filename, mask)
     return
 
@@ -406,7 +395,7 @@ def normalize_and_visualize(image, normalized_image, title=""):
     
     plt.show()
 
-def load_normalized_images_and_labels(image_dir, label_dir, secondary_image_dir=None, image_extension="*.tif", label_extension="*.tif", signal_thresholds=[1000], channels=None, visualize=False):
+def load_images_and_labels(image_dir, label_dir, secondary_image_dir=None, image_extension="*.tif", label_extension="*.tif", signal_thresholds=[1000], channels=None, visualize=False):
     
     if isinstance(signal_thresholds, int):
         signal_thresholds = [signal_thresholds] * (len(channels) if channels is not None else 1)
@@ -416,8 +405,9 @@ def load_normalized_images_and_labels(image_dir, label_dir, secondary_image_dir=
     image_files = get_files_from_dir(image_dir, image_extension)
     if secondary_image_dir is not None:
         secondary_image_files = get_files_from_dir(secondary_image_dir, image_extension)
-        
-    label_files = get_files_from_dir(label_dir, label_extension)
+    
+    if label_dir is not None:
+        label_files = get_files_from_dir(label_dir, label_extension)
 
     images = []
     labels = []
@@ -427,7 +417,9 @@ def load_normalized_images_and_labels(image_dir, label_dir, secondary_image_dir=
     percentiles_99 = [[] for _ in range(num_channels)]
 
     image_names = [os.path.basename(f) for f in image_files]
-    label_names = [os.path.basename(f) for f in label_files]
+    
+    if label_dir is not None:
+        label_names = [os.path.basename(f) for f in label_files]
 
     # Load images and check percentiles
     for i,img_file in enumerate(image_files):
@@ -482,15 +474,18 @@ def load_normalized_images_and_labels(image_dir, label_dir, secondary_image_dir=
             normalized_image[..., c] = rescale_intensity(image[..., c], in_range=(avg_p1[c], avg_p99[c]), out_range=(0, 1))
         normalized_images.append(normalized_image)
         if visualize:
-            normalize_and_visualize(image, normalized_image, title=f"Channel {c+1}")
-
-    for lbl_file in label_files:
-        labels.append(imread(lbl_file))
+            normalize_and_visualize(image, normalized_image, title=f"Channel {c+1} Normalized")
+            
+    if label_dir is not None:
+        for lbl_file in label_files:
+            labels.append(imread(lbl_file))
+    else:
+        label_names = []
 
     print(f'Loaded and normalized {len(normalized_images)} images and {len(labels)} labels from {image_dir} and {label_dir}')
     return normalized_images, labels, image_names, label_names
 
-def train_cellpose(img_src, mask_src, secondary_image_dir, model_name='toxopv', model_type='cyto', channels=[0, 0], learning_rate=0.2, weight_decay=1e-05, batch_size=8, n_epochs=500, signal_thresholds=[1000], normalize=True, verbose=False):
+def train_cellpose(img_src, mask_src, secondary_image_dir, model_name='toxopv', model_type='cyto', channels=[0, 0], learning_rate=0.2, weight_decay=1e-05, batch_size=8, n_epochs=500, signal_thresholds=[1000], verbose=False):
     
     print(f'Paramiters - model_type:{model_type} learning_rate:{learning_rate} weight_decay:{weight_decay} batch_size:{batch_size} n_epochs:{n_epochs}')
     
@@ -500,10 +495,8 @@ def train_cellpose(img_src, mask_src, secondary_image_dir, model_name='toxopv', 
     model = models.CellposeModel(gpu=True, model_type=model_type)
     
     # Load training data
-    if normalize:
-        images, masks, image_names, mask_names = load_normalized_images_and_labels(image_dir=img_src, label_dir=mask_src, secondary_image_dir=secondary_image_dir, signal_thresholds=signal_thresholds, channels=channels, visualize=verbose)
-    else:
-        images, masks, image_names, mask_names = load_images_and_labels(img_src, mask_src)
+    images, masks, image_names, mask_names = load_images_and_labels(image_dir=img_src, label_dir=mask_src, secondary_image_dir=secondary_image_dir, signal_thresholds=signal_thresholds, channels=channels, visualize=verbose)
+    #images, masks, image_names, mask_names = load_images_and_labels(img_src, mask_src, image_extension="*.tif", label_extension="*.tif")
 
     if model_type == 'cyto':
         cp_channels = [0,1]
@@ -535,19 +528,11 @@ def train_cellpose(img_src, mask_src, secondary_image_dir, model_name='toxopv', 
 
     return print(f"Model saved at: {model_save_path}/{model_name}")
 
-def generate_cp_masks(src, model_name, channels, diameter, regex='.tif', flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False, custom_model=None):
+def generate_cp_masks(src, model_name, channels, diameter, regex='.tif', flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False, custom_model=None, signal_thresholds=1000):
     dst = os.path.join(src,'masks')
     os.makedirs(dst, exist_ok=True)
-    paths = []
-    
-    for filename in os.listdir(src):
-        path = os.path.join(src, filename)
-        
-        if filename.endswith('.tif'):
-            if re.search(regex, filename):
-                paths.append(path)
-    
-    identify_masks(paths, dst, model_name, channels, diameter,  flow_threshold=flow_threshold, cellprob_threshold=cellprob_threshold, figuresize=figuresize, cmap=cmap, verbose=verbose, plot=plot, save=save, custom_model=custom_model)
+ 
+    identify_masks(src, dst, model_name, channels, diameter,  flow_threshold=flow_threshold, cellprob_threshold=cellprob_threshold, figuresize=figuresize, cmap=cmap, verbose=verbose, plot=plot, save=save, custom_model=custom_model)
 
 def read_mask(mask_path):
     mask = imageio2.imread(mask_path)
