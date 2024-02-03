@@ -426,10 +426,13 @@ def load_images_and_labels(image_dir, label_dir, secondary_image_dir=None, image
 
     images = []
     labels = []
-    percentiles_99 = [[[] for _ in range(len(signal_thresholds))] for _ in range(4)]  # Adjusted for multiple percentile checks
+    
+    num_channels = 4
+    percentiles_1 = [[] for _ in range(num_channels)]
+    percentiles_99 = [[] for _ in range(num_channels)]
 
-    image_names = sorted([os.path.basename(f) for f in image_files])
-    label_names = sorted([os.path.basename(f) for f in label_files])
+    image_names = [os.path.basename(f) for f in image_files]
+    label_names = [os.path.basename(f) for f in label_files]
 
     # Load images and check percentiles
     for i,img_file in enumerate(image_files):
@@ -459,46 +462,37 @@ def load_images_and_labels(image_dir, label_dir, secondary_image_dir=None, image
                 print(f"Warning: Image {image_names[i]} and its secondary image have incompatible shapes and cannot be merged.")
                 continue
         
+        if image.ndim < 3:
+            image = np.expand_dims(image, axis=-1)
+        
         images.append(image)
-        if image.max() > 1:  # Ensure image needs normalization
-            for c in range(min(len(signal_thresholds), image.shape[-1])):  # Handle fewer channels than thresholds
-                for percentile in [99, 99.9, 99.99, 99.999]:
-                    p = np.percentile(image[..., c], percentile)
-                    if p > signal_thresholds[c]:
-                        percentiles_99[c][percentile//99 - 1].append(p)
-                        break
+        
+        for c in range(image.shape[-1]):
+            p1 = np.percentile(image[..., c], 1)
+            percentiles_1[c].append(p1)
+            for percentile in [99, 99.9, 99.99, 99.999]:
+                p = np.percentile(image[..., c], percentile)
+                if p > signal_thresholds[min(c, len(signal_thresholds)-1)]:
+                    percentiles_99[c].append(p)
+                    break
+                    
+    # Calculate average percentiles for normalization
+    avg_p1 = [np.mean(p) for p in percentiles_1]
+    avg_p99 = [np.mean(p) if len(p) > 0 else np.mean(percentiles_1[i]) for i, p in enumerate(percentiles_99)]
 
-    # Calculate global and average 99th percentiles for each channel
-    p1_list = []
-    p99_average_list = []
-    for c in range(len(signal_thresholds)):
-        all_pixels = np.concatenate([img[..., c].flatten() for img in images if img.max() > 1])
-        p1_list.append(np.percentile(all_pixels, 1))
-        p99_values = sum(percentiles_99[c], [])  # Flatten the list of lists for this channel
-        if p99_values:  # Check if any image met the threshold for this channel
-            p99_average_list.append(np.mean(p99_values))
-        else:
-            p99_average_list.append(np.percentile(all_pixels, 99))  # Fallback if no image meets the threshold
-
-    # Normalize images
     normalized_images = []
     for image in images:
         normalized_image = np.zeros_like(image, dtype=np.float32)
         for c in range(image.shape[-1]):
-            p1 = p1_list[c]
-            p99_average = p99_average_list[c]
-            normalized_image[..., c] = np.clip((image[..., c] - p1) / (p99_average - p1), 0, 1)
+            normalized_image[..., c] = rescale_intensity(image[..., c], in_range=(avg_p1[c], avg_p99[c]), out_range=(0, 1))
         normalized_images.append(normalized_image)
         if visualize:
-            normalize_and_visualize(image, normalized_image, title=f"Channel {c+1}")
+            normalize_and_visualize(image, normalized_image, title=f"Channel {c+1} Normalized")
 
-    # Load labels
     for lbl_file in label_files:
-        label = imread(lbl_file)
-        labels.append(label)
+        labels.append(imread(lbl_file))
 
     print(f'Loaded and normalized {len(normalized_images)} images and {len(labels)} labels from {image_dir} and {label_dir}')
-
     return normalized_images, labels, image_names, label_names
 
 def train_cellpose(img_src, mask_src, secondary_image_dir, model_name='toxopv', model_type='cyto', channels=[0, 0], learning_rate=0.2, weight_decay=1e-05, batch_size=8, n_epochs=500, signal_thresholds=[1000], verbose=False):
