@@ -313,7 +313,7 @@ def identify_masks(src, dst, model_name, channels, diameter, flow_threshold=30, 
     images, _, image_names, _ = load_images_and_labels(image_dir=src, label_dir=None, secondary_image_dir=None, signal_thresholds=signal_thresholds, channels=channels, visualize=verbose)
     
     for file_index, stack in enumerate(images):
-	start = time.time()
+        start = time.time()
         results = model.eval(x=stack,
                      normalize=False,
                      channels=chans,
