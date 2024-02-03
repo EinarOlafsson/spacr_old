@@ -487,7 +487,7 @@ def load_images_and_labels(image_dir, label_dir, secondary_image_dir=None, image
             normalized_image[..., c] = rescale_intensity(image[..., c], in_range=(avg_p1[c], avg_p99[c]), out_range=(0, 1))
         normalized_images.append(normalized_image)
         if visualize:
-            normalize_and_visualize(image, normalized_image, title=f"Channel {c+1} Normalized")
+            normalize_and_visualize(image, normalized_image, title=f"Channel {c+1}")
 
     for lbl_file in label_files:
         labels.append(imread(lbl_file))
