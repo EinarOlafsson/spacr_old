@@ -161,6 +161,9 @@ from skimage.exposure import rescale_intensity
 from collections import deque
 from matplotlib.patches import Polygon
 import matplotlib as mpl
+from cellpose.io import imread
+from glob import glob
+
 
 import imageio.v2 as imageio2
 from skimage import img_as_uint
@@ -352,28 +355,181 @@ def identify_masks(paths, dst, model_name, channels, diameter, flow_threshold=30
             output_filename = os.path.join(dst, filename)
             cv2.imwrite(output_filename, mask)
     return
-    
-def train_cellpose(img_src, mask_src, model_name='toxopv', model_type='cyto', nchan=2, channels=[0, 0], learning_rate=0.2, weight_decay=1e-05, batch_size=8, n_epochs=500):
 
-    print(f'Paramiters - model_type:{model_type} learning_rate:{learning_rate} weight_decay:{weight_decay} batch_size{batch_size} n_epochs{n_epochs}')
+def get_files_from_dir(dir_path, file_extension="*"):
+    """Utility function to get file list from a directory"""
+    return glob(os.path.join(dir_path, file_extension))
+
+def load_images_and_labels(image_dir, label_dir, image_extension="*.png", label_extension="*.png"):
+    # Get lists of image and label files
+    image_files = get_files_from_dir(image_dir, image_extension)
+    label_files = get_files_from_dir(label_dir, label_extension)
+
+    images = []
+    labels = []
+
+    # Assuming image and label files are matched by filename sorting
+    image_names = sorted([os.path.basename(f) for f in image_files])
+    label_names = sorted([os.path.basename(f) for f in label_files])
+
+    # Load images and labels
+    for img_file, lbl_file in zip(image_files, label_files):
+        image = imread(img_file)
+        label = imread(lbl_file)
+
+        if image.max() > 1:
+            image = image / image.max()
+        
+        images.append(image)
+        labels.append(label)
+
+    # Log the number of loaded images and labels
+    print(f'Loaded {len(images)} images and {len(labels)} labels from {image_dir} and {label_dir}')
+
+    return images, labels, image_names, label_names
+
+def get_files_from_dir(dir_path, file_extension="*"):
+    """Utility function to get file list from a directory"""
+    return glob(os.path.join(dir_path, file_extension))
+
+def normalize_and_visualize(image, normalized_image, title=""):
+    """Utility function for visualization"""
+    fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+    if image.ndim == 3:  # Multi-channel image
+        ax[0].imshow(np.mean(image, axis=-1), cmap='gray')  # Display the average over channels for visualization
+    else:  # Grayscale image
+        ax[0].imshow(image, cmap='gray')
+    ax[0].set_title("Original " + title)
+    ax[0].axis('off')
+
+    if normalized_image.ndim == 3:
+        ax[1].imshow(np.mean(normalized_image, axis=-1), cmap='gray')  # Similarly, display the average over channels
+    else:
+        ax[1].imshow(normalized_image, cmap='gray')
+    ax[1].set_title("Normalized " + title)
+    ax[1].axis('off')
+    
+    plt.show()
+
+def load_images_and_labels(image_dir, secondary_image_dir=None, label_dir, image_extension="*.tif", label_extension="*.tif", signal_thresholds=[1000], channels=None, visualize=False):
+    
+    if isinstance(signal_thresholds, int):
+        signal_thresholds = [signal_thresholds] * (len(channels) if channels is not None else 1)
+    elif not isinstance(signal_thresholds, list):
+        signal_thresholds = [signal_thresholds]
+    
+    image_files = get_files_from_dir(image_dir, image_extension)
+    if secondary_image_dir is not None:
+        secondary_image_files = get_files_from_dir(secondary_image_dir, image_extension)
+        
+    label_files = get_files_from_dir(label_dir, label_extension)
+
+    images = []
+    labels = []
+    percentiles_99 = [[[] for _ in range(len(signal_thresholds))] for _ in range(4)]  # Adjusted for multiple percentile checks
+
+    image_names = sorted([os.path.basename(f) for f in image_files])
+    label_names = sorted([os.path.basename(f) for f in label_files])
+
+    # Load images and check percentiles
+    for i,img_file in enumerate(image_files):
+        image = imread(img_file)
+
+        # If specific channels are specified, select them
+        if channels is not None and image.ndim == 3:
+            image = image[..., channels]
+
+        if secondary_image_dir is not None:
+            secondary_filename_without_ext = os.path.splitext(os.path.basename(secondary_image_files[i]))[0]
+            primary_filename_without_ext = os.path.splitext(os.path.basename(img_file))[0]
+            if primary_filename_without_ext == secondary_filename_without_ext:
+                secondary_image = imread(secondary_image_files[i])
+            else:
+                print(f"Warning: Image {primary_filename_without_ext} and its secondary image do not match. Skipping.")
+                continue
+
+            if image.shape[:2] == secondary_image.shape[:2]:
+                # Stack along the channel dimension
+                if image.ndim < 3:
+                    image = np.expand_dims(image, axis=-1)
+                if secondary_image.ndim < 3:
+                    secondary_image = np.expand_dims(secondary_image, axis=-1)
+                image = np.concatenate([image, secondary_image], axis=-1)
+            else:
+                print(f"Warning: Image {image_names[i]} and its secondary image have incompatible shapes and cannot be merged.")
+                continue
+        
+        images.append(image)
+        if image.max() > 1:  # Ensure image needs normalization
+            for c in range(min(len(signal_thresholds), image.shape[-1])):  # Handle fewer channels than thresholds
+                for percentile in [99, 99.9, 99.99, 99.999]:
+                    p = np.percentile(image[..., c], percentile)
+                    if p > signal_thresholds[c]:
+                        percentiles_99[c][percentile//99 - 1].append(p)
+                        break
+
+    # Calculate global and average 99th percentiles for each channel
+    p1_list = []
+    p99_average_list = []
+    for c in range(len(signal_thresholds)):
+        all_pixels = np.concatenate([img[..., c].flatten() for img in images if img.max() > 1])
+        p1_list.append(np.percentile(all_pixels, 1))
+        p99_values = sum(percentiles_99[c], [])  # Flatten the list of lists for this channel
+        if p99_values:  # Check if any image met the threshold for this channel
+            p99_average_list.append(np.mean(p99_values))
+        else:
+            p99_average_list.append(np.percentile(all_pixels, 99))  # Fallback if no image meets the threshold
+
+    # Normalize images
+    normalized_images = []
+    for image in images:
+        normalized_image = np.zeros_like(image, dtype=np.float32)
+        for c in range(image.shape[-1]):
+            p1 = p1_list[c]
+            p99_average = p99_average_list[c]
+            normalized_image[..., c] = np.clip((image[..., c] - p1) / (p99_average - p1), 0, 1)
+        normalized_images.append(normalized_image)
+        if visualize:
+            normalize_and_visualize(image, normalized_image, title=f"Channel {c+1}")
+
+    # Load labels
+    for lbl_file in label_files:
+        label = imread(lbl_file)
+        labels.append(label)
+
+    print(f'Loaded and normalized {len(normalized_images)} images and {len(labels)} labels from {image_dir} and {label_dir}')
+
+    return normalized_images, labels, image_names, label_names
+
+def train_cellpose(img_src, secondary_image_dir, mask_src, model_name='toxopv', model_type='cyto', nchan=2, channels=[0, 0], learning_rate=0.2, weight_decay=1e-05, batch_size=8, n_epochs=500, test_src=None, signal_thresholds=[1000], verbose=False):
+    
+    print(f'Paramiters - model_type:{model_type} learning_rate:{learning_rate} weight_decay:{weight_decay} batch_size:{batch_size} n_epochs:{n_epochs}')
     
     model_name=f'{model_name}_epochs_{n_epochs}.CP_model'
-    # Load training data
-    X_train, y_train, X_val, y_val, img_files, mask_files = io.load_train_test_data(img_src, mask_src, mask_filter='') #, test_dir=None)
-    
-    # Specify the save path for the model
     model_save_path = os.path.join(mask_src, 'models', 'cellpose_model')
     os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
+    model = models.CellposeModel(gpu=True, model_type=model_type)
+    
+    # Load training data
+    images, masks, image_names, mask_names = load_images_and_labels(image_dir=img_src, secondary_image_dir=secondary_image_dir, label_dir=mask_src, signal_thresholds=signal_thresholds, channels=channels, visualize=verbose)
+    #images, masks, image_names, mask_names = load_images_and_labels(img_src, mask_src, image_extension="*.tif", label_extension="*.tif")
+
+    if model_type == 'cyto':
+        cp_channels = [0,1]
+    if model_type == 'cyto2':
+        cp_channels = [0,2]
+    if model_type == 'nucleus':
+        cp_channels = [0,0]
 
     # Train the model
-    model.train(train_data=X_train, #(list of arrays (2D or 3D)) – images for training
-                train_labels=y_train, #(list of arrays (2D or 3D)) – labels for train_data, where 0=no masks; 1,2,…=mask labels can include flows as additional images
-                train_files=img_files, #(list of strings) – file names for images in train_data (to save flows for future runs)
-                test_data=X_val, #(list of arrays (2D or 3D)) – images for testing
-                test_labels=y_val, #(list of arrays (2D or 3D)) – labels for test_data, where 0=no masks; 1,2,…=mask labels; can include flows as additional images
+    model.train(train_data=images, #(list of arrays (2D or 3D)) – images for training
+                train_labels=masks, #(list of arrays (2D or 3D)) – labels for train_data, where 0=no masks; 1,2,…=mask labels can include flows as additional images
+                train_files=image_names, #(list of strings) – file names for images in train_data (to save flows for future runs)
+                #test_data=X_val, #(list of arrays (2D or 3D)) – images for testing
+                #test_labels=y_val, #(list of arrays (2D or 3D)) – labels for test_data, where 0=no masks; 1,2,…=mask labels; can include flows as additional images
                 #test_files= #(list of strings) – file names for images in test_data (to save flows for future runs)
-                channels=channels, #(list of ints (default, None)) – channels to use for training
-                normalize=True, #(bool (default, True)) – normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
+                channels=cp_channels, #(list of ints (default, None)) – channels to use for training
+                normalize=False, #(bool (default, True)) – normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
                 save_path=model_save_path, #(string (default, None)) – where to save trained model, if None it is not saved
                 save_every=100, #(int (default, 100)) – save network every [save_every] epochs
                 learning_rate=learning_rate, #(float or list/np.ndarray (default, 0.2)) – learning rate for training, if list, must be same length as n_epochs
@@ -381,7 +537,7 @@ def train_cellpose(img_src, mask_src, model_name='toxopv', model_type='cyto', nc
                 weight_decay=weight_decay, #(float (default, 0.00001)) –
                 SGD=True, #(bool (default, True)) – use SGD as optimization instead of RAdam
                 batch_size=batch_size, #(int (optional, default 8)) – number of 224x224 patches to run simultaneously on the GPU (can make smaller or bigger depending on GPU memory usage)
-                nimg_per_epoch=batch_size, #(int (optional, default None)) – minimum number of images to train on per epoch, with a small training set (< 8 images) it may help to set to 8
+                nimg_per_epoch=None, #(int (optional, default None)) – minimum number of images to train on per epoch, with a small training set (< 8 images) it may help to set to 8
                 rescale=True, #(bool (default, True)) – whether or not to rescale images to diam_mean during training, if True it assumes you will fit a size model after training or resize your images accordingly, if False it will try to train the model to be scale-invariant (works worse)
                 min_train_masks=5, #(int (default, 5)) – minimum number of masks an image must have to use in training set
                 model_name=model_name) #(str (default, None)) – name of network, otherwise saved with name as params + training start time 
