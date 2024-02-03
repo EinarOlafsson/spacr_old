@@ -359,32 +359,32 @@ def train_cellpose(img_src, mask_src, model_name='toxopv', model_type='cyto', nc
     
     model_name=f'{model_name}_epochs_{n_epochs}.CP_model'
     # Load training data
-    train_images, train_masks, _, _, _, _ = io.load_train_test_data(img_src, mask_src, mask_filter='')
-
-    # Create a CellposeModel instance
-    model = models.CellposeModel(gpu=True, 
-                                 model_type=model_type, 
-                                 net_avg=True, 
-                                 diam_mean=30.0, 
-                                 residual_on=True, 
-                                 style_on=True, 
-                                 concatenation=False, 
-                                 nchan=nchan)
-
+    X_train, y_train, X_val, y_val, img_files, mask_files = io.load_train_test_data(img_src, mask_src, test_dir=None)
+    
     # Specify the save path for the model
     model_save_path = os.path.join(mask_src, 'models', 'cellpose_model')
     os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
 
     # Train the model
-    model.train(train_data=train_images,
-                train_labels=train_masks,
-                channels=channels,  # Adjust based on your image channels
-                learning_rate=learning_rate,
-                weight_decay=weight_decay,
-                batch_size=batch_size,
-                n_epochs=n_epochs,
-                save_path=model_save_path,
-                model_name=model_name)
+    model.train(train_data=X_train #(list of arrays (2D or 3D)) – images for training
+                train_labels=y_train, #(list of arrays (2D or 3D)) – labels for train_data, where 0=no masks; 1,2,…=mask labels can include flows as additional images
+                train_files=img_files, #(list of strings) – file names for images in train_data (to save flows for future runs)
+                test_data=X_val, #(list of arrays (2D or 3D)) – images for testing
+                test_labels=y_val, #(list of arrays (2D or 3D)) – labels for test_data, where 0=no masks; 1,2,…=mask labels; can include flows as additional images
+                #test_files= #(list of strings) – file names for images in test_data (to save flows for future runs)
+                channels=channels, #(list of ints (default, None)) – channels to use for training
+                normalize=True, #(bool (default, True)) – normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
+                save_path=model_save_path, #(string (default, None)) – where to save trained model, if None it is not saved
+                save_every=100, #(int (default, 100)) – save network every [save_every] epochs
+                learning_rate=learning_rate, #(float or list/np.ndarray (default, 0.2)) – learning rate for training, if list, must be same length as n_epochs
+                n_epochs=n_epochs, #(int (default, 500)) – how many times to go through whole training set during training
+                weight_decay=weight_decay, #(float (default, 0.00001)) –
+                SGD=True, #(bool (default, True)) – use SGD as optimization instead of RAdam
+                batch_size=batch_size, #(int (optional, default 8)) – number of 224x224 patches to run simultaneously on the GPU (can make smaller or bigger depending on GPU memory usage)
+                nimg_per_epoch, #(int (optional, default None)) – minimum number of images to train on per epoch, with a small training set (< 8 images) it may help to set to 8
+                rescale=True, #(bool (default, True)) – whether or not to rescale images to diam_mean during training, if True it assumes you will fit a size model after training or resize your images accordingly, if False it will try to train the model to be scale-invariant (works worse)
+                min_train_masks=5, #(int (default, 5)) – minimum number of masks an image must have to use in training set
+                model_name=model_name) #(str (default, None)) – name of network, otherwise saved with name as params + training start time 
 
     return print(f"Model saved at: {model_save_path}/{model_name}")
 
