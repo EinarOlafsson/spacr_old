@@ -1460,23 +1460,23 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
             cell = dfs[0]
             if verbose:
                 print(f'plate: {i+1} cells:{len(cell)}')
-	# see parasites logic, copy logic to other tables #here
+	# see pathogens logic, copy logic to other tables #here
         if 'nucleus' in tables:
             nucleus = dfs[1]
             if verbose:
                 print(f'plate: {i+1} nuclei:{len(nucleus)} ')
 
-        if 'parasite' in tables:
+        if 'pathogen' in tables:
             if len(tables) == 1:
-                parasite = dfs[0]
-                print(len(parasite))
+                pathogen = dfs[0]
+                print(len(pathogen))
             else:
-                parasite = dfs[2]
+                pathogen = dfs[2]
             if verbose:
-                print(f'plate: {i+1} parasites:{len(parasite)}')
+                print(f'plate: {i+1} pathogens:{len(pathogen)}')
         
         if 'cytoplasm' in tables:
-            if not 'parasite' in tables:
+            if not 'pathogen' in tables:
                 cytoplasm = dfs[2]
             else:
                 cytoplasm = dfs[3]
@@ -1488,8 +1488,8 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
                 cells = pd.concat([cells, cell], axis = 0)
             if 'nucleus' in tables:
                 nuclei = pd.concat([nuclei, nucleus], axis = 0)
-            if 'parasite' in tables:
-                parasites = pd.concat([parasites, parasite], axis = 0)
+            if 'pathogen' in tables:
+                pathogens = pd.concat([pathogens, pathogen], axis = 0)
             if 'cytoplasm' in tables:
                 cytoplasms = pd.concat([cytoplasms, cytoplasm], axis = 0)
         else:
@@ -1497,8 +1497,8 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
                 cells = cell.copy()
             if 'nucleus' in tables:
                 nuclei = nucleus.copy()
-            if 'parasite' in tables:
-                parasites = parasite.copy()
+            if 'pathogen' in tables:
+                pathogens = pathogen.copy()
             if 'cytoplasm' in tables:
                 cytoplasms = cytoplasm.copy()
     
@@ -1540,39 +1540,39 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
         else:
             merged_df = cells_g_df.merge(nuclei_g_df, left_index=True, right_index=True)
 		
-    if 'parasite' in tables:
+    if 'pathogen' in tables:
         if not 'cell' in tables:
             cells_g_df = pd.DataFrame()
             merged_df = []
         try:
-            parasites = parasites.dropna(subset=['cell_id'])
+            pathogens = pathogens.dropna(subset=['cell_id'])
 
         except:
-            parasites['cell_id'] = parasites['object_label']
-            parasites = parasites.dropna(subset=['cell_id'])
+            pathogens['cell_id'] = pathogens['object_label']
+            pathogens = pathogens.dropna(subset=['cell_id'])
 		
-        parasites = parasites.assign(object_label=lambda x: 'o' + x['object_label'].astype(int).astype(str))
-        parasites = parasites.assign(cell_id=lambda x: 'o' + x['cell_id'].astype(int).astype(str))
-        parasites = parasites.assign(prcfo = lambda x: x['prcf'] + '_' + x['cell_id'])
-        parasites['parasite_prcfo_count'] = parasites.groupby('prcfo')['prcfo'].transform('count')
+        pathogens = pathogens.assign(object_label=lambda x: 'o' + x['object_label'].astype(int).astype(str))
+        pathogens = pathogens.assign(cell_id=lambda x: 'o' + x['cell_id'].astype(int).astype(str))
+        pathogens = pathogens.assign(prcfo = lambda x: x['prcf'] + '_' + x['cell_id'])
+        pathogens['pathogen_prcfo_count'] = pathogens.groupby('prcfo')['prcfo'].transform('count')
         if include_noninfected == False:
-            parasites = parasites[parasites['parasite_prcfo_count']>=1]
+            pathogens = pathogens[pathogens['pathogen_prcfo_count']>=1]
         if isinstance(include_multiinfected, bool):
             if include_multiinfected == False:
-                parasites = parasites[parasites['parasite_prcfo_count']<=1]
+                pathogens = pathogens[pathogens['pathogen_prcfo_count']<=1]
         if isinstance(include_multiinfected, float):
-            parasites = parasites[parasites['parasite_prcfo_count']<=include_multiinfected]
+            pathogens = pathogens[pathogens['pathogen_prcfo_count']<=include_multiinfected]
         if not 'cell' in tables:
-        	parasites_g_df, metadata = split_data(parasites, 'prcfo', 'cell_id')
+        	pathogens_g_df, metadata = split_data(pathogens, 'prcfo', 'cell_id')
         else:
-        	parasites_g_df, _ = split_data(parasites, 'prcfo', 'cell_id')
+        	pathogens_g_df, _ = split_data(pathogens, 'prcfo', 'cell_id')
         if verbose:
-            print(f'parasites: {len(parasites)}')
-            print(f'parasites grouped: {len(parasites_g_df)}')
+            print(f'pathogens: {len(pathogens)}')
+            print(f'pathogens grouped: {len(pathogens_g_df)}')
         if len(merged_df) == 0:
-            merged_df = parasites_g_df
+            merged_df = pathogens_g_df
         else:
-            merged_df = merged_df.merge(parasites_g_df, left_index=True, right_index=True)
+            merged_df = merged_df.merge(pathogens_g_df, left_index=True, right_index=True)
         
     #Add prc column (plate row column)
     metadata = metadata.assign(prc = lambda x: x['plate'] + '_' + x['row'] + '_' +x['col'])
@@ -1603,30 +1603,30 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
         obj_df_ls.append(cytoplasms)
     if 'nucleus' in tables:
         obj_df_ls.append(nuclei)
-    if 'parasite' in tables:
-        obj_df_ls.append(parasites)
+    if 'pathogen' in tables:
+        obj_df_ls.append(pathogens)
         
     return merged_df, obj_df_ls
 
-def annotate_conditions(df, cells=['HeLa'], cell_loc=None, parasites=['rh'], parasite_loc=None, treatments=['cm'], treatment_loc=None, types = ['col','col','col']):
+def annotate_conditions(df, cells=['HeLa'], cell_loc=None, pathogens=['rh'], pathogen_loc=None, treatments=['cm'], treatment_loc=None, types = ['col','col','col']):
     if cell_loc is None:
         df['host_cells'] = cells[0]
     else:
         cells_dict = dict(zip(cells, cell_loc))
         df['host_cells'] = df.apply(lambda row: map_values(row, cells_dict, type_=types[0]), axis=1)
-    if parasite_loc is None:
-        if parasites != None:
-            df['parasite'] = parasites[0]
+    if pathogen_loc is None:
+        if pathogens != None:
+            df['pathogen'] = pathogens[0]
     else:
-        parasites_dict = dict(zip(parasites, parasite_loc))
-        df['parasite'] = df.apply(lambda row: map_values(row, parasites_dict, type_=types[1]), axis=1)
+        pathogens_dict = dict(zip(pathogens, pathogen_loc))
+        df['pathogen'] = df.apply(lambda row: map_values(row, pathogens_dict, type_=types[1]), axis=1)
     if treatment_loc is None:
         df['treatment'] = treatments[0]
     else:
         treatments_dict = dict(zip(treatments, treatment_loc))
         df['treatment'] = df.apply(lambda row: map_values(row, treatments_dict, type_=types[2]), axis=1)
-    if parasites != None:
-        df['condition'] = df['parasite']+'_'+df['treatment']
+    if pathogens != None:
+        df['condition'] = df['pathogen']+'_'+df['treatment']
     else:
         df['condition'] = df['treatment']
     return df
@@ -1650,24 +1650,24 @@ def calculate_slope(df, channel, object_type):
     return slopes
 
 def calculate_recruitment(df, channel):
-    df['parasite_cell_mean_mean'] = df[f'parasite_channel_{channel}_mean_intensity']/df[f'cytoplasm_channel_{channel}_mean_intensity']
-    df['parasite_cytoplasm_mean_mean'] = df[f'parasite_channel_{channel}_mean_intensity']/df[f'cytoplasm_channel_{channel}_mean_intensity']
-    df['parasite_nucleus_mean_mean'] = df[f'parasite_channel_{channel}_mean_intensity']/df[f'nucleus_channel_{channel}_mean_intensity']
+    df['pathogen_cell_mean_mean'] = df[f'pathogen_channel_{channel}_mean_intensity']/df[f'cytoplasm_channel_{channel}_mean_intensity']
+    df['pathogen_cytoplasm_mean_mean'] = df[f'pathogen_channel_{channel}_mean_intensity']/df[f'cytoplasm_channel_{channel}_mean_intensity']
+    df['pathogen_nucleus_mean_mean'] = df[f'pathogen_channel_{channel}_mean_intensity']/df[f'nucleus_channel_{channel}_mean_intensity']
     
-    df['parasite_cell_q75_mean'] = df[f'parasite_channel_{channel}_percentile_75']/df[f'cytoplasm_channel_{channel}_mean_intensity']
-    df['parasite_cytoplasm_q75_mean'] = df[f'parasite_channel_{channel}_percentile_75']/df[f'cytoplasm_channel_{channel}_mean_intensity']
-    df['parasite_nucleus_q75_mean'] = df[f'parasite_channel_{channel}_percentile_75']/df[f'nucleus_channel_{channel}_mean_intensity']
+    df['pathogen_cell_q75_mean'] = df[f'pathogen_channel_{channel}_percentile_75']/df[f'cytoplasm_channel_{channel}_mean_intensity']
+    df['pathogen_cytoplasm_q75_mean'] = df[f'pathogen_channel_{channel}_percentile_75']/df[f'cytoplasm_channel_{channel}_mean_intensity']
+    df['pathogen_nucleus_q75_mean'] = df[f'pathogen_channel_{channel}_percentile_75']/df[f'nucleus_channel_{channel}_mean_intensity']
     
-    df['parasite_outside_cell_mean_mean'] = df[f'parasite_channel_{channel}_outside_mean']/df[f'cytoplasm_channel_{channel}_mean_intensity']
-    df['parasite_outside_cytoplasm_mean_mean'] = df[f'parasite_channel_{channel}_outside_mean']/df[f'cytoplasm_channel_{channel}_mean_intensity']
-    df['parasite_outside_nucleus_mean_mean'] = df[f'parasite_channel_{channel}_outside_mean']/df[f'nucleus_channel_{channel}_mean_intensity']
+    df['pathogen_outside_cell_mean_mean'] = df[f'pathogen_channel_{channel}_outside_mean']/df[f'cytoplasm_channel_{channel}_mean_intensity']
+    df['pathogen_outside_cytoplasm_mean_mean'] = df[f'pathogen_channel_{channel}_outside_mean']/df[f'cytoplasm_channel_{channel}_mean_intensity']
+    df['pathogen_outside_nucleus_mean_mean'] = df[f'pathogen_channel_{channel}_outside_mean']/df[f'nucleus_channel_{channel}_mean_intensity']
     
-    df['parasite_outside_cell_q75_mean'] = df[f'parasite_channel_{channel}_outside_75_percentile']/df[f'cytoplasm_channel_{channel}_mean_intensity']
-    df['parasite_outside_cytoplasm_q75_mean'] = df[f'parasite_channel_{channel}_outside_75_percentile']/df[f'cytoplasm_channel_{channel}_mean_intensity']
-    df['parasite_outside_nucleus_q75_mean'] = df[f'parasite_channel_{channel}_outside_75_percentile']/df[f'nucleus_channel_{channel}_mean_intensity']
+    df['pathogen_outside_cell_q75_mean'] = df[f'pathogen_channel_{channel}_outside_75_percentile']/df[f'cytoplasm_channel_{channel}_mean_intensity']
+    df['pathogen_outside_cytoplasm_q75_mean'] = df[f'pathogen_channel_{channel}_outside_75_percentile']/df[f'cytoplasm_channel_{channel}_mean_intensity']
+    df['pathogen_outside_nucleus_q75_mean'] = df[f'pathogen_channel_{channel}_outside_75_percentile']/df[f'nucleus_channel_{channel}_mean_intensity']
 
     channels = [0,1,2,3]
-    object_type = 'parasite'
+    object_type = 'pathogen'
     for chan in channels:
         df[f'{object_type}_slope_channel_{chan}'] = calculate_slope(df, f'{chan}', object_type)
     
@@ -1677,18 +1677,18 @@ def calculate_recruitment(df, channel):
     
     for chan in channels:
         df[f'nucleus_coordinates_{chan}'] = df[[f'nucleus_channel_{chan}_centroid_weighted_local-0', f'nucleus_channel_{chan}_centroid_weighted_local-1']].values.tolist()
-        df[f'parasite_coordinates_{chan}'] = df[[f'parasite_channel_{chan}_centroid_weighted_local-0', f'parasite_channel_{chan}_centroid_weighted_local-1']].values.tolist()
+        df[f'pathogen_coordinates_{chan}'] = df[[f'pathogen_channel_{chan}_centroid_weighted_local-0', f'pathogen_channel_{chan}_centroid_weighted_local-1']].values.tolist()
         df[f'cell_coordinates_{chan}'] = df[[f'cell_channel_{chan}_centroid_weighted_local-0', f'cell_channel_{chan}_centroid_weighted_local-1']].values.tolist()
         df[f'cytoplasm_coordinates_{chan}'] = df[[f'cytoplasm_channel_{chan}_centroid_weighted_local-0', f'cytoplasm_channel_{chan}_centroid_weighted_local-1']].values.tolist()
 
-        df[f'parasite_cell_distance_channel_{chan}'] = df.apply(lambda row: np.sqrt((row[f'parasite_coordinates_{chan}'][0] - row[f'cell_coordinates_{chan}'][0])**2 + 
-                                                      (row[f'parasite_coordinates_{chan}'][1] - row[f'cell_coordinates_{chan}'][1])**2), axis=1)
+        df[f'pathogen_cell_distance_channel_{chan}'] = df.apply(lambda row: np.sqrt((row[f'pathogen_coordinates_{chan}'][0] - row[f'cell_coordinates_{chan}'][0])**2 + 
+                                                      (row[f'pathogen_coordinates_{chan}'][1] - row[f'cell_coordinates_{chan}'][1])**2), axis=1)
         df[f'nucleus_cell_distance_channel_{chan}'] = df.apply(lambda row: np.sqrt((row[f'nucleus_coordinates_{chan}'][0] - row[f'cell_coordinates_{chan}'][0])**2 + 
                                                       (row[f'nucleus_coordinates_{chan}'][1] - row[f'cell_coordinates_{chan}'][1])**2), axis=1)
     return df
 
-def save_filtered_cells_to_csv(src, cell_dim=4, nucleus_dim=5, parasite_dim=6, include_multinucleated=True, include_multiinfected=True, include_noninfected=False, include_border_parasites=False, verbose=False):
-    mask_dims = [cell_dim, nucleus_dim, parasite_dim]
+def save_filtered_cells_to_csv(src, cell_dim=4, nucleus_dim=5, pathogen_dim=6, include_multinucleated=True, include_multiinfected=True, include_noninfected=False, include_border_pathogens=False, verbose=False):
+    mask_dims = [cell_dim, nucleus_dim, pathogen_dim]
     dest = os.path.join(src, 'measurements')
     os.makedirs(dest, exist_ok=True)
     csv_file = dest+'/filtered_filelist.csv'
@@ -1697,13 +1697,13 @@ def save_filtered_cells_to_csv(src, cell_dim=4, nucleus_dim=5, parasite_dim=6, i
         path = os.path.join(src+'/merged', file)
         stack = np.load(path, allow_pickle=True)
         if not include_noninfected:
-            stack = remove_noninfected(stack, cell_dim, nucleus_dim, parasite_dim)
+            stack = remove_noninfected(stack, cell_dim, nucleus_dim, pathogen_dim)
         if include_multinucleated is not True:
-            stack = remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim=parasite_dim)
+            stack = remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, pathogen_dim, object_dim=pathogen_dim)
         if include_multiinfected is not True:
-            stack = remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim=nucleus_dim)
-        if include_border_parasites is not True:
-            stack = remove_border_parasites(stack, cell_dim, nucleus_dim, parasite_dim)
+            stack = remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, pathogen_dim, object_dim=nucleus_dim)
+        if include_border_pathogens is not True:
+            stack = remove_border_pathogens(stack, cell_dim, nucleus_dim, pathogen_dim)
         for i, mask_dim in enumerate(mask_dims):
             mask = np.take(stack, mask_dim, axis=2)
             unique_labels = np.unique(mask)
@@ -1718,12 +1718,12 @@ def generate_training_data_file_list(src,
                         target='protein of interest', 
                         cell_dim=4, 
                         nucleus_dim=5, 
-                        parasite_dim=6,
+                        pathogen_dim=6,
                         channel_of_interest=1,
-                        parasite_size_min=0, 
+                        pathogen_size_min=0, 
                         nucleus_size_min=0, 
                         cell_size_min=0, 
-                        parasite_min=0, 
+                        pathogen_min=0, 
                         nucleus_min=0, 
                         cell_min=0, 
                         target_min=0, 
@@ -1735,7 +1735,7 @@ def generate_training_data_file_list(src,
                         cells_per_well=10, 
                         save_filtered_filelist=False):
     
-    mask_dims=[cell_dim,nucleus_dim,parasite_dim]
+    mask_dims=[cell_dim,nucleus_dim,pathogen_dim]
     sns.color_palette("mako", as_cmap=True)
     print(f'channel:{channel_of_interest} = {target}')
     overlay_channels = [0, 1, 2, 3]
@@ -1743,7 +1743,7 @@ def generate_training_data_file_list(src,
     overlay_channels.reverse()
 
     db_loc = [src+'/measurements/measurements.db']
-    tables = ['cell', 'nucleus', 'parasite','cytoplasm']
+    tables = ['cell', 'nucleus', 'pathogen','cytoplasm']
     df, object_dfs = read_and_merge_data(db_loc,
                                          tables,
                                          verbose=True,
@@ -1758,13 +1758,13 @@ def generate_training_data_file_list(src,
         df = df[df['nucleus_area'] > nucleus_size_min]
         df = df[df[f'nucleus_channel_{mask_chans[0]}_mean_intensity'] > nucleus_min]
         print(f'After nucleus filtration {len(df)}')
-        df = df[df['parasite_area'] > parasite_size_min]
-        df=df[df[f'parasite_channel_{mask_chans[1]}_mean_intensity'] > parasite_min]
-        print(f'After parasite filtration {len(df)}')
+        df = df[df['pathogen_area'] > pathogen_size_min]
+        df=df[df[f'pathogen_channel_{mask_chans[1]}_mean_intensity'] > pathogen_min]
+        print(f'After pathogen filtration {len(df)}')
         df = df[df[f'cell_channel_{channel_of_interest}_percentile_95'] > target_min]
         print(f'After channel {channel_of_interest} filtration', len(df))
 
-    df['recruitment'] = df[f'parasite_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
+    df['recruitment'] = df[f'pathogen_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
     return df
 
 def normalize_to_dtype(array, q1=2,q2=98, percentiles=None):
@@ -1817,10 +1817,10 @@ def plot_arrays(src, figuresize=50, cmap='inferno', nr=1, normalize=True, q1=1, 
         plt.show()
     return
 
-def remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim):
+def remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, pathogen_dim, object_dim):
     cell_mask = stack[:, :, mask_dim]
     nucleus_mask = stack[:, :, nucleus_dim]
-    parasite_mask = stack[:, :, parasite_dim]
+    pathogen_mask = stack[:, :, pathogen_dim]
     object_mask = stack[:, :, object_dim]
 
     for cell_label in np.unique(cell_mask)[1:]:
@@ -1829,22 +1829,22 @@ def remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_di
         if len(labels_in_cell) > 2:
             cell_mask[cell_region] = 0
             nucleus_mask[cell_region] = 0
-            for parasite_label in labels_in_cell[1:]:  # Skip the first label (0)
-                parasite_mask[parasite_mask == parasite_label] = 0
+            for pathogen_label in labels_in_cell[1:]:  # Skip the first label (0)
+                pathogen_mask[pathogen_mask == pathogen_label] = 0
 
     stack[:, :, cell_dim] = cell_mask
     stack[:, :, nucleus_dim] = nucleus_mask
-    stack[:, :, parasite_dim] = parasite_mask
+    stack[:, :, pathogen_dim] = pathogen_mask
     return stack
 
-def remove_noninfected(stack, cell_dim, nucleus_dim, parasite_dim):
+def remove_noninfected(stack, cell_dim, nucleus_dim, pathogen_dim):
     cell_mask = stack[:, :, cell_dim]
     nucleus_mask = stack[:, :, nucleus_dim]
-    parasite_mask = stack[:, :, parasite_dim]
+    pathogen_mask = stack[:, :, pathogen_dim]
 
     for cell_label in np.unique(cell_mask)[1:]:
         cell_region = cell_mask == cell_label
-        labels_in_cell = np.unique(parasite_mask[cell_region])
+        labels_in_cell = np.unique(pathogen_mask[cell_region])
         if len(labels_in_cell) <= 1:
             cell_mask[cell_region] = 0
             nucleus_mask[cell_region] = 0
@@ -1853,55 +1853,55 @@ def remove_noninfected(stack, cell_dim, nucleus_dim, parasite_dim):
     stack[:, :, nucleus_dim] = nucleus_mask
     return stack
 
-def remove_border_parasites(stack, cell_dim, nucleus_dim, parasite_dim):
+def remove_border_pathogens(stack, cell_dim, nucleus_dim, pathogen_dim):
     cell_mask = stack[:, :, cell_dim]
     nucleus_mask = stack[:, :, nucleus_dim]
-    parasite_mask = stack[:, :, parasite_dim]
+    pathogen_mask = stack[:, :, pathogen_dim]
 
     cell_labels = np.unique(cell_mask)[1:]  # Get unique cell labels, excluding background
     for cell_label in cell_labels:
         cell_region = cell_mask == cell_label
-        parasites_in_cell = np.unique(parasite_mask[cell_region])
-        parasites_in_cell = parasites_in_cell[parasites_in_cell != 0]  # Exclude background
+        pathogens_in_cell = np.unique(pathogen_mask[cell_region])
+        pathogens_in_cell = pathogens_in_cell[pathogens_in_cell != 0]  # Exclude background
 
         # Create a border for the cell using dilation and subtract the original cell mask
         cell_border = binary_dilation(cell_region) & ~cell_region
 
-        for parasite_label in parasites_in_cell:
-            parasite_region = parasite_mask == parasite_label
+        for pathogen_label in pathogens_in_cell:
+            pathogen_region = pathogen_mask == pathogen_label
             
-            # If the parasite is touching the border of the cell, remove the cell, corresponding nucleus and the parasite
-            if np.any(parasite_region & cell_border):
+            # If the pathogen is touching the border of the cell, remove the cell, corresponding nucleus and the pathogen
+            if np.any(pathogen_region & cell_border):
                 cell_mask[cell_region] = 0
                 nucleus_mask[cell_region] = 0
-                parasite_mask[parasite_region] = 0
+                pathogen_mask[pathogen_region] = 0
                 break
 
     stack[:, :, cell_dim] = cell_mask
     stack[:, :, nucleus_dim] = nucleus_mask
-    stack[:, :, parasite_dim] = parasite_mask
+    stack[:, :, pathogen_dim] = pathogen_mask
     return stack
 
-def remove_outside_objects(stack, cell_dim, nucleus_dim, parasite_dim):
+def remove_outside_objects(stack, cell_dim, nucleus_dim, pathogen_dim):
     cell_mask = stack[:, :, cell_dim]
     nucleus_mask = stack[:, :, nucleus_dim]
-    parasite_mask = stack[:, :, parasite_dim]
-    parasite_labels = np.unique(parasite_mask)[1:]
-    for parasite_label in parasite_labels:
-        parasite_region = parasite_mask == parasite_label
-        cell_in_parasite_region = np.unique(cell_mask[parasite_region])
-        cell_in_parasite_region = cell_in_parasite_region[cell_in_parasite_region != 0]  # Exclude background
-        if len(cell_in_parasite_region) == 0:
-            parasite_mask[parasite_region] = 0
-            corresponding_nucleus_region = nucleus_mask == parasite_label
+    pathogen_mask = stack[:, :, pathogen_dim]
+    pathogen_labels = np.unique(pathogen_mask)[1:]
+    for pathogen_label in pathogen_labels:
+        pathogen_region = pathogen_mask == pathogen_label
+        cell_in_pathogen_region = np.unique(cell_mask[pathogen_region])
+        cell_in_pathogen_region = cell_in_pathogen_region[cell_in_pathogen_region != 0]  # Exclude background
+        if len(cell_in_pathogen_region) == 0:
+            pathogen_mask[pathogen_region] = 0
+            corresponding_nucleus_region = nucleus_mask == pathogen_label
             nucleus_mask[corresponding_nucleus_region] = 0
     stack[:, :, cell_dim] = cell_mask
     stack[:, :, nucleus_dim] = nucleus_mask
-    stack[:, :, parasite_dim] = parasite_mask
+    stack[:, :, pathogen_dim] = pathogen_mask
     return stack
 
-def plot_merged(src, cmap='inferno', cell_dim=4, nucleus_dim=5, parasite_dim=6, channel_dims=[0,1,2,3], figuresize=20, nr=1, print_object_number=True, normalize=False, normalization_percentiles=[1,99], overlay=True, overlay_chans=[3,2,0], outline_thickness=3, outline_color='gbr', backgrounds=[100,100,100,100], remove_background=False, filter_objects=False, filter_min_max=[[0,100000],[0,100000],[0,100000],[0,100000]], include_multinucleated=True, include_multiinfected=True, include_noninfected=True, include_border_parasites=True, interactive=False, verbose=False):
-    mask_dims = [cell_dim, nucleus_dim, parasite_dim]
+def plot_merged(src, cmap='inferno', cell_dim=4, nucleus_dim=5, pathogen_dim=6, channel_dims=[0,1,2,3], figuresize=20, nr=1, print_object_number=True, normalize=False, normalization_percentiles=[1,99], overlay=True, overlay_chans=[3,2,0], outline_thickness=3, outline_color='gbr', backgrounds=[100,100,100,100], remove_background=False, filter_objects=False, filter_min_max=[[0,100000],[0,100000],[0,100000],[0,100000]], include_multinucleated=True, include_multiinfected=True, include_noninfected=True, include_border_pathogens=True, interactive=False, verbose=False):
+    mask_dims = [cell_dim, nucleus_dim, pathogen_dim]
     
     if verbose:
         print(f'src:{src}, cmap:{cmap}, mask_dims:{mask_dims}, channel_dims:{channel_dims}, figuresize:{figuresize}, nr:{nr}, print_object_number:{print_object_number}, normalize:{normalize}, normalization_percentiles:{normalization_percentiles}, overlay:{overlay}, overlay_chans:{overlay_chans}, outline_thickness:{outline_thickness}, outline_color:{outline_color}, backgrounds:{backgrounds}, remove_background:{remove_background},filter_objects:{filter_objects},filter_min_max:{filter_min_max},verbose:{verbose}')
@@ -1922,9 +1922,9 @@ def plot_merged(src, cmap='inferno', cell_dim=4, nucleus_dim=5, parasite_dim=6, 
         print(f'{path}')
         stack = np.load(path)
         if not include_noninfected:
-            stack = remove_noninfected(stack, cell_dim, nucleus_dim, parasite_dim)
+            stack = remove_noninfected(stack, cell_dim, nucleus_dim, pathogen_dim)
         if filter_objects:
-            stack = remove_outside_objects(stack, cell_dim, nucleus_dim, parasite_dim)
+            stack = remove_outside_objects(stack, cell_dim, nucleus_dim, pathogen_dim)
 
             for i, mask_dim in enumerate(mask_dims):
                 min_max = filter_min_max[i]
@@ -1941,11 +1941,11 @@ def plot_merged(src, cmap='inferno', cell_dim=4, nucleus_dim=5, parasite_dim=6, 
                 total_count_after = len(props_after['label'])
                 if mask_dim == cell_dim:
                     if include_multinucleated is not True:
-                        stack = remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim=parasite_dim)
+                        stack = remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, pathogen_dim, object_dim=pathogen_dim)
                     if include_multiinfected is not True:
-                        stack = remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, parasite_dim, object_dim=nucleus_dim)
-                    if include_border_parasites is not True:
-                        stack = remove_border_parasites(stack, cell_dim, nucleus_dim, parasite_dim)
+                        stack = remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, pathogen_dim, object_dim=nucleus_dim)
+                    if include_border_pathogens is not True:
+                        stack = remove_border_pathogens(stack, cell_dim, nucleus_dim, pathogen_dim)
                     cell_area_before = avg_size_before
                     cell_count_before = total_count_before
                     cell_area_after = avg_size_after
@@ -1955,11 +1955,11 @@ def plot_merged(src, cmap='inferno', cell_dim=4, nucleus_dim=5, parasite_dim=6, 
                     nucleus_count_before = total_count_before
                     nucleus_area_after = avg_size_after
                     nucleus_count_after = total_count_after
-                if mask_dim == parasite_dim:
-                    parasite_area_before = avg_size_before
-                    parasite_count_before = total_count_before
-                    parasite_area_after = avg_size_after
-                    parasite_count_after = total_count_after
+                if mask_dim == pathogen_dim:
+                    pathogen_area_before = avg_size_before
+                    pathogen_count_before = total_count_before
+                    pathogen_area_after = avg_size_after
+                    pathogen_count_after = total_count_after
         image = np.take(stack, channel_dims, axis=2)
         if remove_background:
             for chan_index, channel in enumerate(range(image.shape[-1])):
@@ -2012,8 +2012,8 @@ def plot_merged(src, cmap='inferno', cell_dim=4, nucleus_dim=5, parasite_dim=6, 
                     print(f'removed {cell_count_before-cell_count_after} cells, cell size from {cell_area_before} to {cell_area_after}')
                 if nucleus_dim is not None:
                     print(f'removed {nucleus_count_before-nucleus_count_after} nuclei, nuclei size from {nucleus_area_before} to {nucleus_area_after}')
-                if parasite_dim is not None:
-                    print(f'removed {parasite_count_before-parasite_count_after} parasites, parasite size from {parasite_area_before} to {parasite_area_after}')
+                if pathogen_dim is not None:
+                    print(f'removed {pathogen_count_before-pathogen_count_after} pathogens, pathogen size from {pathogen_area_before} to {pathogen_area_after}')
             
             for v in range(0, image.shape[-1]):
                 ax[v+ax_index].imshow(image[..., v], cmap=cmap)  # display first channel
@@ -2218,7 +2218,7 @@ def generate_training_dataset(src, mode='annotation', annotation_column='test', 
     elif mode == 'recruitment':
         class_paths_ls = []
         if not isinstance(tables, list):
-            tables = ['cell', 'nucleus', 'parasite','cytoplasm']
+            tables = ['cell', 'nucleus', 'pathogen','cytoplasm']
         
         df, _ = read_and_merge_data(locs=[db_path],
                                     tables=tables,
@@ -2229,7 +2229,7 @@ def generate_training_dataset(src, mode='annotation', annotation_column='test', 
         
         print('length df 1', len(df))
         
-        df = annotate_conditions(df, cells=['HeLa'], cell_loc=None, parasites=['parasite'], parasite_loc=None, treatments=classes, treatment_loc=class_metadata, types = ['col','col',metadata_type_by])
+        df = annotate_conditions(df, cells=['HeLa'], cell_loc=None, pathogens=['pathogen'], pathogen_loc=None, treatments=classes, treatment_loc=class_metadata, types = ['col','col',metadata_type_by])
         print('length df 2', len(df))
         [png_list_df] = read_db(db_loc=db_path, tables=['png_list'])
 	    
@@ -2247,8 +2247,8 @@ def generate_training_dataset(src, mode='annotation', annotation_column='test', 
                     print(f'Classes will be defined by the Q1 and Q3 quantiles of recruitment ({custom_measurement[0]})')
                     df['recruitment'] = df[f'{custom_measurement[0]}']
         else:
-            print(f'Classes will be defined by the Q1 and Q3 quantiles of recruitment (parasite/cytoplasm for channel {channel_of_interest})')
-            df['recruitment'] = df[f'parasite_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
+            print(f'Classes will be defined by the Q1 and Q3 quantiles of recruitment (pathogen/cytoplasm for channel {channel_of_interest})')
+            df['recruitment'] = df[f'pathogen_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
 		
         q25 = df['recruitment'].quantile(0.25)
         q75 = df['recruitment'].quantile(0.75)
@@ -2272,12 +2272,12 @@ def generate_training_data_file_list(src,
                         target='protein of interest', 
                         cell_dim=4, 
                         nucleus_dim=5, 
-                        parasite_dim=6,
+                        pathogen_dim=6,
                         channel_of_interest=1,
-                        parasite_size_min=0, 
+                        pathogen_size_min=0, 
                         nucleus_size_min=0, 
                         cell_size_min=0, 
-                        parasite_min=0, 
+                        pathogen_min=0, 
                         nucleus_min=0, 
                         cell_min=0, 
                         target_min=0, 
@@ -2289,7 +2289,7 @@ def generate_training_data_file_list(src,
                         cells_per_well=10, 
                         save_filtered_filelist=False):
     
-    mask_dims=[cell_dim,nucleus_dim,parasite_dim]
+    mask_dims=[cell_dim,nucleus_dim,pathogen_dim]
     sns.color_palette("mako", as_cmap=True)
     print(f'channel:{channel_of_interest} = {target}')
     overlay_channels = [0, 1, 2, 3]
@@ -2297,7 +2297,7 @@ def generate_training_data_file_list(src,
     overlay_channels.reverse()
 
     db_loc = [src+'/measurements/measurements.db']
-    tables = ['cell', 'nucleus', 'parasite','cytoplasm']
+    tables = ['cell', 'nucleus', 'pathogen','cytoplasm']
     df, object_dfs = read_and_merge_data(db_loc,
                                          tables,
                                          verbose=True,
@@ -2311,13 +2311,13 @@ def generate_training_data_file_list(src,
         df = df[df['nucleus_area'] > nucleus_size_min]
         df = df[df[f'nucleus_channel_{mask_chans[0]}_mean_intensity'] > nucleus_min]
         print(f'After nucleus filtration {len(df)}')
-        df = df[df['parasite_area'] > parasite_size_min]
-        df=df[df[f'parasite_channel_{mask_chans[1]}_mean_intensity'] > parasite_min]
-        print(f'After parasite filtration {len(df)}')
+        df = df[df['pathogen_area'] > pathogen_size_min]
+        df=df[df[f'pathogen_channel_{mask_chans[1]}_mean_intensity'] > pathogen_min]
+        print(f'After pathogen filtration {len(df)}')
         df = df[df[f'cell_channel_{channel_of_interest}_percentile_95'] > target_min]
         print(f'After channel {channel_of_interest} filtration', len(df))
 
-    df['recruitment'] = df[f'parasite_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
+    df['recruitment'] = df[f'pathogen_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
     
     png_list_df = read_db(db_loc=db_loc[0], tables=['png_list'])
     png_list_df = png_list_df[0]
@@ -2814,12 +2814,12 @@ def merge_pred_mes(src,
                    target='protein of interest', 
                    cell_dim=4, 
                    nucleus_dim=5, 
-                   parasite_dim=6,
+                   pathogen_dim=6,
                    channel_of_interest=1,
-                   parasite_size_min=0, 
+                   pathogen_size_min=0, 
                    nucleus_size_min=0, 
                    cell_size_min=0, 
-                   parasite_min=0, 
+                   pathogen_min=0, 
                    nucleus_min=0, 
                    cell_min=0, 
                    target_min=0, 
@@ -2832,7 +2832,7 @@ def merge_pred_mes(src,
                    save_filtered_filelist=False,
                    verbose=False):
     
-    mask_chans=[cell_dim,nucleus_dim,parasite_dim]
+    mask_chans=[cell_dim,nucleus_dim,pathogen_dim]
     sns.color_palette("mako", as_cmap=True)
     print(f'channel:{channel_of_interest} = {target}')
     overlay_channels = [0, 1, 2, 3]
@@ -2840,7 +2840,7 @@ def merge_pred_mes(src,
     overlay_channels.reverse()
 
     db_loc = [src+'/measurements/measurements.db']
-    tables = ['cell', 'nucleus', 'parasite','cytoplasm']
+    tables = ['cell', 'nucleus', 'pathogen','cytoplasm']
     df, object_dfs = read_and_merge_data(db_loc,
                                          tables,
                                          verbose=True,
@@ -2854,13 +2854,13 @@ def merge_pred_mes(src,
         df = df[df['nucleus_area'] > nucleus_size_min]
         df = df[df[f'nucleus_channel_{mask_chans[0]}_mean_intensity'] > nucleus_min]
         print(f'After nucleus filtration {len(df)}')
-        df = df[df['parasite_area'] > parasite_size_min]
-        df=df[df[f'parasite_channel_{mask_chans[1]}_mean_intensity'] > parasite_min]
-        print(f'After parasite filtration {len(df)}')
+        df = df[df['pathogen_area'] > pathogen_size_min]
+        df=df[df[f'pathogen_channel_{mask_chans[1]}_mean_intensity'] > pathogen_min]
+        print(f'After pathogen filtration {len(df)}')
         df = df[df[f'cell_channel_{channel_of_interest}_percentile_95'] > target_min]
         print(f'After channel {channel_of_interest} filtration', len(df))
 
-    df['recruitment'] = df[f'parasite_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
+    df['recruitment'] = df[f'pathogen_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
     
     pred_df = annotate_results(pred_loc=pred_loc)
     
@@ -3042,7 +3042,7 @@ def fishers_odds(df, threshold=0.5, phenotyp_col='mean_pred'):
 
     results = []
     mutants = df.columns[:-2]
-    mutants = [item for item in mutants if item not in ['count_prc','mean_parasite_area']]
+    mutants = [item for item in mutants if item not in ['count_prc','mean_pathogen_area']]
     print(f'fishers df')
     display(df)
     # Perform Fisher's exact test for each mutant
@@ -3320,7 +3320,7 @@ def analyze_data_reg(sequencing_loc, dv_loc, agg_type = 'mean', min_cell_count=5
         pred=('pred', agg_type),
         count_prc=('prc', 'size'),
         #count_above_95=('pred', lambda x: (x > 0.95).sum()),
-        mean_parasite_area=('parasite_area', 'mean')
+        mean_pathogen_area=('pathogen_area', 'mean')
     )
     
     dv_df = dv_df[dv_df['count_prc'] >= min_cell_count]
@@ -3556,10 +3556,10 @@ def generate_dependent_variable(df, dv_loc, pc_min=0.95, nc_max=0.05, agg_type='
         recruitment=('recruitment', agg_type),
         count_prc=('prc', 'size'),
         #count_above_95=('pred', lambda x: (x > 0.95).sum()),
-        mean_parasite_area=('parasite_area', 'mean')
+        mean_pathogen_area=('pathogen_area', 'mean')
     )
     
-    df_cell = df[['prc', 'pred', 'parasite_area', 'recruitment']]
+    df_cell = df[['prc', 'pred', 'pathogen_area', 'recruitment']]
     
     df_cell.to_csv(dv_cell_loc, index=True, header=True, mode='w')
     df_grouped.to_csv(dv_well_loc, index=True, header=True, mode='w')  # Changed from loc to dv_loc
@@ -3668,7 +3668,7 @@ def analyze_data_reg(sequencing_loc, dv_loc, agg_type = 'mean', dv_col='pred', t
     dv_df = dv_df.groupby('prc').agg(
         pred=(dv_col, agg_type),
         count_prc=('prc', 'size'),
-        mean_parasite_area=('parasite_area', 'mean')
+        mean_pathogen_area=('pathogen_area', 'mean')
     )
     
     dv_df = dv_df[dv_df['count_prc'] >= min_cell_count]
