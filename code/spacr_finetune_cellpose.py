@@ -359,7 +359,7 @@ def train_cellpose(img_src, mask_src, model_name='toxopv', model_type='cyto', nc
     
     model_name=f'{model_name}_epochs_{n_epochs}.CP_model'
     # Load training data
-    X_train, y_train, X_val, y_val, img_files, mask_files = io.load_train_test_data(img_src, mask_src, test_dir=None)
+    X_train, y_train, X_val, y_val, img_files, mask_files = io.load_train_test_data(img_src, mask_src, mask_filter='') #, test_dir=None)
     
     # Specify the save path for the model
     model_save_path = os.path.join(mask_src, 'models', 'cellpose_model')
@@ -381,7 +381,7 @@ def train_cellpose(img_src, mask_src, model_name='toxopv', model_type='cyto', nc
                 weight_decay=weight_decay, #(float (default, 0.00001)) –
                 SGD=True, #(bool (default, True)) – use SGD as optimization instead of RAdam
                 batch_size=batch_size, #(int (optional, default 8)) – number of 224x224 patches to run simultaneously on the GPU (can make smaller or bigger depending on GPU memory usage)
-                nimg_per_epoch, #(int (optional, default None)) – minimum number of images to train on per epoch, with a small training set (< 8 images) it may help to set to 8
+                nimg_per_epoch=batch_size, #(int (optional, default None)) – minimum number of images to train on per epoch, with a small training set (< 8 images) it may help to set to 8
                 rescale=True, #(bool (default, True)) – whether or not to rescale images to diam_mean during training, if True it assumes you will fit a size model after training or resize your images accordingly, if False it will try to train the model to be scale-invariant (works worse)
                 min_train_masks=5, #(int (default, 5)) – minimum number of masks an image must have to use in training set
                 model_name=model_name) #(str (default, None)) – name of network, otherwise saved with name as params + training start time 
