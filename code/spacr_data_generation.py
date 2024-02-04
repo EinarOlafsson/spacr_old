@@ -2923,7 +2923,7 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
     lower_quantile = 0.02
     merge = False
     count = False
-    timelapse = False
+    #timelapse = False
     normalize_plots = True
 
     if preprocess and not masks:
