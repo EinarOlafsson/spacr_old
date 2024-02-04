@@ -2905,9 +2905,7 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
             overlay_channels = [2,1,0]
             cell_mask_dim = nucleus_mask_dim = pathogen_mask_dim = None
             plot_counter = plot_dims
-            if isinstance(backgrounds, list):
-                backgrounds = 100
-
+		
             if cell_chann_dim is not None:
                 cell_mask_dim = plot_counter
                 plot_counter += 1
@@ -2932,10 +2930,10 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
                         normalize=True, 
                         normalization_percentiles=[1,99], 
                         overlay=True,
-                        overlay_chans=overlay_channels, # [3,2,0],
+                        overlay_chans=overlay_channels,
                         outline_thickness=3, 
                         outline_color='gbr', 
-                        backgrounds=backgrounds, 
+                        backgrounds=100, 
                         remove_background=False, 
                         filter_objects=False, 
                         filter_min_max=None, 
@@ -2944,18 +2942,18 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
                         include_noninfected=True,
                         advanced_filter=False,
                         verbose=True)
-    torch.cuda.empty_cache()
+	torch.cuda.empty_cache()
     gc.collect()
     return
 
 def read_db(db_loc, tables):
-    conn = sqlite3.connect(db_loc) # Create a connection to the database
+    conn = sqlite3.connect(db_loc)
     dfs = []
     for table in tables:
-        query = f'SELECT * FROM {table}' # Write a SQL query to get the data from the database
-        df = pd.read_sql_query(query, conn) # Use the read_sql_query function to get the data and save it as a DataFrame
+        query = f'SELECT * FROM {table}'
+        df = pd.read_sql_query(query, conn)
         dfs.append(df)
-    conn.close() # Close the connection
+    conn.close()
     return dfs
 
 def well_to_row_col(well):
@@ -3148,67 +3146,59 @@ def filter_measurement_data(df, background, min_cells_per_well=1):
     print(f'Origional: {f0} Size:{fs} Nucleus:{f1, f2, f3} pathogen:{f4} Cell:{f5}')
     return df
 
-def analyze_leakage(df):
-    pathogen_metadata_ls = ['rh', 'dgra8']
-    pathogen_loc_ls = [['c2','c3','c4'],['c5','c6','c7']]
-    treatment_ls = ['cm']
-    treatment_loc_ls = [['c2','c3','c4','c5', 'c6', 'c7']]
-    col_names = ['col','col','col']
-    df = annotate_conditions(df, 
-                             cells=['HeLa'],
-                             cell_loc=None,
-                             pathogens=pathogen_metadata_ls,
-                             pathogen_loc=pathogen_loc_ls,
-                             treatments=treatment_ls,
-                             treatment_loc=treatment_loc_ls,
-                             types=col_names)
-
-    plt.figure(figsize=(5,5))
-    sns.barplot(data=df, x='condition', y='pathogen_channel_2_mean_intensity', hue='pathogen', capsize=.1, ci='sd', dodge=False)
-    #sns.stripplot(x="condition", y="pathogen_channel_2_mean_intensity", data=df, jitter=True, size=5)
-    plt.xlabel('Condition')
-    plt.ylabel('pathogen_DsRed_mean_intensity')
-    plt.show()
-    
-    plt.figure(figsize=(5,5))
-    sns.barplot(data=df, x='condition', y='cytoplasm_channel_2_mean_intensity', hue='pathogen', capsize=.1, ci='sd', dodge=False)
-    #sns.stripplot(x="condition", y="cytoplasm_channel_2_mean_intensity", data=df, jitter=True, size=5)
-    plt.xlabel('Condition')
-    plt.ylabel('cytoplasm_DsRed_mean_intensity')
-    plt.show()
-    
-    plt.figure(figsize=(5,5))
-    sns.barplot(data=df, x='condition', y='rec', hue='pathogen', capsize=.1, ci='sd', dodge=False)
-    #sns.stripplot(x="condition", y="rec", data=df, jitter=True, size=5)
-    plt.xlabel('Condition')
-    plt.ylabel('pathogen/cytoplasm (DsRed mean intensity)')
-    plt.show()
-    cols_to_melt = ['pathogen_rad_dist_channel_2_bin_0', 'pathogen_rad_dist_channel_2_bin_1', 
-                    'pathogen_rad_dist_channel_2_bin_2', 'pathogen_rad_dist_channel_2_bin_3', 
-                    'pathogen_rad_dist_channel_2_bin_4', 'pathogen_rad_dist_channel_2_bin_5',
-                    'pathogen_channel_2_outside_5_percentile', 'pathogen_channel_2_outside_10_percentile', 
-                    'pathogen_channel_2_outside_25_percentile', 'pathogen_channel_2_outside_50_percentile', 
-                    'pathogen_channel_2_outside_75_percentile', 'pathogen_channel_2_outside_85_percentile', 
-                    'pathogen_channel_2_outside_95_percentile']
-    
-    id_vars = [col for col in df.columns if col not in cols_to_melt]
-
-    df_melt = df.melt(id_vars=id_vars, value_vars=cols_to_melt, var_name='Concentration', value_name='Value')
-
-    # Filter for the conditions 'rh' and 'dgra8'
-    df_melt = df_melt[df_melt['pathogen'].isin(['rh', 'dgra8'])]
-
-    # Plot the data
-    plt.figure(figsize=(10, 6))
-    sns.barplot(data=df_melt, x='Concentration', y='Value', hue='pathogen', capsize=.1, ci='sd')
-    plt.title('Bar graph comparing Concentrations for Conditions rh and dgra8')
-    plt.xticks(rotation=90)  # Rotate x-axis labels for better visibility
-    plt.show()
-    
-    return df
+#def analyze_leakage(df):
+#    pathogen_metadata_ls = ['rh', 'dgra8']
+#    pathogen_loc_ls = [['c2','c3','c4'],['c5','c6','c7']]
+#    treatment_ls = ['cm']
+#    treatment_loc_ls = [['c2','c3','c4','c5', 'c6', 'c7']]
+#    col_names = ['col','col','col']
+#    df = annotate_conditions(df, 
+#                             cells=['HeLa'],
+#                             cell_loc=None,
+#                             pathogens=pathogen_metadata_ls,
+#                             pathogen_loc=pathogen_loc_ls,
+#                             treatments=treatment_ls,
+#                             treatment_loc=treatment_loc_ls,
+#                             types=col_names)
+#
+#    plt.figure(figsize=(5,5))
+#    sns.barplot(data=df, x='condition', y='pathogen_channel_2_mean_intensity', hue='pathogen', capsize=.1, ci='sd', dodge=False)
+#    plt.xlabel('Condition')
+#    plt.ylabel('pathogen_DsRed_mean_intensity')
+#    plt.show()
+#    
+#    plt.figure(figsize=(5,5))
+#    sns.barplot(data=df, x='condition', y='cytoplasm_channel_2_mean_intensity', hue='pathogen', capsize=.1, ci='sd', dodge=False)
+#    plt.xlabel('Condition')
+#    plt.ylabel('cytoplasm_DsRed_mean_intensity')
+#    plt.show()
+#    
+#    plt.figure(figsize=(5,5))
+#    sns.barplot(data=df, x='condition', y='rec', hue='pathogen', capsize=.1, ci='sd', dodge=False)
+#    plt.xlabel('Condition')
+#    plt.ylabel('pathogen/cytoplasm (DsRed mean intensity)')
+#    plt.show()
+#    cols_to_melt = ['pathogen_rad_dist_channel_2_bin_0', 'pathogen_rad_dist_channel_2_bin_1', 
+#                    'pathogen_rad_dist_channel_2_bin_2', 'pathogen_rad_dist_channel_2_bin_3', 
+#                    'pathogen_rad_dist_channel_2_bin_4', 'pathogen_rad_dist_channel_2_bin_5',
+#                    'pathogen_channel_2_outside_5_percentile', 'pathogen_channel_2_outside_10_percentile', 
+#                    'pathogen_channel_2_outside_25_percentile', 'pathogen_channel_2_outside_50_percentile', 
+#                    'pathogen_channel_2_outside_75_percentile', 'pathogen_channel_2_outside_85_percentile', 
+#                    'pathogen_channel_2_outside_95_percentile']
+#    
+#    id_vars = [col for col in df.columns if col not in cols_to_melt]
+#    df_melt = df.melt(id_vars=id_vars, value_vars=cols_to_melt, var_name='Concentration', value_name='Value')
+#    df_melt = df_melt[df_melt['pathogen'].isin(['rh', 'dgra8'])]
+#
+#    plt.figure(figsize=(10, 6))
+#    sns.barplot(data=df_melt, x='Concentration', y='Value', hue='pathogen', capsize=.1, ci='sd')
+#    plt.title('Bar graph comparing Concentrations for Conditions rh and dgra8')
+#    plt.xticks(rotation=90)
+#    plt.show()
+#    
+#    return df
 
 def group_by_well(df):
-    # Separate numeric and non-numeric columns
     numeric_cols = df._get_numeric_data().columns
     non_numeric_cols = df.select_dtypes(include=['object']).columns
 
@@ -3244,11 +3234,8 @@ def calculate_percentiles(x):
     return pd.qcut(x, q=np.linspace(0, 1, 11), labels=['10%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '90%', '100%'])
 
 def calculate_slope(df, channel, object_type):
-    # Find all columns for a specific channel
     cols = [col for col in df.columns if f'{object_type}_rad_dist_channel_{channel}_bin_' in col]
-    # Create an array with the number of bins, assuming bins are consecutively numbered starting from 0
     x = np.arange(len(cols))
-    # Apply polyfit on each row and get the slope (degree=1 for a line)
     slopes = df[cols].apply(lambda row: np.polyfit(x, row, 1)[0], axis=1)
     return slopes
 
@@ -3278,12 +3265,10 @@ def calculate_recruitment(df, channel):
     object_type = 'pathogen'
     for chan in channels:
         df[f'{object_type}_slope_channel_{chan}'] = 1
-        #df[f'{object_type}_slope_channel_{chan}'] = calculate_slope(df, f'{chan}', object_type)
     
     object_type = 'nucleus'
     for chan in channels:
         df[f'{object_type}_slope_channel_{chan}'] = 1
-        #df[f'{object_type}_slope_channel_{chan}'] = calculate_slope(df, f'{chan}', object_type)
     
     for chan in channels:
         df[f'nucleus_coordinates_{chan}'] = df[[f'nucleus_channel_{chan}_centroid_weighted_local-0', f'nucleus_channel_{chan}_centroid_weighted_local-1']].values.tolist()
@@ -3309,6 +3294,7 @@ def plot_controls(df, mask_chans, channel_of_interest, figuresize=5):
         mask_chans = [0]
     controls_cols = []
     for chan in mask_chans:
+	
         controls_cols_c = []
         controls_cols_c.append(f'cell_channel_{chan}_mean_intensity')
         controls_cols_c.append(f'nucleus_channel_{chan}_mean_intensity')
@@ -3339,13 +3325,11 @@ def plot_controls(df, mask_chans, channel_of_interest, figuresize=5):
                     mean_intensity = df_temp[control_col].mean()
                     mean_intensity = 0 if np.isnan(mean_intensity) else mean_intensity
                     data.append(mean_intensity)
-
-                    # Calculate standard deviation
                     std_dev.append(df_temp[control_col].std())
 
             current_axis = axes[idx_condition][idx_channel]
             current_axis.bar(["cell", "nucleus", "pathogen", "cytoplasm"], data, yerr=std_dev, 
-                             capsize=4, color=color_list) # Pass color list to bar plot
+                             capsize=4, color=color_list)
             current_axis.set_xlabel('Component')
             current_axis.set_ylabel('Mean Intensity')
             current_axis.set_title(f'Condition: {condition} - Channel {idx_channel}')
@@ -3391,6 +3375,7 @@ def plot_recruitment(df, df_type, channel_of_interest, target, columns=[], figur
     for i in [0,1,2,3]:
         axes[i].tick_params(axis='both', which='major', labelsize=font)
         axes[i].set_xticklabels(axes[i].get_xticklabels(), rotation=45)
+	    
     plt.tight_layout()
     plt.show()
     
@@ -3398,11 +3383,11 @@ def plot_recruitment(df, df_type, channel_of_interest, target, columns=[], figur
     columns = columns + [f'pathogen_slope_channel_{channel_of_interest}', f'pathogen_cell_distance_channel_{channel_of_interest}', f'nucleus_cell_distance_channel_{channel_of_interest}']
 
     width = figuresize*2
-    columns_per_row = math.ceil(len(columns) / 2)  # Number of columns per row, rounded up
+    columns_per_row = math.ceil(len(columns) / 2)
     height = (figuresize*2)/columns_per_row
 
-    fig, axes = plt.subplots(nrows=2, ncols=columns_per_row, figsize=(width, height * 2))  # Changed nrows to 2
-    axes = axes.flatten()  # Flatten the 2D array to 1D for easier indexing
+    fig, axes = plt.subplots(nrows=2, ncols=columns_per_row, figsize=(width, height * 2))
+    axes = axes.flatten()
 
     print(f'{columns}')
 
@@ -3418,7 +3403,6 @@ def plot_recruitment(df, df_type, channel_of_interest, target, columns=[], figur
         if i <= 5:
             ax.set_ylim(1, None)
 
-    # If there are fewer subplots than the grid size, you may want to hide the remaining empty subplots
     for i in range(len(columns), len(axes)):
         axes[i].axis('off')
 
@@ -3434,20 +3418,18 @@ def plot_data(df, csv_loc, category_order, figuresize=50, y_min=1):
               (55/255, 155/255, 255/255), 
               (255/255, 55/255, 155/255)]
     
-    #columns = ['pathogen_outside_cell_mean_mean', 'pathogen_outside_cytoplasm_mean_mean', 'pathogen_outside_nucleus_mean_mean', 'pathogen_outside_cell_q75_mean', 'pathogen_outside_cytoplasm_q75_mean', 'pathogen_outside_nucleus_q75_mean', 'pathogen_periphery_cell_mean_mean','pathogen_periphery_cytoplasm_mean_mean' ,'pathogen_periphery_nucleus_mean_mean']
     columns = ['pathogen_cytoplasm_mean_mean', 'pathogen_cytoplasm_q75_mean', 'pathogen_outside_cytoplasm_mean_mean', 'pathogen_outside_cytoplasm_q75_mean','pathogen_periphery_cytoplasm_mean_mean']
 
     width = figuresize*2
-    columns_per_row = math.ceil(len(columns) / 2)  # Number of columns per row, rounded up
+    columns_per_row = math.ceil(len(columns) / 2)
     height = (figuresize*2)/columns_per_row
     font = figuresize/2
-    fig, axes = plt.subplots(nrows=2, ncols=columns_per_row, figsize=(width, height * 2))  # Changed nrows to 2
-    axes = axes.flatten()  # Flatten the 2D array to 1D for easier indexing
+    fig, axes = plt.subplots(nrows=2, ncols=columns_per_row, figsize=(width, height * 2))
+    axes = axes.flatten()
 
     for i, col in enumerate(columns):
         ax = axes[i]
         sns.barplot(ax=ax, data=df, x='condition', y=f'{col}', hue='pathogen', capsize=.1, ci='sd', dodge=False, order=category_order, palette=sns.color_palette(color_list))
-        #ax.set_xlabel(f'pathogen {df_type}', fontsize=font)
         ax.set_ylabel(f'{col}', fontsize=int(font*2))
         ax.legend_.remove()
         ax.tick_params(axis='both', which='major', labelsize=font)
@@ -3455,14 +3437,12 @@ def plot_data(df, csv_loc, category_order, figuresize=50, y_min=1):
         if i <= 5:
             ax.set_ylim(y_min, None)
 
-    # If there are fewer subplots than the grid size, you may want to hide the remaining empty subplots
     for i in range(len(columns), len(axes)):
         axes[i].axis('off')
 
     plt.tight_layout()
     plt.show()
 
-    # Save the first figure
     results_dir = os.path.dirname(csv_loc)
     csv_name = os.path.basename(csv_loc)
     csv_name, extension = os.path.splitext(csv_name)
@@ -3471,8 +3451,8 @@ def plot_data(df, csv_loc, category_order, figuresize=50, y_min=1):
 
     fig.savefig(os.path.join(results_dir, pdf_name_bar))
 
-    fig, axes = plt.subplots(nrows=2, ncols=columns_per_row, figsize=(width, height * 2))  # Changed nrows to 2
-    axes = axes.flatten()  # Flatten the 2D array to 1D for easier indexing
+    fig, axes = plt.subplots(nrows=2, ncols=columns_per_row, figsize=(width, height * 2))
+    axes = axes.flatten()
     for i, col in enumerate(columns):
 
         ax = axes[i]
@@ -3484,27 +3464,21 @@ def plot_data(df, csv_loc, category_order, figuresize=50, y_min=1):
         if i <= 5:
             ax.set_ylim(y_min, None)
 
-    # If there are fewer subplots than the grid size, you may want to hide the remaining empty subplots
     for i in range(len(columns), len(axes)):
         axes[i].axis('off')
     plt.tight_layout()
     plt.show()
-
-    # Save the first figure
     fig.savefig(os.path.join(results_dir, pdf_name_jitter))
 
-#def analyze_recruitment(src, plot=True, plot_nr=1, remove_background=False, target='protein of interest', cell_dim=4, nucleus_dim=5, pathogen_dim=6,channel_of_interest=3, cell_metadata_ls=['Hela'], cell_loc_ls=None, pathogen_metadata_ls=['genotype_1', 'genotype_1', 'genotype_1', 'genotype_1'], pathogen_loc_ls=[['c2'], ['c3'], ['c4'], ['c5']], treatment_ls=['cm'], treatment_loc_ls=None, pathogen_size_min=0, nucleus_size_min=0, cell_size_min=0, pathogen_min=0, nucleus_min=0, cell_min=0, target_min=0, plot_control=False, filter_data=False, include_multinucleated=False, include_multiinfected=False, col_names='col', size_quantiles=True, cells_per_well=10, include_noninfected=False, figuresize=20, backgrounds=100, channel_dims=[0,1,2,3], include_border_pathogens=False):
 def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_plate_metadata=None, pathogen_types=['genotype_1', 'genotype_2', 'genotype_3', 'genotype_4'], pathogen_plate_metadata=[['c1','c2','c3','c4','c5','c6'], ['c7','c8','c9','c10','c11','c12'], ['c13','c14','c15','c16','c17','c18'], ['c19','c20','c21','c22','c23','c24']], treatments=['cm'], treatment_plate_metadata=None, metadata_types='col', plot=True, plot_control=True, plot_nr=2, figuresize=50, cell_mask_dim=4, nucleus_mask_dim=5, pathogen_mask_dim=6, cell_chann_dim=3, nucleus_chann_dim=0, pathogen_chann_dim=2, channel_of_interest=3, filter_data=True, pathogen_size_min=0, nucleus_size_min=0, cell_size_min=0, pathogen_min=0, nucleus_min=0, cell_min=0, target_min=0, cells_per_well=0, include_noninfected=False, include_multiinfected=True, include_multinucleated=True, remove_background=True, backgrounds=100,  channel_dims=[0,1,2,3], advanced_filter=False):
 
     print(f'Cells: {cell_types}, in {cell_plate_metadata}')
     print(f'pathogens: {pathogen_types}, in {pathogen_plate_metadata}')
     print(f'Treatments: {treatments}, in {treatment_plate_metadata}')
-
     
     mask_dims=[cell_mask_dim,nucleus_mask_dim,pathogen_mask_dim]
     mask_chans=[nucleus_chann_dim, pathogen_chann_dim, cell_chann_dim]
-    #channel_dims=[nucleus_chann_dim, pathogen_chann_dim, cell_chann_dim, channel_of_interest]
-    
+	
     if isinstance(metadata_types, str):
         metadata_types = [metadata_types, metadata_types, metadata_types]
     if isinstance(metadata_types, list):
@@ -3518,8 +3492,6 @@ def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_pla
         backgrounds = [backgrounds, backgrounds, backgrounds, backgrounds]
     if isinstance(backgrounds, float):
         backgrounds = [backgrounds, backgrounds, backgrounds, backgrounds]
-    if isinstance(backgrounds, list):
-        backgrounds = backgrounds
 
     sns.color_palette("mako", as_cmap=True)
     print(f'channel:{channel_of_interest} = {target}')
@@ -3548,6 +3520,7 @@ def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_pla
     random.shuffle(files)
     
     max_ = 100**10
+	
     if plot:
         plot_merged(src+'/merged',
                     src_list=files,
@@ -3593,7 +3566,7 @@ def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_pla
 
     if advanced_filter:
         print(f'Advanced filtration')
-        #Removes cells where pathogens objects were not captured correctly
+        #Removes cells where pathogen objects were not captured correctly
         df[f'pathogen_vs_cytoplasm_{mask_chans[2]}_channel'] = df[f'pathogen_channel_{mask_chans[2]}_mean_intensity']/df[f'cytoplasm_channel_{mask_chans[2]}_mean_intensity']
         df = df[df[f'pathogen_vs_cytoplasm_{mask_chans[2]}_channel'] > 2]
         print(f'After advanced pathogen/cytoplasm intensity filtration (pathogen channel)', len(df))
