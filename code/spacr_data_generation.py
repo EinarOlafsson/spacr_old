@@ -895,10 +895,10 @@ def concatenate_channel(src, channels, randomize=True, timelapse=False, batch_si
 
 def normalize_stack(src, backgrounds=100, remove_background=False, lower_quantile=0.01, save_dtype=np.float32, signal_to_noise=5, signal_thresholds=1000, correct_illumination=False):
     if isinstance(signal_thresholds, int):
-	signal_thresholds = [signal_thresholds]*4
-	    
+        signal_thresholds = [signal_thresholds]*4
+
     if isinstance(backgrounds, int):
-	backgrounds = [backgrounds]*4
+        backgrounds = [backgrounds]*4
 
     paths = [os.path.join(src, file) for file in os.listdir(src) if file.endswith('.npz')]
     output_fldr = os.path.join(os.path.dirname(src), 'norm_channel_stack')
@@ -1081,117 +1081,118 @@ btrack_config = {
 
 def timelapse_segmentation(batch,chans, model, diameter, interpolate=True):
 
-	def calculate_region_props(masks):
-	    all_props = []
-	    for i in range(masks.shape[0]):
-	        labeled_mask = label(masks[i], connectivity=1)
-	        props = regionprops(labeled_mask)
-	        all_props.append([{
-	            'centroid': prop.centroid, 
-	            'area': prop.area, 
-	            'label': prop.label,
-	            'eccentricity': prop.eccentricity,
-	            'orientation': prop.orientation,
-	            'perimeter': prop.perimeter
-	        } for prop in props])
-	    return all_props
+    def calculate_region_props(masks):
+        all_props = []
+        for i in range(masks.shape[0]):
+            labeled_mask = label(masks[i], connectivity=1)
+            props = regionprops(labeled_mask)
+            all_props.append([{
+                'centroid': prop.centroid, 
+                'area': prop.area, 
+                'label': prop.label,
+                'eccentricity': prop.eccentricity,
+                'orientation': prop.orientation,
+                'perimeter': prop.perimeter
+            } for prop in props])
+        return all_props
 
-	def match_objects(all_props):
-	    object_mappings = [{} for _ in range(len(all_props))]
-	    current_id = 1  # Start object IDs from 1
-	
-	    # Flattening the list of all properties for normalization
-	    flat_props = [item for sublist in all_props for item in sublist]
-	    centroids = np.array([p['centroid'] for p in flat_props])
-	    areas = np.array([p['area'] for p in flat_props])
-	    eccentricities = np.array([p['eccentricity'] for p in flat_props])
-	    perimeters = np.array([p['perimeter'] for p in flat_props])
-	    orientations = np.array([p['orientation'] for p in flat_props])
-	
-	    # Standardizing properties
-	    centroid_zs = zscore(centroids, axis=0)
-	    area_zs = zscore(areas)
-	    eccentricity_zs = zscore(eccentricities)
-	    perimeter_zs = zscore(perimeters)
-	    orientation_zs = zscore(orientations)
-	
-	    # Weights for each property
-	    weights = {'centroid': 5, 'area': 3, 'eccentricity': 2, 'perimeter': 2, 'orientation': 1}
-	
-	    for i in range(1, len(all_props)):
-	        prev_frame, current_frame = all_props[i-1], all_props[i]
-	        composite_distances = []
-	
-	        for prev_obj in prev_frame:
-	            distances = []
-	            for curr_obj in current_frame:
-	                # Calculate weighted distance for each property, using standardized values
-	                distance = 0
-	                distance += weights['centroid'] * np.linalg.norm(centroid_zs[flat_props.index(prev_obj)] - centroid_zs[flat_props.index(curr_obj)])
-	                distance += weights['area'] * abs(area_zs[flat_props.index(prev_obj)] - area_zs[flat_props.index(curr_obj)])
-	                distance += weights['eccentricity'] * abs(eccentricity_zs[flat_props.index(prev_obj)] - eccentricity_zs[flat_props.index(curr_obj)])
-	                distance += weights['perimeter'] * abs(perimeter_zs[flat_props.index(prev_obj)] - perimeter_zs[flat_props.index(curr_obj)])
-	                distance += weights['orientation'] * abs(orientation_zs[flat_props.index(prev_obj)] - orientation_zs[flat_props.index(curr_obj)])
-	                distances.append(distance)
-	            composite_distances.append(distances)
-	        # Find the best match for each object in the previous frame
-	        for prev_index, distances in enumerate(composite_distances):
-	            current_index = np.argmin(distances)
-	            prev_label = prev_frame[prev_index]['label']
-	            curr_label = current_frame[current_index]['label']
-	            object_mappings[i][curr_label] = object_mappings[i-1].get(prev_label, current_id)
-	            if curr_label not in object_mappings[i-1].values():
-	                current_id += 1
-	    return object_mappings
+    def match_objects(all_props):
+        object_mappings = [{} for _ in range(len(all_props))]
+        current_id = 1  # Start object IDs from 1
 
-	def relabel_masks(masks, object_mappings):
-	    relabeled_masks = np.zeros_like(masks)
-	    for i, mapping in enumerate(object_mappings):
-	        for props in calculate_region_props([masks[i]])[0]:
-	            if props['label'] in mapping:
-	                relabeled_masks[i][masks[i] == props['label']] = mapping[props['label']]
-	    return relabeled_masks
+        # Flattening the list of all properties for normalization
+        flat_props = [item for sublist in all_props for item in sublist]
+        centroids = np.array([p['centroid'] for p in flat_props])
+        areas = np.array([p['area'] for p in flat_props])
+        eccentricities = np.array([p['eccentricity'] for p in flat_props])
+        perimeters = np.array([p['perimeter'] for p in flat_props])
+        orientations = np.array([p['orientation'] for p in flat_props])
 
-	def filter_objects(masks):
-	    unique_labels_per_frame = [np.unique(masks[frame])[1:] for frame in range(masks.shape[0])]  # Exclude background (0)
-	    consistent_objects = set(unique_labels_per_frame[0])
-	    for labels in unique_labels_per_frame[1:]:
-	        consistent_objects.intersection_update(labels)
-	    
-	    filtered_masks = np.zeros_like(masks)
-	    for obj in consistent_objects:
-	        filtered_masks[masks == obj] = obj
-	    return filtered_masks
+        # Standardizing properties
+        centroid_zs = zscore(centroids, axis=0)
+        area_zs = zscore(areas)
+        eccentricity_zs = zscore(eccentricities)
+        perimeter_zs = zscore(perimeters)
+        orientation_zs = zscore(orientations)
 
-	def interpolate_missing_objects(masks, object_mappings):
-	    # Initialize an array to hold the interpolated masks
-	    interpolated_masks = np.copy(masks)
-	    for frame in range(1, len(masks) - 1):
-	        for obj_id, mapping in object_mappings[frame].items():
-	            if obj_id not in object_mappings[frame - 1] or obj_id not in object_mappings[frame + 1]:
-	                continue  # Skip if the object is not missing
-	            # Find masks for the object in the previous and next frames
-	            prev_mask = (interpolated_masks[frame - 1] == mapping)
-	            next_mask = (interpolated_masks[frame + 1] == mapping)
-	            # Calculate the overlapping region
-	            overlap_mask = prev_mask & next_mask
-	            # Check if there's an actual overlap to avoid creating objects from thin air
-	            if np.any(overlap_mask):
-	                interpolated_masks[frame][overlap_mask] = mapping
-	    return interpolated_masks
-	
+        # Weights for each property
+        weights = {'centroid': 5, 'area': 3, 'eccentricity': 2, 'perimeter': 2, 'orientation': 1}
+
+        for i in range(1, len(all_props)):
+            prev_frame, current_frame = all_props[i-1], all_props[i]
+            composite_distances = []
+
+            for prev_obj in prev_frame:
+                distances = []
+                for curr_obj in current_frame:
+                    # Calculate weighted distance for each property, using standardized values
+                    distance = 0
+                    distance += weights['centroid'] * np.linalg.norm(centroid_zs[flat_props.index(prev_obj)] - centroid_zs[flat_props.index(curr_obj)])
+                    distance += weights['area'] * abs(area_zs[flat_props.index(prev_obj)] - area_zs[flat_props.index(curr_obj)])
+                    distance += weights['eccentricity'] * abs(eccentricity_zs[flat_props.index(prev_obj)] - eccentricity_zs[flat_props.index(curr_obj)])
+                    distance += weights['perimeter'] * abs(perimeter_zs[flat_props.index(prev_obj)] - perimeter_zs[flat_props.index(curr_obj)])
+                    distance += weights['orientation'] * abs(orientation_zs[flat_props.index(prev_obj)] - orientation_zs[flat_props.index(curr_obj)])
+                    distances.append(distance)
+                composite_distances.append(distances)
+            # Find the best match for each object in the previous frame
+            for prev_index, distances in enumerate(composite_distances):
+                current_index = np.argmin(distances)
+                prev_label = prev_frame[prev_index]['label']
+                curr_label = current_frame[current_index]['label']
+                object_mappings[i][curr_label] = object_mappings[i-1].get(prev_label, current_id)
+                if curr_label not in object_mappings[i-1].values():
+                    current_id += 1
+        return object_mappings
+
+    def relabel_masks(masks, object_mappings):
+        relabeled_masks = np.zeros_like(masks)
+        for i, mapping in enumerate(object_mappings):
+            for props in calculate_region_props([masks[i]])[0]:
+                if props['label'] in mapping:
+                    relabeled_masks[i][masks[i] == props['label']] = mapping[props['label']]
+        return relabeled_masks
+
+    def filter_objects(masks):
+        unique_labels_per_frame = [np.unique(masks[frame])[1:] for frame in range(masks.shape[0])]  # Exclude background (0)
+        consistent_objects = set(unique_labels_per_frame[0])
+        for labels in unique_labels_per_frame[1:]:
+            consistent_objects.intersection_update(labels)
+
+        filtered_masks = np.zeros_like(masks)
+        for obj in consistent_objects:
+            filtered_masks[masks == obj] = obj
+        return filtered_masks
+
+    def interpolate_missing_objects(masks, object_mappings):
+        # Initialize an array to hold the interpolated masks
+        interpolated_masks = np.copy(masks)
+        for frame in range(1, len(masks) - 1):
+            for obj_id, mapping in object_mappings[frame].items():
+                if obj_id not in object_mappings[frame - 1] or obj_id not in object_mappings[frame + 1]:
+                    continue  # Skip if the object is not missing
+                # Find masks for the object in the previous and next frames
+                prev_mask = (interpolated_masks[frame - 1] == mapping)
+                next_mask = (interpolated_masks[frame + 1] == mapping)
+                # Calculate the overlapping region
+                overlap_mask = prev_mask & next_mask
+                # Check if there's an actual overlap to avoid creating objects from thin air
+                if np.any(overlap_mask):
+                    interpolated_masks[frame][overlap_mask] = mapping
+        return interpolated_masks
+
     batch_reshaped = batch.reshape((-1,) + batch.shape[2:])
     masks, flows, styles, diams = model.eval(batch_reshaped,
-					     diameter=diameter,
-					     channels=chans,
-					     do_3D=True)
+                                             diameter=diameter,
+                                             channels=chans,
+                                             do_3D=True)
+    
     masks_reshaped = masks.reshape(batch.shape[:3])
     props = calculate_region_props(masks_reshaped)
     mapping = match_objects(props)
     masks_relabeled = relabel_masks(masks_reshaped, mapping)
 
     if interpolate:
-	masks_relabeled = interpolate_missing_objects(masks_relabeled, batch.shape[0])
+        masks_relabeled = interpolate_missing_objects(masks_relabeled, batch.shape[0])
 
     masks_filtered = filter_objects(masks_relabeled)
 
@@ -1461,28 +1462,28 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                     continue
                 if batch.max() > 1:
                     batch = batch / batch.max()
-		if not timelapse:
-	                masks, flows, _, _ = model.eval(x=batch,
-	                                                batch_size=batch_size,
-	                                                normalize=False,
-	                                                channels=chans,
-	                                                channel_axis=3,
-	                                                diameter=diameter,
-	                                                flow_threshold=flow_threshold,
-	                                                cellprob_threshold=cellprob_threshold,
-	                                                rescale=None,
-	                                                resample=resample,
-	                                                net_avg=net_avg,
-	                                                progress=None)
-	                mask_stack = filter_cp_masks(masks, flows, refine_masks, filter_size, minimum_size, maximum_size, remove_border_objects, merge, filter_dimm, batch, moving_avg_q1, moving_avg_q3, moving_count, plot, figuresize)
-	                if not np.any(mask_stack):
-	                    average_obj_size = 0
-	                else:
-	                    average_obj_size = get_avg_object_size(mask_stack)
-	                    
-	                average_sizes.append(average_obj_size) # Store the average size
-	                overall_average_size = np.mean(average_sizes) if len(average_sizes) > 0 else 0
-		else:
+                if not timelapse:
+                    masks, flows, _, _ = model.eval(x=batch,
+                                                    batch_size=batch_size,
+                                                    normalize=False,
+                                                    channels=chans,
+                                                    channel_axis=3,
+                                                    diameter=diameter,
+                                                    flow_threshold=flow_threshold,
+                                                    cellprob_threshold=cellprob_threshold,
+                                                    rescale=None,
+                                                    resample=resample,
+                                                    net_avg=net_avg,
+                                                    progress=None)
+                    mask_stack = filter_cp_masks(masks, flows, refine_masks, filter_size, minimum_size, maximum_size, remove_border_objects, merge, filter_dimm, batch, moving_avg_q1, moving_avg_q3, moving_count, plot, figuresize)
+                    if not np.any(mask_stack):
+                        average_obj_size = 0
+                    else:
+                        average_obj_size = get_avg_object_size(mask_stack)
+
+                    average_sizes.append(average_obj_size) # Store the average size
+                    overall_average_size = np.mean(average_sizes) if len(average_sizes) > 0 else 0
+                else:
                     #if plot:
                     #    print(f'before relabeling')
                     #    plot_masks(batch, mask_stack, flows, figuresize=figuresize, cmap=cmap, nr=batch_size, file_type='.npz')
@@ -2772,7 +2773,7 @@ def generate_masks(src, object_type, mag, batch_size, channels, cellprob_thresho
         minimum_size = (diameter**2)/10
         maximum_size = minimum_size*50
         merge = merge
-        net_avg=True
+        fnet_avg=True
         resample=True
     elif object_type == 'pathogen':
         refine_masks = False
@@ -3058,7 +3059,7 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
                         include_noninfected=True,
                         advanced_filter=False,
                         verbose=True)
-	torch.cuda.empty_cache()
+    torch.cuda.empty_cache()
     gc.collect()
     return
 
