@@ -257,7 +257,10 @@ def z_to_mip(src, regex, batch_size=100, pick_slice=False, skip_mode='01'):
                 match = regular_expression.match(filename)
                 if match:
                     try:
-                        plate = match.group('plateID')
+                        try:
+                            plate = match.group('plateID')
+                        except:
+                            plate = os.path.basename(src)
                         well = match.group('wellID')
                         field = match.group('fieldID')
                         channel = match.group('chanID')
@@ -333,8 +336,11 @@ def move_to_chan_folder(src, regex, timelapse=False):
             if file.is_file():
                 name, ext = file.stem, file.suffix
                 if ext in valid_exts:
-                    plateID = src.name
-                    metadata = re.match(regex, file.name)
+                    metadata = re.match(regex, file.name)                    
+                    try:
+                        plateID = metadata.group('plateID')
+                    except:
+                        plateID = src.name
                     wellID = metadata.group('wellID')
                     fieldID = metadata.group('fieldID')
                     chanID = metadata.group('chanID')
@@ -2637,8 +2643,11 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
     print(f'Bitdepth: {bitdepth}: cmap:{cmap}: figuresize:{figuresize}')
     print(f'========== consolidating arrays ==========')
     
-    if metadata_type == 'yokogawa':
+    if metadata_type == 'cellvoyager':
         regex = f'(?P<plateID>.*)_(?P<wellID>.*)_T(?P<timeID>.*)F(?P<fieldID>.*)L(?P<laserID>..)A(?P<AID>..)Z(?P<sliceID>.*)C(?P<chanID>.*){img_format}'
+    if metadata_type == 'cq1':
+        regex = f'W(?P<wellID>.*)F(?P<fieldID>.*)T(?P<timeID>.*)Z(?P<sliceID>.*)C(?P<chanID>.*){img_format}'
+	    
     if metadata_type == 'nikon':
         regex = f'(?P<plateID>.*)_(?P<wellID>.*)_T(?P<timeID>.*)F(?P<fieldID>.*)L(?P<laserID>..)A(?P<AID>..)Z(?P<sliceID>.*)C(?P<chanID>.*){img_format}'
     if metadata_type == 'zeis':
