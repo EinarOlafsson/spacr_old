@@ -708,7 +708,8 @@ def is_dir_empty(dir_path):
 def merge_channels(src, plot=False):
     src = Path(src)
     stack_dir = src / 'stack'
-    chan_dirs = [d for d in src.iterdir() if d.is_dir() and d.name in ['01', '02', '03', '04']]
+    chan_dirs = [d for d in src.iterdir() if d.is_dir() and d.name in ['01', '02', '03', '04', '00', '1', '2', '3', '4','0']]
+    print(chan_dirs)
     chan_dirs.sort(key=lambda x: x.name)
     print(f'List of folders in src: {[d.name for d in chan_dirs]}. Single channel folders.')
     start_time = time.time()
@@ -726,8 +727,10 @@ def merge_channels(src, plot=False):
 
     avg_time = (time.time() - start_time) / len(dir_files)
     print(f'Average Time: {avg_time:.3f} sec')
+
     if plot:
         plot_arrays(src+'/stack')
+
     return
 
 def plot_4D_arrays(src, figuresize=10, cmap='inferno', nr_npz=1, nr=1):
@@ -1085,7 +1088,7 @@ btrack_config = {
     }
 }
 
-def timelapse_segmentation(batch,chans, model, diameter, interpolate=True):
+def timelapse_segmentation(batch, chans, model, diameter, interpolate=True):
 
     def calculate_region_props(masks):
         all_props = []
@@ -1186,19 +1189,25 @@ def timelapse_segmentation(batch,chans, model, diameter, interpolate=True):
                     interpolated_masks[frame][overlap_mask] = mapping
         return interpolated_masks
 
-    batch_reshaped = batch.reshape((-1,) + batch.shape[2:])
-    masks, flows, styles, diams = model.eval(batch_reshaped,
+    #batch_reshaped = batch.reshape((-1,) + batch.shape[2:])
+    masks, flows, styles, diams = model.eval(batch,
                                              diameter=diameter,
                                              channels=chans,
-                                             do_3D=True)
-    
-    masks_reshaped = masks.reshape(batch.shape[:3])
-    props = calculate_region_props(masks_reshaped)
+                                             do_3D=True,
+                                             anisotropy=None)
+                                             
+    print(f'========== Finished generating masks ==========')
+    #masks_reshaped = masks.reshape(batch.shape[:3])
+    props = calculate_region_props(masks)
+    print(f'========== Finished calculating props for masks ==========')
     mapping = match_objects(props)
+    print(f'========== Finished mapping objects across time ==========')
     masks_relabeled = relabel_masks(masks_reshaped, mapping)
+    print(f'========== Finished relabeling masks ==========')
 
     if interpolate:
         masks_relabeled = interpolate_missing_objects(masks_relabeled, batch.shape[0])
+        print(f'========== Finished interpolating missing objects ==========')
 
     masks_filtered = filter_objects(masks_relabeled)
 
@@ -1416,8 +1425,8 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
         if timelapse:
             print(f'timelaps is only compatible with npz files')
             return
-    if timelapse:
-        config = datasets.cell_config()
+    #if timelapse:
+    #    config = datasets.cell_config()
     chans = [2, 1] if model_name == 'cyto2' else [0,0] if model_name == 'nuclei' else [1,0] if model_name == 'cyto' else [2, 0] 
     if verbose == True:
         print(f'source: {src}')
@@ -1446,7 +1455,6 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                 stack = data['data'] # Extract the data array from the NpzFile object
                 filenames = data['filenames'] # Similarly, extract the filenames array
             if timelapse:
-                print(f'timelapse mask generation')
                 if len(stack) != batch_size:
                     print(f'Changed batch_size:{batch_size} to {len(stack)}, data length:{len(stack)}')
                     batch_size = len(stack)
@@ -1493,6 +1501,7 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                     #if plot:
                     #    print(f'before relabeling')
                     #    plot_masks(batch, mask_stack, flows, figuresize=figuresize, cmap=cmap, nr=batch_size, file_type='.npz')
+                    print(f'========== generating timelapse masks ==========')
                     mask_stack = timelapse_segmentation(batch,chans, model, diameter)
                     overall_average_size = 0.000
                     #mask_stack = track_objects_over_time(mask_stack, step_size=2, config=config)
@@ -2915,7 +2924,7 @@ def mip_all(src, include_first_chan=True):
     return
 
 
-def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, experiment='experiment', preprocess=True, masks=True, save=True,  plot=True,  examples_to_plot=1,  channels=[0,1,2,3], cell_chann_dim=1, cell_cp_prob=0, nucleus_chann_dim=0, nucleus_cp_prob=0, pathogen_chann_dim=2,  pathogen_cp_prob=-1,  batch_size=4,  backgrounds=100,  signal_to_noise=5, magnefication=40,  workers=30,  all_to_mip = False, fps=2, pick_slice=False, skip_mode='01', timelapse = False, verbose=False):
+def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, experiment='experiment', preprocess=True, masks=True, save=True,  plot=True,  examples_to_plot=1,  channels=[0,1,2,3], cell_chann_dim=1, cell_cp_prob=0, nucleus_chann_dim=0, nucleus_cp_prob=0, pathogen_chann_dim=2,  pathogen_cp_prob=-1,  batch_size=4,  backgrounds=100,  signal_to_noise=5, magnefication=40,  workers=30,  all_to_mip = False, fps=2, pick_slice=False, skip_mode='01',  timelapse = False, verbose=False):
                                 
     #settings that generally do not change
     randomize = True
@@ -2923,7 +2932,7 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
     lower_quantile = 0.02
     merge = False
     count = False
-    #timelapse = False
+    # timelapse = False
     normalize_plots = True
 
     if preprocess and not masks:
@@ -2936,7 +2945,7 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
     if isinstance(merge, bool):
         merge = [merge]*3
     if isinstance(save, bool):
-        save = []*3
+        save = [save]*3
     if isinstance(count, bool):
         count = [count]*4
     if isinstance(backgrounds, int):
