@@ -212,6 +212,7 @@ from scipy.stats import pearsonr
 from scipy.interpolate import UnivariateSpline
 from scipy.optimize import linear_sum_assignment
 from scipy.ndimage import binary_erosion, binary_dilation as binary_erosion, binary_dilation, distance_transform_edt, generate_binary_structure
+from scipy.spatial.distance import cdist
 
 # parallel processing
 import multiprocessing as mp
@@ -786,7 +787,6 @@ def png_to_npz(src, randomize=True, batch_size=1000):
     stack_ls = []
     nr_files = len(paths)
     channel_stack_loc = src+'_channel_stack'
-    #channel_stack_loc = os.path.join(os.path.dirname(src), 'channel_stack')
     os.makedirs(channel_stack_loc, exist_ok=True)
     batch_index = 0  # Added this to name the output files
     filenames_batch = []  # to hold filenames of the current batch
@@ -1079,6 +1079,124 @@ btrack_config = {
     }
 }
 
+def timelapse_segmentation(batch,chans, model, diameter, interpolate=True):
+
+	def calculate_region_props(masks):
+	    all_props = []
+	    for i in range(masks.shape[0]):
+	        labeled_mask = label(masks[i], connectivity=1)
+	        props = regionprops(labeled_mask)
+	        all_props.append([{
+	            'centroid': prop.centroid, 
+	            'area': prop.area, 
+	            'label': prop.label,
+	            'eccentricity': prop.eccentricity,
+	            'orientation': prop.orientation,
+	            'perimeter': prop.perimeter
+	        } for prop in props])
+	    return all_props
+
+	def match_objects(all_props):
+	    object_mappings = [{} for _ in range(len(all_props))]
+	    current_id = 1  # Start object IDs from 1
+	
+	    # Flattening the list of all properties for normalization
+	    flat_props = [item for sublist in all_props for item in sublist]
+	    centroids = np.array([p['centroid'] for p in flat_props])
+	    areas = np.array([p['area'] for p in flat_props])
+	    eccentricities = np.array([p['eccentricity'] for p in flat_props])
+	    perimeters = np.array([p['perimeter'] for p in flat_props])
+	    orientations = np.array([p['orientation'] for p in flat_props])
+	
+	    # Standardizing properties
+	    centroid_zs = zscore(centroids, axis=0)
+	    area_zs = zscore(areas)
+	    eccentricity_zs = zscore(eccentricities)
+	    perimeter_zs = zscore(perimeters)
+	    orientation_zs = zscore(orientations)
+	
+	    # Weights for each property
+	    weights = {'centroid': 5, 'area': 3, 'eccentricity': 2, 'perimeter': 2, 'orientation': 1}
+	
+	    for i in range(1, len(all_props)):
+	        prev_frame, current_frame = all_props[i-1], all_props[i]
+	        composite_distances = []
+	
+	        for prev_obj in prev_frame:
+	            distances = []
+	            for curr_obj in current_frame:
+	                # Calculate weighted distance for each property, using standardized values
+	                distance = 0
+	                distance += weights['centroid'] * np.linalg.norm(centroid_zs[flat_props.index(prev_obj)] - centroid_zs[flat_props.index(curr_obj)])
+	                distance += weights['area'] * abs(area_zs[flat_props.index(prev_obj)] - area_zs[flat_props.index(curr_obj)])
+	                distance += weights['eccentricity'] * abs(eccentricity_zs[flat_props.index(prev_obj)] - eccentricity_zs[flat_props.index(curr_obj)])
+	                distance += weights['perimeter'] * abs(perimeter_zs[flat_props.index(prev_obj)] - perimeter_zs[flat_props.index(curr_obj)])
+	                distance += weights['orientation'] * abs(orientation_zs[flat_props.index(prev_obj)] - orientation_zs[flat_props.index(curr_obj)])
+	                distances.append(distance)
+	            composite_distances.append(distances)
+	        # Find the best match for each object in the previous frame
+	        for prev_index, distances in enumerate(composite_distances):
+	            current_index = np.argmin(distances)
+	            prev_label = prev_frame[prev_index]['label']
+	            curr_label = current_frame[current_index]['label']
+	            object_mappings[i][curr_label] = object_mappings[i-1].get(prev_label, current_id)
+	            if curr_label not in object_mappings[i-1].values():
+	                current_id += 1
+	    return object_mappings
+
+	def relabel_masks(masks, object_mappings):
+	    relabeled_masks = np.zeros_like(masks)
+	    for i, mapping in enumerate(object_mappings):
+	        for props in calculate_region_props([masks[i]])[0]:
+	            if props['label'] in mapping:
+	                relabeled_masks[i][masks[i] == props['label']] = mapping[props['label']]
+	    return relabeled_masks
+
+	def filter_objects(masks):
+	    unique_labels_per_frame = [np.unique(masks[frame])[1:] for frame in range(masks.shape[0])]  # Exclude background (0)
+	    consistent_objects = set(unique_labels_per_frame[0])
+	    for labels in unique_labels_per_frame[1:]:
+	        consistent_objects.intersection_update(labels)
+	    
+	    filtered_masks = np.zeros_like(masks)
+	    for obj in consistent_objects:
+	        filtered_masks[masks == obj] = obj
+	    return filtered_masks
+
+	def interpolate_missing_objects(masks, object_mappings):
+	    # Initialize an array to hold the interpolated masks
+	    interpolated_masks = np.copy(masks)
+	    for frame in range(1, len(masks) - 1):
+	        for obj_id, mapping in object_mappings[frame].items():
+	            if obj_id not in object_mappings[frame - 1] or obj_id not in object_mappings[frame + 1]:
+	                continue  # Skip if the object is not missing
+	            # Find masks for the object in the previous and next frames
+	            prev_mask = (interpolated_masks[frame - 1] == mapping)
+	            next_mask = (interpolated_masks[frame + 1] == mapping)
+	            # Calculate the overlapping region
+	            overlap_mask = prev_mask & next_mask
+	            # Check if there's an actual overlap to avoid creating objects from thin air
+	            if np.any(overlap_mask):
+	                interpolated_masks[frame][overlap_mask] = mapping
+	    return interpolated_masks
+	
+    batch_reshaped = batch.reshape((-1,) + batch.shape[2:])
+    masks, flows, styles, diams = model.eval(batch_reshaped,
+					     diameter=diameter,
+					     channels=chans,
+					     do_3D=True)
+    masks_reshaped = masks.reshape(batch.shape[:3])
+    props = calculate_region_props(masks_reshaped)
+    mapping = match_objects(props)
+    masks_relabeled = relabel_masks(masks_reshaped, mapping)
+
+    if interpolate:
+	masks_relabeled = interpolate_missing_objects(masks_relabeled, batch.shape[0])
+
+    masks_filtered = filter_objects(masks_relabeled)
+
+    return masks_filtered
+
 def track_objects_over_time(masks, step_size=1, config=None):
     # Initialize btrack
     masks = np.stack(masks, axis=0)
@@ -1323,14 +1441,13 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
             if timelapse:
                 print(f'timelapse mask generation')
                 if len(stack) != batch_size:
-                    print(f'batch size should be equal to timelapse. Changed batch_size:{batch_size} to {len(stack)}, data length:{len(stack)}')
-                    if not plot:
-                        batch_size = len(stack)
-            #print(f'batch size: {batch_size}')
-            for i in range(0, stack.shape[0], batch_size): # pseudo 3D batch of 2D images
+                    print(f'Changed batch_size:{batch_size} to {len(stack)}, data length:{len(stack)}')
+                    batch_size = len(stack)
+
+            for i in range(0, stack.shape[0], batch_size):
                 mask_stack = []
                 start = time.time()
-                
+
                 if stack.shape[3] == 1:
                     batch = stack[i: i+batch_size, :, :, [0,0]].astype(stack.dtype)
                 else:
@@ -1344,38 +1461,37 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                     continue
                 if batch.max() > 1:
                     batch = batch / batch.max()
-                #print(f'Processing {file_index}/{len(paths)}: Batch dim {batch.shape}', end='\r', flush=True)
-                masks, flows, _, _ = model.eval(x=batch,
-                                                batch_size=batch_size,
-                                                normalize=False,
-                                                channels=chans,
-                                                channel_axis=3,
-                                                diameter=diameter,
-                                                flow_threshold=flow_threshold,
-                                                cellprob_threshold=cellprob_threshold,
-                                                rescale=None,
-                                                resample=resample,
-                                                net_avg=net_avg,
-                                                progress=None)
-                
-                mask_stack = filter_cp_masks(masks, flows, refine_masks, filter_size, minimum_size, maximum_size, remove_border_objects, merge, filter_dimm, batch, moving_avg_q1, moving_avg_q3, moving_count, plot, figuresize)
-
-                if not np.any(mask_stack):
-                    average_obj_size = 0
-                else:
-                    average_obj_size = get_avg_object_size(mask_stack)
-                    
-                average_sizes.append(average_obj_size) # Store the average size
-                overall_average_size = np.mean(average_sizes) if len(average_sizes) > 0 else 0 # Calculate the overall average size across all images
-
-                if timelapse:
-                    if plot:
-                        print(f'before relabeling')
-                        plot_masks(batch, mask_stack, flows, figuresize=figuresize, cmap=cmap, nr=batch_size, file_type='.npz')
-                    mask_stack = track_objects_over_time(mask_stack, step_size=2, config=config)
-                    if plot:
-                        print(f'after relabeling')
-                        plot_masks(batch, mask_stack, flows, figuresize=figuresize, cmap=cmap, nr=batch_size, file_type='.npz')
+		if not timelapse:
+	                masks, flows, _, _ = model.eval(x=batch,
+	                                                batch_size=batch_size,
+	                                                normalize=False,
+	                                                channels=chans,
+	                                                channel_axis=3,
+	                                                diameter=diameter,
+	                                                flow_threshold=flow_threshold,
+	                                                cellprob_threshold=cellprob_threshold,
+	                                                rescale=None,
+	                                                resample=resample,
+	                                                net_avg=net_avg,
+	                                                progress=None)
+	                mask_stack = filter_cp_masks(masks, flows, refine_masks, filter_size, minimum_size, maximum_size, remove_border_objects, merge, filter_dimm, batch, moving_avg_q1, moving_avg_q3, moving_count, plot, figuresize)
+	                if not np.any(mask_stack):
+	                    average_obj_size = 0
+	                else:
+	                    average_obj_size = get_avg_object_size(mask_stack)
+	                    
+	                average_sizes.append(average_obj_size) # Store the average size
+	                overall_average_size = np.mean(average_sizes) if len(average_sizes) > 0 else 0
+		else:
+                    #if plot:
+                    #    print(f'before relabeling')
+                    #    plot_masks(batch, mask_stack, flows, figuresize=figuresize, cmap=cmap, nr=batch_size, file_type='.npz')
+                    mask_stack = timelapse_segmentation(batch,chans, model, diameter)
+                    overall_average_size = 0.000
+                    #mask_stack = track_objects_over_time(mask_stack, step_size=2, config=config)
+                    #if plot:
+                    #    print(f'after relabeling')
+                    #    plot_masks(batch, mask_stack, flows, figuresize=figuresize, cmap=cmap, nr=batch_size, file_type='.npz')
             
             stop = time.time()
             duration = (stop - start)
