@@ -213,7 +213,7 @@ from scipy.interpolate import UnivariateSpline
 from scipy.optimize import linear_sum_assignment
 from scipy.ndimage import binary_erosion, binary_dilation as binary_erosion, binary_dilation, distance_transform_edt, generate_binary_structure
 from scipy.spatial.distance import cdist
-import scipy.stats.zscore as zscore
+from scipy.stats import zscore
 
 # parallel processing
 import multiprocessing as mp
