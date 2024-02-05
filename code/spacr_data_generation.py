@@ -946,7 +946,7 @@ def normalize_stack(src, backgrounds=[100,100,100], remove_background=False, low
             single_channel = stack[:, :, :, channel]
             background = backgrounds[chan_index]
             signal_threshold = signal_thresholds[chan_index]
-            print(f'signal_threshold:{signal_threshold} in {signal_thresholds} for {chan_index}')
+            #print(f'signal_threshold:{signal_threshold} in {signal_thresholds} for {chan_index}')
             
             signal_2_noise = signal_to_noise[chan_index]
             if remove_background:
