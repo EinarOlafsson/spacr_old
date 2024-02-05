@@ -212,7 +212,7 @@ from scipy.stats import pearsonr
 from scipy.interpolate import UnivariateSpline
 from scipy.optimize import linear_sum_assignment
 from scipy.ndimage import binary_erosion, binary_dilation as binary_erosion, binary_dilation, distance_transform_edt, generate_binary_structure
-from scipy.spatial.distance import cdist
+from scipy.spatial.distance  import cdist
 from scipy.stats import zscore
 
 # parallel processing
@@ -265,15 +265,17 @@ def z_to_mip(src, regex, batch_size=100, pick_slice=False, skip_mode='01'):
                         well = match.group('wellID')
                         field = match.group('fieldID')
                         channel = match.group('chanID')
-                        #sliceid = match.group('sliceID')
-                        
-                        try:
-                            mode = match.group('AID')
-                        except IndexError:
-                            sliceid = '00'
-                        
-                        if mode == skip_mode:
-                            continue
+                        mode = None
+
+                        if pick_slice:
+                            try:
+                                mode = match.group('AID')
+                            except IndexError:
+                                sliceid = '00'
+
+                            if mode == skip_mode:
+                                continue
+                                
                         key = (plate, well, field, channel, mode)
                         with Image.open(os.path.join(src, filename)) as img:
                             images_by_key[key].append(np.array(img))
@@ -302,7 +304,7 @@ def z_to_mip(src, regex, batch_size=100, pick_slice=False, skip_mode='01'):
                 for key, images in images_by_key.items():
                     mip = np.max(np.stack(images), axis=0)
                     mip_image = Image.fromarray(mip)
-                    plate, well, field, channel = key[:4]  # Remove mode and sliceid from the key
+                    plate, well, field, channel = key[:4]
                     output_dir = os.path.join(src, channel)
                     os.makedirs(output_dir, exist_ok=True)
                     output_filename = f'{plate}_{well}_{field}.tif'
@@ -902,13 +904,31 @@ def concatenate_channel(src, channels, randomize=True, timelapse=False, batch_si
                 padded_stack_ls = []
     print(f'\nAll files concatenated and saved to:{channel_stack_loc}')
     return channel_stack_loc
+    
+def get_lists_for_normalization(settings):
 
-def normalize_stack(src, backgrounds=100, remove_background=False, lower_quantile=0.01, save_dtype=np.float32, signal_to_noise=5, signal_thresholds=1000, correct_illumination=False):
-    if isinstance(signal_thresholds, int):
-        signal_thresholds = [signal_thresholds]*4
+    # Initialize the lists
+    backgrounds = []
+    signal_to_noise = []
+    signal_thresholds = [] 
 
-    if isinstance(backgrounds, int):
-        backgrounds = [backgrounds]*4
+    # Iterate through the channels and append the corresponding values if the channel is not None
+    for ch in settings['channels']:
+        if ch == settings['nucleus_channel']:
+            backgrounds.append(settings['nucleus_background'])
+            signal_to_noise.append(settings['nucleus_Signal_to_noise'])
+            signal_thresholds.append(settings['nucleus_Signal_to_noise']*settings['nucleus_background'])
+        elif ch == settings['cell_channel']:
+            backgrounds.append(settings['cell_background'])
+            signal_to_noise.append(settings['cell_Signal_to_noise'])
+            signal_thresholds.append(settings['cell_Signal_to_noise']*settings['cell_background'])
+        elif ch == settings['pathogen_channel']:
+            backgrounds.append(settings['pathogen_background'])
+            signal_to_noise.append(settings['pathogen_Signal_to_noise'])
+            signal_thresholds.append(settings['pathogen_Signal_to_noise']*settings['pathogen_background'])
+    return backgrounds, signal_to_noise, signal_thresholds
+
+def normalize_stack(src, backgrounds=[100,100,100], remove_background=False, lower_quantile=0.01, save_dtype=np.float32, signal_to_noise=[5,5,5], signal_thresholds=[1000,1000,1000], correct_illumination=False):
 
     paths = [os.path.join(src, file) for file in os.listdir(src) if file.endswith('.npz')]
     output_fldr = os.path.join(os.path.dirname(src), 'norm_channel_stack')
@@ -926,6 +946,9 @@ def normalize_stack(src, backgrounds=100, remove_background=False, lower_quantil
             single_channel = stack[:, :, :, channel]
             background = backgrounds[chan_index]
             signal_threshold = signal_thresholds[chan_index]
+            print(f'signal_threshold:{signal_threshold} in {signal_thresholds} for {chan_index}')
+            
+            signal_2_noise = signal_to_noise[chan_index]
             if remove_background:
                 single_channel[single_channel < background] = 0
             if correct_illumination:
@@ -954,7 +977,11 @@ def normalize_stack(src, backgrounds=100, remove_background=False, lower_quantil
                     signal_to_noise_ratio = 0
                 signal_to_noise_ratio_ls.append(signal_to_noise_ratio)
                 average_stnr = np.mean(signal_to_noise_ratio_ls) if len(signal_to_noise_ratio_ls) > 0 else 0
-                if signal_to_noise_ratio > signal_to_noise:
+                
+                #mask_channels = [nucleus_chann_dim, pathogen_chann_dim, cell_chann_dim]
+                #mask_channels = [0,2,3]
+                
+                if signal_to_noise_ratio > signal_2_noise:
                     arr_2d_rescaled = exposure.rescale_intensity(arr_2d, in_range=(lower, upper), out_range=(global_lower, global_upper))
                     arr_2d_normalized[array_index, :, :] = arr_2d_rescaled
                 else:
@@ -1020,80 +1047,12 @@ def measure_eccentricity_and_intensity(mask, image):
     df = pd.DataFrame(properties)
     return df
 
-btrack_config = {
-  "TrackerConfig":
-    {
-      "MotionModel":
-        {
-          "name": "cell_motion",
-          "dt": 1.0,
-          "measurements": 3,
-          "states": 6,
-          "accuracy": 7.5,
-          "prob_not_assign": 0.001,
-          "max_lost": 5,
-          "A": {
-            "matrix": [1,0,0,1,0,0,
-                       0,1,0,0,1,0,
-                       0,0,1,0,0,1,
-                       0,0,0,1,0,0,
-                       0,0,0,0,1,0,
-                       0,0,0,0,0,1]
-          },
-          "H": {
-            "matrix": [1,0,0,0,0,0,
-                       0,1,0,0,0,0,
-                       0,0,1,0,0,0]
-          },
-          "P": {
-            "sigma": 150.0,
-            "matrix": [0.1,0,0,0,0,0,
-                       0,0.1,0,0,0,0,
-                       0,0,0.1,0,0,0,
-                       0,0,0,1,0,0,
-                       0,0,0,0,1,0,
-                       0,0,0,0,0,1]
-          },
-          "G": {
-            "sigma": 15.0,
-            "matrix": [0.5,0.5,0.5,1,1,1]
-
-          },
-          "R": {
-            "sigma": 5.0,
-            "matrix": [1,0,0,
-                       0,1,0,
-                       0,0,1]
-          }
-        },
-      "ObjectModel":
-        {},
-      "HypothesisModel":
-        {
-          "name": "cell_hypothesis",
-          "hypotheses": ["P_FP", "P_init", "P_term", "P_link", "P_branch", "P_dead"],
-          "lambda_time": 5.0,
-          "lambda_dist": 3.0,
-          "lambda_link": 10.0,
-          "lambda_branch": 50.0,
-          "eta": 1e-10,
-          "theta_dist": 20.0,
-          "theta_time": 5.0,
-          "dist_thresh": 40,
-          "time_thresh": 2,
-          "apop_thresh": 5,
-          "segmentation_miss_rate": 0.1,
-          "apoptosis_rate": 0.001,
-          "relax": True
-        }
-    }
-}
-
 def timelapse_segmentation(batch, chans, model, diameter, interpolate=True):
 
     def calculate_region_props(masks):
         all_props = []
         for i in range(masks.shape[0]):
+            print(f'Processing props for timepoint {i}', end='\r', flush=True)
             labeled_mask = label(masks[i], connectivity=1)
             props = regionprops(labeled_mask)
             all_props.append([{
@@ -1129,6 +1088,7 @@ def timelapse_segmentation(batch, chans, model, diameter, interpolate=True):
         weights = {'centroid': 5, 'area': 3, 'eccentricity': 2, 'perimeter': 2, 'orientation': 1}
 
         for i in range(1, len(all_props)):
+            print(f'Mapping props for timepoint {i}', end='\r', flush=True)
             prev_frame, current_frame = all_props[i-1], all_props[i]
             composite_distances = []
 
@@ -1157,6 +1117,7 @@ def timelapse_segmentation(batch, chans, model, diameter, interpolate=True):
     def relabel_masks(masks, object_mappings):
         relabeled_masks = np.zeros_like(masks)
         for i, mapping in enumerate(object_mappings):
+            print(f'Relabeling masks for timepoint {i}', end='\r', flush=True)
             for props in calculate_region_props([masks[i]])[0]:
                 if props['label'] in mapping:
                     relabeled_masks[i][masks[i] == props['label']] = mapping[props['label']]
@@ -1177,6 +1138,7 @@ def timelapse_segmentation(batch, chans, model, diameter, interpolate=True):
         # Initialize an array to hold the interpolated masks
         interpolated_masks = np.copy(masks)
         for frame in range(1, len(masks) - 1):
+            print(f'Interpolating masks for timepoint {i}', end='\r', flush=True)
             for obj_id, mapping in object_mappings[frame].items():
                 if obj_id not in object_mappings[frame - 1] or obj_id not in object_mappings[frame + 1]:
                     continue  # Skip if the object is not missing
@@ -1426,9 +1388,8 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
         if timelapse:
             print(f'timelaps is only compatible with npz files')
             return
-    #if timelapse:
-    #    config = datasets.cell_config()
-    chans = [2, 1] if model_name == 'cyto2' else [0,0] if model_name == 'nuclei' else [1,0] if model_name == 'cyto' else [2, 0] 
+
+    chans = [2, 1] if model_name == 'cyto2' else [0,0] if model_name == 'nuclei' else [2,0] if model_name == 'cyto' else [2, 0] 
     if verbose == True:
         print(f'source: {src}')
         print(f'Settings: object_type: {object_type}, minimum_size: {minimum_size}, maximum_size:{maximum_size}, figuresize:{figuresize}, cmap:{cmap}, , net_avg:{net_avg}, resample:{resample}')
@@ -2647,7 +2608,8 @@ def load_and_concatenate_arrays(src, channels, cell_chann_dim, nucleus_chann_dim
         print(f'Files merged: {count}/{all_imgs}', end='\r', flush=True)
     return
 
-def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img_format='.tif', bitdepth='uint16', cmap='inferno', figuresize=15, normalize=False, nr=1, plot=False, mask_channels=[0,1,2], batch_size=100, timelapse=False, remove_background=False, backgrounds=100, lower_quantile=0.01, save_dtype=np.float32, signal_thresholds=1000, correct_illumination=False, randomize=True, signal_to_noise=5, generate_movies=False, all_to_mip=False, fps=2, pick_slice=False, skip_mode='01'):
+def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img_format='.tif', bitdepth='uint16', cmap='inferno', figuresize=15, normalize=False, nr=1, plot=False, mask_channels=[0,1,2], batch_size=[100,100,100], timelapse=False, remove_background=False, backgrounds=100, lower_quantile=0.01, save_dtype=np.float32, correct_illumination=False, randomize=True, generate_movies=False, all_to_mip=False, fps=2, pick_slice=False, skip_mode='01', settings={}):
+    
     print(f'========== settings ==========')
     print(f'source == {src}')
     print(f'Bitdepth: {bitdepth}: cmap:{cmap}: figuresize:{figuresize}')
@@ -2657,7 +2619,6 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
         regex = f'(?P<plateID>.*)_(?P<wellID>.*)_T(?P<timeID>.*)F(?P<fieldID>.*)L(?P<laserID>..)A(?P<AID>..)Z(?P<sliceID>.*)C(?P<chanID>.*){img_format}'
     if metadata_type == 'cq1':
         regex = f'W(?P<wellID>.*)F(?P<fieldID>.*)T(?P<timeID>.*)Z(?P<sliceID>.*)C(?P<chanID>.*){img_format}'
-	    
     if metadata_type == 'nikon':
         regex = f'(?P<plateID>.*)_(?P<wellID>.*)_T(?P<timeID>.*)F(?P<fieldID>.*)L(?P<laserID>..)A(?P<AID>..)Z(?P<sliceID>.*)C(?P<chanID>.*){img_format}'
     if metadata_type == 'zeis':
@@ -2694,7 +2655,7 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
     
         print(f'========== generating stack ==========')
         merge_channels(src, plot=False)
-        len(src+'stack')
+        #len(src+'stack')
         if plot:
             print(f'plotting {nr} images from {src}/stack')
             plot_arrays(src+'/stack', figuresize, cmap, nr=nr, normalize=normalize)
@@ -2715,7 +2676,15 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
         print(f'plotting {nr} images from {src}/channel_stack')
         plot_4D_arrays(src+'/channel_stack', figuresize, cmap, nr_npz=1, nr=nr)
     nr_of_chan_stacks = len(src+'/channel_stack')
+    
     print(f'========== normalizing concatinated npz ==========: {batch_size} stacks per npz in {nr_of_chan_stacks}')
+    
+    backgrounds, signal_to_noise, signal_thresholds = get_lists_for_normalization(settings=settings)
+
+    print(f'backgrounds:{backgrounds}')
+    print(f'signal_to_noise:{signal_to_noise}')
+    print(f'signal_thresholds:{signal_thresholds}')
+    
     normalize_stack(src+'/channel_stack',
                     backgrounds=backgrounds,
                     lower_quantile=lower_quantile,
@@ -2792,7 +2761,7 @@ def generate_masks(src, object_type, mag, batch_size, channels, cellprob_thresho
         minimum_size = (diameter**2)/10
         maximum_size = minimum_size*50
         merge = merge
-        fnet_avg=True
+        net_avg=True
         resample=True
     elif object_type == 'pathogen':
         refine_masks = False
@@ -2924,36 +2893,75 @@ def mip_all(src, include_first_chan=True):
             np.save(os.path.join(src, filename), concatenated)
     return
 
+def get_cellpose_channels(mask_channels, nucleus_chann_dim, pathogen_chann_dim, cell_chann_dim):
+    cellpose_channels = {}
+    if nucleus_chann_dim in mask_channels:
+        cellpose_channels['nucleus'] = [0, mask_channels.index(nucleus_chann_dim)]
+    if pathogen_chann_dim in mask_channels:
+        cellpose_channels['pathogen'] = [0, mask_channels.index(pathogen_chann_dim)]
+    if cell_chann_dim in mask_channels:
+        cellpose_channels['cell'] = [0, mask_channels.index(cell_chann_dim)]
+    return cellpose_channels
+    
+#def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, experiment='experiment', preprocess=True, masks=True, save=True,  plot=True, channel_settings={}, examples_to_plot=1,   batch_size=4,  #backgrounds=100,  signal_to_noise=5, magnefication=40,  workers=30,  all_to_mip = False, fps=2, pick_slice=False, skip_mode='01',  timelapse = False, verbose=False):
+def preprocess_generate_masks(src, settings={},advanced_settings={}):
 
-def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, experiment='experiment', preprocess=True, masks=True, save=True,  plot=True,  examples_to_plot=1,  channels=[0,1,2,3], cell_chann_dim=1, cell_cp_prob=0, nucleus_chann_dim=0, nucleus_cp_prob=0, pathogen_chann_dim=2,  pathogen_cp_prob=-1,  batch_size=4,  backgrounds=100,  signal_to_noise=5, magnefication=40,  workers=30,  all_to_mip = False, fps=2, pick_slice=False, skip_mode='01',  timelapse = False, verbose=False):
-                                
-    #settings that generally do not change
-    randomize = True
-    remove_background = True
-    lower_quantile = 0.02
-    merge = False
-    count = False
-    # timelapse = False
-    normalize_plots = True
+    channels = settings['channels']
+    nucleus_chann_dim = settings['nucleus_channel']
+    nucleus_cp_prob = settings['nucleus_CP_prob']
+    pathogen_chann_dim = settings['pathogen_channel']
+    pathogen_cp_prob = settings['pathogen_CP_prob']
+    cell_chann_dim = settings['cell_channel']
+    cell_cp_prob = settings['cell_CP_prob']
+    metadata_type = settings['metadata_type']
+    experiment = settings['experiment']
+    magnefication = settings['magnefication']
+    
+    custom_regex = advanced_settings['custom_regex']
+    save = advanced_settings['save']
+    plot = advanced_settings['plot']
+    examples_to_plot = advanced_settings['examples_to_plot']
+    batch_size = advanced_settings['batch_size']
+    preprocess = advanced_settings['preprocess']
+    masks = advanced_settings['masks']
+    timelapse = advanced_settings['timelapse']
+    randomize = advanced_settings['randomize']
+    remove_background = advanced_settings['remove_background']
+    lower_quantile = advanced_settings['lower_quantile']
+    merge = advanced_settings['merge']
+    count = advanced_settings['count']
+    normalize_plots = advanced_settings['normalize_plots']
+    all_to_mip = advanced_settings['all_to_mip']
+    fps = advanced_settings['fps']
+    pick_slice = advanced_settings['pick_slice']
+    skip_mode = advanced_settings['skip_mode']
+    workers = advanced_settings['workers']
+    verbose = advanced_settings['verbose']
+    
+    #backgrounds = [settings['nucleus_background'], settings['cell_background'], settings['pathogen_background']]
+    #backgrounds = [1 if x == 0 else x for x in backgrounds]
+    #backgrounds = [item for item in backgrounds if item is not None]
+    
+    #signal_to_noise = [settings['nucleus_Signal_to_noise'], settings['cell_Signal_to_noise'], settings['pathogen_Signal_to_noise']]
+    #signal_to_noise = [item for item in signal_to_noise if item is not None]
+    
+    #signal_thresholds = []
+    #for i,element in enumerate(backgrounds):
+    #    signal_thresholds = signal_thresholds+[backgrounds[i]*signal_to_noise[i]]
 
+    mask_channels = [nucleus_chann_dim, cell_chann_dim, pathogen_chann_dim]
+    mask_channels = [item for item in mask_channels if item is not None]
+    
     if preprocess and not masks:
         print(f'WARNING: channels for mask generation are defined when preprocess = True')
-
-    mask_channels = [nucleus_chann_dim, pathogen_chann_dim, cell_chann_dim]
     
-    cellpose_channels = [item for item in mask_channels if item is not None]
-
     if isinstance(merge, bool):
         merge = [merge]*3
     if isinstance(save, bool):
         save = [save]*3
     if isinstance(count, bool):
         count = [count]*4
-    if isinstance(backgrounds, int):
-        backgrounds = [backgrounds]*4
-        signal_thresholds = backgrounds*signal_to_noise
-    else:
-        signal_thresholds = backgrounds*signal_to_noise
+
     if preprocess: 
         preprocess_img_data(src,
                             metadata_type=metadata_type,
@@ -2964,34 +2972,28 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
                             batch_size=batch_size,
                             timelapse=timelapse,
                             remove_background=remove_background,
-                            backgrounds=backgrounds,
                             lower_quantile=lower_quantile,
                             save_dtype=np.float32,
-                            signal_thresholds=signal_thresholds,
                             correct_illumination=False,
                             randomize=randomize,
-                            signal_to_noise=signal_to_noise,
-                            generate_movies=False,
+                            generate_movies=timelapse,
                             nr=examples_to_plot,
                             all_to_mip=all_to_mip,
                             fps=fps,
 			    pick_slice=pick_slice,
-			    skip_mode=skip_mode)
+			    skip_mode=skip_mode,
+			    settings = settings)
     if masks:
-    
-        if len(cellpose_channels) == 2:
-            chans = [0,1]
-        elif len(cellpose_channels) == 3:
-            chans = [0,2]
-        elif len(cellpose_channels) == 1:
-            chans = [0,0]
+
+        cellpose_channels = get_cellpose_channels(mask_channels, nucleus_chann_dim, pathogen_chann_dim, cell_chann_dim)
 
         if cell_chann_dim != None:
+            cell_channels = cellpose_channels['cell']
             generate_masks(src,
                            object_type='cell',
                            mag=magnefication,
                            batch_size=batch_size,
-                           channels=chans,
+                           channels=cell_channels,
                            cellprob_threshold=cell_cp_prob,
                            plot=plot,
                            nr=examples_to_plot,
@@ -3003,11 +3005,12 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
                            file_type='.npz')
             torch.cuda.empty_cache()
         if nucleus_chann_dim != None:
+            nucleus_channels = cellpose_channels['nucleus']
             generate_masks(src,
                            object_type='nuclei',
                            mag=magnefication,
                            batch_size=batch_size,
-                           channels=[0,0],
+                           channels=nucleus_channels,
                            cellprob_threshold=nucleus_cp_prob,
                            plot=plot,
                            nr=examples_to_plot,
@@ -3019,11 +3022,12 @@ def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, 
                            file_type='.npz')
             torch.cuda.empty_cache()
         if pathogen_chann_dim != None:
+            pathogen_channels = cellpose_channels['pathogen']
             generate_masks(src,
                            object_type='pathogen',
                            mag=magnefication,
                            batch_size=batch_size,
-                           channels=[1,0],
+                           channels=pathogen_channels,
                            cellprob_threshold=pathogen_cp_prob,
                            plot=plot,
                            nr=examples_to_plot,
