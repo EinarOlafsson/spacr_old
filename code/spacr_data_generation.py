@@ -161,6 +161,7 @@ from torch.cuda.amp import autocast
 import pandas as pd
 import numpy as np
 from PIL import Image, ImageTk, ImageOps
+import tifffile
 
 # other
 from queue import Queue
@@ -174,10 +175,11 @@ import xgboost as xgb
 #from btrack import datasets
 import moviepy.editor as mpy
 import ipywidgets as widgets
-from ipywidgets import IntProgress, interact, interact_manual, Button, HBox
+from ipywidgets import IntProgress, interact, interact_manual, Button, HBox, IntSlider
 from IPython.display import display, clear_output, HTML
 
 # Data visualization
+#%matplotlib inline
 import seaborn as sns
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -927,6 +929,42 @@ def get_lists_for_normalization(settings):
             signal_to_noise.append(settings['pathogen_Signal_to_noise'])
             signal_thresholds.append(settings['pathogen_Signal_to_noise']*settings['pathogen_background'])
     return backgrounds, signal_to_noise, signal_thresholds
+    
+def normalize_timelapse(src, lower_quantile=0.01, save_dtype=np.float32):
+    paths = [os.path.join(src, file) for file in os.listdir(src) if file.endswith('.npz')]
+    output_fldr = os.path.join(os.path.dirname(src), 'norm_timelapse_stack')
+    os.makedirs(output_fldr, exist_ok=True)
+
+    for file_index, path in enumerate(paths):
+        with np.load(path) as data:
+            stack = data['data']
+            filenames = data['filenames']
+
+        normalized_stack = np.zeros_like(stack, dtype=save_dtype)
+        file = os.path.basename(path)
+        name, _ = os.path.splitext(file)
+
+        for chan_index in range(stack.shape[-1]):
+            single_channel = stack[:, :, :, chan_index]
+            first_image = single_channel[0]
+
+            global_lower = np.quantile(first_image[first_image != 0], lower_quantile)
+            global_upper = np.quantile(first_image[first_image != 0], 0.98)
+
+            for array_index in range(single_channel.shape[0]):
+                arr_2d = single_channel[array_index]
+                arr_2d_rescaled = exposure.rescale_intensity(arr_2d, in_range=(global_lower, global_upper), out_range='dtype')
+                normalized_stack[array_index, :, :, chan_index] = arr_2d_rescaled
+
+                print(f'Progress: files {file_index+1}/{len(paths)}, channels:{chan_index+1}/{stack.shape[-1]}, arrays:{array_index+1}/{single_channel.shape[0]}', end='\r')
+
+        save_loc = os.path.join(output_fldr, f'{name}_norm_timelapse.npz')
+        np.savez(save_loc, data=normalized_stack, filenames=filenames)
+
+        del normalized_stack, stack, filenames
+        gc.collect()
+
+    print(f'\nSaved normalized stacks in: {output_fldr}')
 
 def normalize_stack(src, backgrounds=[100,100,100], remove_background=False, lower_quantile=0.01, save_dtype=np.float32, signal_to_noise=[5,5,5], signal_thresholds=[1000,1000,1000], correct_illumination=False):
 
@@ -1047,7 +1085,7 @@ def measure_eccentricity_and_intensity(mask, image):
     df = pd.DataFrame(properties)
     return df
 
-def timelapse_segmentation(batch, chans, model, diameter, interpolate=True):
+def timelapse_segmentation(batch, output_folder, path, chans, model, diameter, interpolate=True):
 
     def calculate_region_props(masks):
         all_props = []
@@ -1065,7 +1103,7 @@ def timelapse_segmentation(batch, chans, model, diameter, interpolate=True):
             } for prop in props])
         return all_props
 
-    def match_objects(all_props):
+    def match_objects_v1(all_props):
         object_mappings = [{} for _ in range(len(all_props))]
         current_id = 1  # Start object IDs from 1
 
@@ -1113,6 +1151,60 @@ def timelapse_segmentation(batch, chans, model, diameter, interpolate=True):
                 if curr_label not in object_mappings[i-1].values():
                     current_id += 1
         return object_mappings
+        
+    def match_objects(all_props):
+        object_mappings = [{} for _ in range(len(all_props))]
+        current_id = 1
+        some_threshold = 0.1
+
+        # Pre-compute all properties in a vectorized form for efficiency
+        all_centroids = [np.array([prop['centroid'] for prop in frame_props]) for frame_props in all_props]
+        all_areas = [np.array([prop['area'] for prop in frame_props]) for frame_props in all_props]
+        all_eccentricities = [np.array([prop['eccentricity'] for prop in frame_props]) for frame_props in all_props]
+        all_perimeters = [np.array([prop['perimeter'] for prop in frame_props]) for frame_props in all_props]
+        all_orientations = [np.array([prop['orientation'] for prop in frame_props]) for frame_props in all_props]
+
+        # Weights for each property
+        weights = np.array([5, 3, 2, 2, 1])  # centroid, area, eccentricity, perimeter, orientation
+
+        for i in range(1, len(all_props)):
+            if len(all_props[i-1]) == 0 or len(all_props[i]) == 0:
+                continue  # Skip if no objects to match
+
+            # Standardize properties for the current and previous frame
+            centroids_zs = zscore(np.vstack((all_centroids[i-1], all_centroids[i])), axis=0)
+            areas_zs = zscore(np.hstack((all_areas[i-1], all_areas[i])))
+            eccentricities_zs = zscore(np.hstack((all_eccentricities[i-1], all_eccentricities[i])))
+            perimeters_zs = zscore(np.hstack((all_perimeters[i-1], all_perimeters[i])))
+            orientations_zs = zscore(np.hstack((all_orientations[i-1], all_orientations[i])))
+
+            # Calculate distances between all pairs using standardized properties
+            dist_matrix = np.zeros((len(all_props[i-1]), len(all_props[i])))
+
+            # Calculate Euclidean distances for centroids separately due to being multi-dimensional
+            centroid_distances = cdist(centroids_zs[:len(all_props[i-1])], centroids_zs[len(all_props[i-1]):], 'euclidean')
+            dist_matrix += weights[0] * centroid_distances
+
+            # Calculate absolute differences for other properties
+            for prop_index, prev_frame_props in enumerate([areas_zs, eccentricities_zs, perimeters_zs, orientations_zs], start=1):
+                dist_matrix += weights[prop_index] * cdist(prev_frame_props[:len(all_props[i-1])][:, np.newaxis], 
+                                                           prev_frame_props[len(all_props[i-1]):][:, np.newaxis], 
+                                                           'cityblock')
+
+            # Match objects based on minimum distance
+            for prev_index in range(dist_matrix.shape[0]):
+                current_index = np.argmin(dist_matrix[prev_index])
+                min_distance = dist_matrix[prev_index, current_index]
+
+                # This is a simplified example; additional checks might be necessary
+                if min_distance < some_threshold:
+                    prev_label = all_props[i-1][prev_index]['label']
+                    curr_label = all_props[i][current_index]['label']
+                    object_mappings[i][curr_label] = object_mappings[i-1].get(prev_label, current_id)
+                    if curr_label not in object_mappings[i-1].values():
+                        current_id += 1
+
+        return object_mappings
 
     def relabel_masks(masks, object_mappings):
         relabeled_masks = np.zeros_like(masks)
@@ -1151,28 +1243,84 @@ def timelapse_segmentation(batch, chans, model, diameter, interpolate=True):
                 if np.any(overlap_mask):
                     interpolated_masks[frame][overlap_mask] = mapping
         return interpolated_masks
+        
+    def save_timelapse_masks(mask_stack, output_folder, folder, path):
+        # Ensure the target directory exists
+        target_dir = os.path.join(output_folder, folder)
+        os.makedirs(target_dir, exist_ok=True)
 
-    #batch_reshaped = batch.reshape((-1,) + batch.shape[2:])
+        # Extract the base name of the original file and prepare the new file name
+        file_name = os.path.basename(path)
+        name, ext = os.path.splitext(file_name)
+        new_name = f"{name}.tif"
+        new_path = os.path.join(target_dir, new_name)
+
+        # Save the entire mask stack as a single multi-page (4D) TIFF file
+        tifffile.imwrite(new_path, mask_stack, imagej=True)
+
+        print(f"4D masks saved in {new_path}")
+        
+    def plot_timelapse(data, frame_index=0, cmap='gray'):
+        if data.ndim == 4:
+            frame_data = data[frame_index]
+        else:
+            frame_data = data
+
+        if frame_data.ndim == 2:  # Single mask or grayscale image
+            plt.figure(figsize=(10, 10))
+            plt.imshow(frame_data, cmap=cmap)
+            plt.axis('off')
+            plt.show()
+        elif frame_data.ndim == 3:
+            channels = frame_data.shape[-1]
+            if channels in [3, 4]:  # RGB or RGBA image
+                plt.figure(figsize=(10, 10))
+                plt.imshow(frame_data)
+                plt.axis('off')
+                plt.show()
+            else:
+                # Adjust the number of subplots based on the number of channels
+                cols = min(channels, 4)  # Limit the number of columns to 4 for readability
+                rows = np.ceil(channels / cols).astype(int)  # Calculate required rows
+                fig, axes = plt.subplots(rows, cols, figsize=(cols * 5, rows * 5))
+                if channels == 1:
+                    axes = [axes]  # Make axes iterable if only one subplot
+                for i, ax in enumerate(axes.flat):
+                    if i < channels:
+                        ax.imshow(frame_data[:, :, i], cmap=cmap)
+                        ax.set_title(f'Channel {i}')
+                    ax.axis('off')
+                plt.tight_layout()
+                plt.show()
+                
+    def create_interactive_plot(data, cmap='gray'):
+        max_index = data.shape[0] - 1 if data.ndim == 4 else 0
+        interact(lambda frame_index: plot_timelapse(data, frame_index, cmap),frame_index=IntSlider(min=0, max=max_index, step=1, value=0))
+        
+    #create_interactive_plot(batch, cmap='inferno')
+
     masks, flows, styles, diams = model.eval(batch,
                                              diameter=diameter,
                                              channels=chans,
                                              do_3D=True,
                                              anisotropy=None)
                                              
-    print(f'========== Finished generating masks ==========')
-    #masks_reshaped = masks.reshape(batch.shape[:3])
+    save_timelapse_masks(mask_stack=masks, output_folder=output_folder, folder='CP_masks', path=path)
+    
+    create_interactive_plot(masks, cmap='gray')
+
     props = calculate_region_props(masks)
-    print(f'========== Finished calculating props for masks ==========')
     mapping = match_objects(props)
-    print(f'========== Finished mapping objects across time ==========')
-    masks_relabeled = relabel_masks(masks_reshaped, mapping)
-    print(f'========== Finished relabeling masks ==========')
+    masks = relabel_masks(masks, mapping)
+    
+    save_timelapse_masks(mask_stack=masks, output_folder=output_folder, folder='relabled', path=path)
 
     if interpolate:
-        masks_relabeled = interpolate_missing_objects(masks_relabeled, batch.shape[0])
-        print(f'========== Finished interpolating missing objects ==========')
+        masks = interpolate_missing_objects(masks, batch.shape[0])
+        save_timelapse_masks(mask_stack=masks, output_folder=output_folder, folder='interpolated', path=path)
 
-    masks_filtered = filter_objects(masks_relabeled)
+    masks_filtered = filter_objects(masks)
+    save_timelapse_masks(mask_stack=masks, output_folder=output_folder, folder='filtered', path=path)
 
     return masks_filtered
 
@@ -1389,7 +1537,8 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
             print(f'timelaps is only compatible with npz files')
             return
 
-    chans = [2, 1] if model_name == 'cyto2' else [0,0] if model_name == 'nuclei' else [2,0] if model_name == 'cyto' else [2, 0] 
+    chans = [2, 1] if model_name == 'cyto2' else [0,0] if model_name == 'nuclei' else [2,0] if model_name == 'cyto' else [2, 0]
+    
     if verbose == True:
         print(f'source: {src}')
         print(f'Settings: object_type: {object_type}, minimum_size: {minimum_size}, maximum_size:{maximum_size}, figuresize:{figuresize}, cmap:{cmap}, , net_avg:{net_avg}, resample:{resample}')
@@ -1464,7 +1613,7 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                     #    print(f'before relabeling')
                     #    plot_masks(batch, mask_stack, flows, figuresize=figuresize, cmap=cmap, nr=batch_size, file_type='.npz')
                     print(f'========== generating timelapse masks ==========')
-                    mask_stack = timelapse_segmentation(batch,chans, model, diameter)
+                    mask_stack = timelapse_segmentation(batch, output_folder, path, chans, model, diameter)
                     overall_average_size = 0.000
                     #mask_stack = track_objects_over_time(mask_stack, step_size=2, config=config)
                     #if plot:
@@ -2681,11 +2830,12 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
     
     backgrounds, signal_to_noise, signal_thresholds = get_lists_for_normalization(settings=settings)
 
-    print(f'backgrounds:{backgrounds}')
-    print(f'signal_to_noise:{signal_to_noise}')
-    print(f'signal_thresholds:{signal_thresholds}')
+    #print(f'backgrounds:{backgrounds}')
+    #print(f'signal_to_noise:{signal_to_noise}')
+    #print(f'signal_thresholds:{signal_thresholds}')
     
-    normalize_stack(src+'/channel_stack',
+    if not timelapse:
+        normalize_stack(src+'/channel_stack',
                     backgrounds=backgrounds,
                     lower_quantile=lower_quantile,
                     save_dtype=save_dtype,
@@ -2693,6 +2843,9 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
                     correct_illumination=correct_illumination,
                     signal_to_noise=signal_to_noise, 
                     remove_background=remove_background)
+    else:
+        normalize_timelapse(src, lower_quantile=lower_quantile, save_dtype=save_dtype)
+        
     if plot:
         plot_4D_arrays(src+'/norm_channel_stack', nr_npz=1, nr=nr)
     if generate_movies:
@@ -2733,7 +2886,7 @@ def get_diam(mag, obj):
     diamiter = mag*scale
     return diamiter
 
-def generate_masks(src, object_type, mag, batch_size, channels, cellprob_threshold, plot, save, verbose, nr=1, start_at=0, merge=False, file_type='.npz', count=False, timelapse=False):
+def generate_masks(src, object_type, mag, batch_size, channels, cellprob_threshold, plot, save, verbose, nr=1, start_at=0, merge=False, file_type='.npz', count=False, timelapse=False, settings={}):
     if verbose:
         logging.getLogger('btrack').setLevel(logging.WARNING)
     else:
@@ -2744,7 +2897,10 @@ def generate_masks(src, object_type, mag, batch_size, channels, cellprob_thresho
         filter_size = False
         filter_dimm = False
         remove_border_objects = False
-        model_name = 'cyto2'
+        if settings['nucleus_channel'] is None:
+            model_name = 'cyto'
+        else:
+            model_name = 'cyto2'
         diameter = get_diam(mag, obj='cell')
         minimum_size = (diameter**2)/10
         maximum_size = minimum_size*50
@@ -3002,7 +3158,8 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                            verbose=verbose,
                            count=count[0],
                            timelapse=timelapse,
-                           file_type='.npz')
+                           file_type='.npz',
+                           settings=settings)
             torch.cuda.empty_cache()
         if nucleus_chann_dim != None:
             nucleus_channels = cellpose_channels['nucleus']
@@ -3019,7 +3176,8 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                            verbose=verbose,
                            count=count[1],
                            timelapse=timelapse,
-                           file_type='.npz')
+                           file_type='.npz',
+                           settings=settings)
             torch.cuda.empty_cache()
         if pathogen_chann_dim != None:
             pathogen_channels = cellpose_channels['pathogen']
@@ -3036,7 +3194,8 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                            verbose=verbose,
                            count=count[2],
                            timelapse=timelapse,
-                           file_type='.npz')
+                           file_type='.npz',
+                           settings=settings)
             torch.cuda.empty_cache()
 	#Concatinate stack with masks
         load_and_concatenate_arrays(src, channels, cell_chann_dim, nucleus_chann_dim, pathogen_chann_dim)
