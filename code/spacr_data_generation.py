@@ -447,19 +447,30 @@ def remove_advanced_filter_cells(stack, mask_dim, cell_dim, nucleus_dim, pathoge
     return stack
 
 def remove_noninfected(stack, cell_dim, nucleus_dim, pathogen_dim):
-    cell_mask = stack[:, :, cell_dim]
-    nucleus_mask = stack[:, :, nucleus_dim]
-    pathogen_mask = stack[:, :, pathogen_dim]
-
+    if not cell_dim is None:
+    	cell_mask = stack[:, :, cell_dim]
+    else:
+    	cell_mask = np.zeros_like(stack)
+    if not nucleus_dim is None:
+    	nucleus_mask = stack[:, :, nucleus_dim]
+    else:
+    	nucleus_mask = np.zeros_like(stack)
+    	
+    if not pathogen_dim is None:
+    	pathogen_mask = stack[:, :, pathogen_dim]
+    else:
+    	pathogen_mask = np.zeros_like(stack)
+	
     for cell_label in np.unique(cell_mask)[1:]:
         cell_region = cell_mask == cell_label
         labels_in_cell = np.unique(pathogen_mask[cell_region])
         if len(labels_in_cell) <= 1:
             cell_mask[cell_region] = 0
             nucleus_mask[cell_region] = 0
-
-    stack[:, :, cell_dim] = cell_mask
-    stack[:, :, nucleus_dim] = nucleus_mask
+    if not cell_dim is None:
+    	stack[:, :, cell_dim] = cell_mask
+    if not nucleus_dim is None:
+    	stack[:, :, nucleus_dim] = nucleus_mask
     return stack
 
 def remove_border_pathogens(stack, cell_dim, nucleus_dim, pathogen_dim):
@@ -492,7 +503,10 @@ def remove_border_pathogens(stack, cell_dim, nucleus_dim, pathogen_dim):
     return stack
 
 def remove_outside_objects(stack, cell_dim, nucleus_dim, pathogen_dim):
-    cell_mask = stack[:, :, cell_dim]
+    if not cell_dim is None:
+    	cell_mask = stack[:, :, cell_dim]
+    else:
+    	return stack
     nucleus_mask = stack[:, :, nucleus_dim]
     pathogen_mask = stack[:, :, pathogen_dim]
     pathogen_labels = np.unique(pathogen_mask)[1:]
@@ -508,164 +522,6 @@ def remove_outside_objects(stack, cell_dim, nucleus_dim, pathogen_dim):
     stack[:, :, nucleus_dim] = nucleus_mask
     stack[:, :, pathogen_dim] = pathogen_mask
     return stack
-
-
-def plot_merged_old(src, src_list=None, cmap='inferno', cell_mask_dim=4, nucleus_mask_dim=5, pathogen_mask_dim=6, channel_dims=[0,1,2,3], figuresize=20, nr=1, print_object_number=True, normalize=False, normalization_percentiles=[1,99], overlay=True, overlay_chans=[3,2,0], outline_thickness=3, outline_color='gbr', backgrounds=[100,100,100,100], remove_background=False, filter_objects=False, filter_min_max=[[0,100000],[0,100000],[0,100000],[0,100000]], include_multinucleated=True, include_multiinfected=True, include_noninfected=True, advanced_filter=False, verbose=False):
-    mask_dims = [cell_mask_dim, nucleus_mask_dim, pathogen_mask_dim]
-    mask_dims = [element for element in mask_dims if element is not None]
-	
-    if verbose:
-        if isinstance(src, str):
-            print(f'src:{src}, cmap:{cmap}, mask_dims:{mask_dims}, channel_dims:{channel_dims}, figuresize:{figuresize}, nr:{nr}, print_object_number:{print_object_number}, normalize:{normalize}, normalization_percentiles:{normalization_percentiles}, overlay:{overlay}, overlay_chans:{overlay_chans}, outline_thickness:{outline_thickness}, outline_color:{outline_color}, backgrounds:{backgrounds}, remove_background:{remove_background},filter_objects:{filter_objects},filter_min_max:{filter_min_max},verbose:{verbose}')
-        else:
-            print(f'src:{os.path.dirname(src[0])}, cmap:{cmap}, mask_dims:{mask_dims}, channel_dims:{channel_dims}, figuresize:{figuresize}, nr:{nr}, print_object_number:{print_object_number}, normalize:{normalize}, normalization_percentiles:{normalization_percentiles}, overlay:{overlay}, overlay_chans:{overlay_chans}, outline_thickness:{outline_thickness}, outline_color:{outline_color}, backgrounds:{backgrounds}, remove_background:{remove_background},filter_objects:{filter_objects},filter_min_max:{filter_min_max},verbose:{verbose}')
-
-    font = figuresize/2
-    index = 0
-    if outline_color == 'rgb':
-        outline_colors = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]  # rgb
-    elif outline_color == 'bgr':
-        outline_colors = [[0, 0, 1], [0, 1, 0], [1, 0, 0]]  # bgr
-    elif outline_color == 'gbr':
-        outline_colors = [[0, 1, 0], [0, 0, 1], [1, 0, 0]]  # gbr
-    elif outline_color == 'rbg':
-        outline_colors = [[1, 0, 0], [0, 0, 1], [0, 1, 0]]  # rbg
-    else:
-        outline_colors = [[1, 0, 0], [0, 0, 1], [0, 1, 0]]  # rbg
-    
-    if src_list == None:
-        files = os.listdir(src)
-        
-    if src_list != None:
-        files = src_list
-    
-    for file in files:
-        
-        path = os.path.join(src, file)
-            
-        print(f'{path}')
-        stack = np.load(path)
-        if not include_noninfected:
-            stack = remove_noninfected(stack, cell_mask_dim, nucleus_mask_dim, pathogen_mask_dim)
-        if filter_objects:
-            stack = remove_outside_objects(stack, cell_mask_dim, nucleus_mask_dim, pathogen_mask_dim)
-
-            for i, mask_dim in enumerate(mask_dims):
-                min_max = filter_min_max[i]
-                mask = np.take(stack, mask_dim, axis=2)
-                props = measure.regionprops_table(mask, properties=['label', 'area'])  # Measure properties of labeled image regions.
-                avg_size_before = np.mean(props['area'])
-                total_count_before = len(props['label'])
-
-                valid_labels = props['label'][np.logical_and(props['area'] > min_max[0], props['area'] < min_max[1])]  # Select labels of valid size.
-                stack[:, :, mask_dim] = np.isin(mask, valid_labels) * mask  # Keep only valid objects.
-
-                props_after = measure.regionprops_table(stack[:, :, mask_dim], properties=['label', 'area']) 
-                avg_size_after = np.mean(props_after['area'])
-                total_count_after = len(props_after['label'])
-                
-                if mask_dim == cell_mask_dim:
-                    if include_multinucleated is not True:
-                        stack = remove_multiobject_cells(stack, mask_dim, cell_mask_dim, nucleus_mask_dim, pathogen_mask_dim, object_dim=pathogen_mask_dim)
-                    if include_multiinfected is not True:
-                        stack = remove_multiobject_cells(stack, mask_dim, cell_mask_dim, nucleus_mask_dim, pathogen_mask_dim, object_dim=nucleus_mask_dim)
-                    if advanced_filter:
-                        stack = remove_advanced_filter_cells(stack, mask_dim, cell_dim, nucleus_dim, pathogen_dim, object_dim)
-                    #if include_border_pathogens is not True:
-                    #    stack = remove_border_pathogens(stack, cell_mask_dim, nucleus_mask_dim, pathogen_mask_dim)
-                    cell_area_before = avg_size_before
-                    cell_count_before = total_count_before
-                    cell_area_after = avg_size_after
-                    cell_count_after = total_count_after
-                if mask_dim == nucleus_mask_dim:
-                    nucleus_area_before = avg_size_before
-                    nucleus_count_before = total_count_before
-                    nucleus_area_after = avg_size_after
-                    nucleus_count_after = total_count_after
-                if mask_dim == pathogen_mask_dim:
-                    pathogen_area_before = avg_size_before
-                    pathogen_count_before = total_count_before
-                    pathogen_area_after = avg_size_after
-                    pathogen_count_after = total_count_after
-        image = np.take(stack, channel_dims, axis=2)
-        if remove_background:
-            for chan_index, channel in enumerate(range(image.shape[-1])):
-                single_channel = stack[:, :, channel]  # Extract the specific channel
-                background = backgrounds[chan_index]
-                single_channel[single_channel < background] = 0
-                image[:, :, channel] = single_channel
-        if normalize:
-            image = normalize_to_dtype(array=image, q1=normalization_percentiles[0], q2=normalization_percentiles[1])
-
-        rgb_image = np.take(image, overlay_chans, axis=-1)
-        rgb_image = rgb_image.astype(float)
-        rgb_image -= rgb_image.min()
-        rgb_image /= rgb_image.max()
-
-        if overlay:
-            overlayed_image = rgb_image.copy()
-            for i, mask_dim in enumerate(mask_dims):
-                mask = np.take(stack, mask_dim, axis=2)
-                outline = np.zeros_like(mask)
-                # Find the contours of the objects in the mask
-                for j in np.unique(mask)[1:]:
-                    contours = find_contours(mask == j, 0.5)
-                    for contour in contours:
-                        contour = contour.astype(int)
-                        outline[contour[:, 0], contour[:, 1]] = j
-                
-                # Make the outline thicker
-                outline = dilation(outline, square(outline_thickness))
-
-                # Overlay the outlines onto the RGB image
-                for j in np.unique(outline)[1:]:
-                    overlayed_image[outline == j] = outline_colors[i % len(outline_colors)]  # Use different color for each mask
-        if index < nr:
-            index += 1
-            if overlay:
-                fig, ax = plt.subplots(1, image.shape[-1] + len(mask_dims) + 1, figsize=(4 * figuresize, figuresize)) # Changed here
-            else:
-                fig, ax = plt.subplots(1, image.shape[-1] + len(mask_dims), figsize=(4 * figuresize, figuresize))
-            
-            if overlay:
-                ax[0].imshow(overlayed_image)
-                ax[0].set_title('Overlayed Image')
-                ax_index = 1
-            else:
-                ax_index = 0
-            
-            if filter_objects:
-                if cell_mask_dim is not None:
-                    print(f'removed {cell_count_before-cell_count_after} cells, cell size from {cell_area_before} to {cell_area_after}')
-                if nucleus_mask_dim is not None:
-                    print(f'removed {nucleus_count_before-nucleus_count_after} nuclei, nuclei size from {nucleus_area_before} to {nucleus_area_after}')
-                if pathogen_mask_dim is not None:
-                    print(f'removed {pathogen_count_before-pathogen_count_after} pathogens, pathogen size from {pathogen_area_before} to {pathogen_area_after}')
-            
-            for v in range(0, image.shape[-1]):
-                ax[v+ax_index].imshow(image[..., v], cmap=cmap)  # display first channel
-                ax[v+ax_index].set_title('Image - Channel'+str(v))
-
-            for i, mask_dim in enumerate(mask_dims):
-                mask = np.take(stack, mask_dim, axis=2)
-                unique_labels = np.unique(mask)
-                num_objects = len(unique_labels[unique_labels != 0])
-                random_colors = np.random.rand(num_objects+1, 4)
-                random_colors[:, 3] = 1
-                random_colors[0, :] = [0, 0, 0, 1]
-                random_cmap = mpl.colors.ListedColormap(random_colors)
-                
-                ax[i + image.shape[-1]+ax_index].imshow(mask, cmap=random_cmap)
-                ax[i + image.shape[-1]+ax_index].set_title('Mask '+ str(i))
-                if print_object_number:
-                    unique_objects = np.unique(mask)[1:]
-                    for obj in unique_objects:
-                        cy, cx = ndi.center_of_mass(mask == obj)
-                        ax[i + image.shape[-1]+ax_index].text(cx, cy, str(obj), color='white', fontsize=font, ha='center', va='center')
-            plt.tight_layout()
-            plt.show()
-        else:
-            return
             
 def plot_merged(src, settings):
     
@@ -692,7 +548,9 @@ def plot_merged(src, settings):
         return outline_colors
     
     def filter_objects_in_plot(stack, cell_mask_dim, nucleus_mask_dim, pathogen_mask_dim, mask_dims, filter_min_max, include_multinucleated, include_multiinfected):
+
         stack = remove_outside_objects(stack, cell_mask_dim, nucleus_mask_dim, pathogen_mask_dim)
+        
         for i, mask_dim in enumerate(mask_dims):
             if not filter_min_max is None:
                 min_max = filter_min_max[i]
@@ -713,9 +571,9 @@ def plot_merged(src, settings):
             total_count_after = len(props_after['label'])
 
             if mask_dim == cell_mask_dim:
-                if settings['include_multinucleated'] is not True:
+                if include_multinucleated is False and nucleus_mask_dim is not None:
                     stack = remove_multiobject_cells(stack, mask_dim, cell_mask_dim, nucleus_mask_dim, pathogen_mask_dim, object_dim=pathogen_mask_dim)
-                if settings['include_multiinfected'] is not True:
+                if include_multiinfected is False and cell_mask_dim is not None and pathogen_mask_dim is not None:
                     stack = remove_multiobject_cells(stack, mask_dim, cell_mask_dim, nucleus_mask_dim, pathogen_mask_dim, object_dim=nucleus_mask_dim)
                 cell_area_before = avg_size_before
                 cell_count_before = total_count_before
@@ -829,17 +687,17 @@ def plot_merged(src, settings):
 
     for file in os.listdir(src):
         path = os.path.join(src, file)
-        print(f'{path}')
         stack = np.load(path)
-        
+        print(f'Loaded: {path}')
         if not settings['include_noninfected']:
-            if not settings['pathogen_mask_dim'] is None:
+            if settings['pathogen_mask_dim'] is not None and settings['cell_mask_dim'] is not None:
                 stack = remove_noninfected(stack, settings['cell_mask_dim'], settings['nucleus_mask_dim'], settings['pathogen_mask_dim'])
-        
-        if not settings['include_multiinfected'] is None or settings['include_multinucleated'] is None or settings['filter_min_max'] is None:
+
+        if settings['include_multiinfected'] is not None or settings['include_multinucleated'] is not None or settings['filter_min_max'] is not None:
             stack = filter_objects_in_plot(stack, settings['cell_mask_dim'], settings['nucleus_mask_dim'], settings['pathogen_mask_dim'], mask_dims, settings['filter_min_max'], settings['include_multinucleated'], settings['include_multiinfected'])
-        
+
         image = np.take(stack, settings['channel_dims'], axis=2)
+
         overlayed_image, image, outlines = normalize_and_outline(image, settings['remove_background'], settings['backgrounds'], settings['normalize'], settings['normalization_percentiles'], settings['overlay'], settings['overlay_chans'], mask_dims, outline_colors, settings['outline_thickness'])
         
         if index < settings['nr']:
