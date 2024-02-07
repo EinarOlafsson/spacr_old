@@ -171,8 +171,7 @@ from concurrent.futures import ThreadPoolExecutor
 import threading  # Make sure this line is here
 from pathlib import Path
 import xgboost as xgb
-#import btrack
-#from btrack import datasets
+
 import moviepy.editor as mpy
 import ipywidgets as widgets
 from ipywidgets import IntProgress, interact, interact_manual, Button, HBox, IntSlider
@@ -1362,29 +1361,6 @@ def timelapse_segmentation(batch, output_folder, path, chans, model, diameter, i
     save_timelapse_masks(mask_stack=masks, output_folder=output_folder, folder='filtered', path=path)
 
     return masks_filtered
-
-def track_objects_over_time(masks, step_size=1, config=None):
-    # Initialize btrack
-    masks = np.stack(masks, axis=0)
-    properties=['area', 'major_axis_length', 'minor_axis_length']
-    objects = btrack.utils.segmentation_to_objects(masks, properties=tuple(properties))
-    btrack.constants.VERBOSE = False
-
-    # initialise a tracker session using a context manager
-    with btrack.BayesianTracker() as tracker:
-        tracker.configure(config) # configure the tracker using a config file
-        tracker.max_search_radius = 50
-        tracker.tracking_updates = ["MOTION", "VISUAL"]
-        tracker.features = properties
-        tracker.append(objects) # append the objects to be tracked
-        tracker.volume=((0, masks.shape[1]), (0, masks.shape[2])) # Set the tracking volume
-        tracker.track(step_size=step_size) # track them (in interactive mode)
-        tracker.optimize() # generate hypotheses and run the global optimizer
-        data, properties, graph = tracker.to_napari() # get the tracks in a format for napari visualization
-        tracks = tracker.tracks # store the tracks
-        cfg = tracker.configuration # store the configuration
-    masks_relabelled = btrack.utils.update_segmentation(masks, tracks)
-    return [masks_relabelled[i] for i in range(masks_relabelled.shape[0])]
 
 def plot_masks_to_image(src, fov='', figuresize=20, cmap='gist_ncar', print_object_number=True):
     def fig2img(fig):
@@ -2957,10 +2933,6 @@ def get_diam(mag, obj):
     return diamiter
 
 def generate_masks(src, object_type, mag, batch_size, channels, cellprob_threshold, plot, save, verbose, nr=1, start_at=0, merge=False, file_type='.npz', timelapse=False, settings={}):
-    if verbose:
-        logging.getLogger('btrack').setLevel(logging.WARNING)
-    else:
-        logging.getLogger('btrack').setLevel(logging.INFO)
     
     if object_type == 'cell':
         refine_masks = False
