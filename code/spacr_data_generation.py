@@ -1559,8 +1559,52 @@ def filter_cp_masks(masks, flows, refine_masks, filter_size, minimum_size, maxim
                 plot_masks(batch=image, masks=mask, flows=flow, cmap='inferno', figuresize=figuresize, nr=1, file_type='.npz', print_object_number=True)
         mask_stack.append(mask)
     return mask_stack
+            
+def save_object_counts_to_database(arrays, object_type, file_names, db_path, added_string):
     
-def identify_masks(src, object_type, model_name, batch_size, channels, diameter, minimum_size, maximum_size, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', refine_masks=True, filter_size=True, filter_dimm=True, remove_border_objects=False, verbose=False, plot=False, merge=False, save=True, start_at=0, file_type='.npz', count=False, net_avg=True, resample=True, timelapse=False):
+    def count_objects(mask):
+            """Count unique objects in a mask, assuming 0 is the background."""
+            unique, counts = np.unique(mask, return_counts=True)
+            # Assuming 0 is the background label, remove it from the count
+            if unique[0] == 0:
+                return len(unique) - 1
+            return len(unique)
+
+    records = []
+    for mask, file_name in zip(arrays, file_names):
+        object_count = count_objects(mask)
+        count_type = f"{object_type}{added_string}"  # Combines object_type with added_string for unique count_type
+        
+        # Append a tuple of (file_name, count_type, object_count) to the records list
+        records.append((file_name, count_type, object_count))
+    
+    # Connect to the database
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # Create the table if it doesn't exist
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS object_counts (
+        file_name TEXT,
+        count_type TEXT,
+        object_count INTEGER,
+        PRIMARY KEY (file_name, count_type)
+    )
+    ''')
+    
+    # Batch insert or update the object counts
+    cursor.executemany('''
+    INSERT INTO object_counts (file_name, count_type, object_count)
+    VALUES (?, ?, ?)
+    ON CONFLICT(file_name, count_type) DO UPDATE SET
+    object_count = excluded.object_count
+    ''', records)
+    
+    # Commit changes and close the database connection
+    conn.commit()
+    conn.close()
+    
+def identify_masks(src, object_type, model_name, batch_size, channels, diameter, minimum_size, maximum_size, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', refine_masks=True, filter_size=True, filter_dimm=True, remove_border_objects=False, verbose=False, plot=False, merge=False, save=True, start_at=0, file_type='.npz', net_avg=True, resample=True, timelapse=False):
     
     #Note add logic that handles batches of size 1 as these will break the code batches must all be > 2 images
     gc.collect()
@@ -1582,11 +1626,12 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
         print(f'source: {src}')
         print(f'Settings: object_type: {object_type}, minimum_size: {minimum_size}, maximum_size:{maximum_size}, figuresize:{figuresize}, cmap:{cmap}, , net_avg:{net_avg}, resample:{resample}')
         print(f'Cellpose settings: Model: {model_name}, batch_size: {batch_size}, channels: {channels}, cellpose_chans: {chans}, diameter:{diameter}, flow_threshold:{flow_threshold}, cellprob_threshold:{cellprob_threshold}')
-        print(f'Bool Settings: verbose:{verbose}, plot:{plot}, merge:{merge}, save:{save}, start_at:{start_at}, file_type:{file_type}, count:{count}, timelapse:{timelapse}')
-    if count:
-        count_loc = os.path.dirname(src)+'/measurements/object_counts.db'
-        os.makedirs(os.path.dirname(src)+'/measurements', exist_ok=True)
-        create_database(count_loc)
+        print(f'Bool Settings: verbose:{verbose}, plot:{plot}, merge:{merge}, save:{save}, start_at:{start_at}, file_type:{file_type}, timelapse:{timelapse}')
+
+    count_loc = os.path.dirname(src)+'/measurements/measurements.db'
+    os.makedirs(os.path.dirname(src)+'/measurements', exist_ok=True)
+    create_database(count_loc)
+    
     average_sizes = []
     time_ls = []
     moving_avg_q1 = 0
@@ -1602,8 +1647,8 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
             os.makedirs(output_folder, exist_ok=True)
             overall_average_size = 0
             with np.load(path) as data:
-                stack = data['data'] # Extract the data array from the NpzFile object
-                filenames = data['filenames'] # Similarly, extract the filenames array
+                stack = data['data']
+                filenames = data['filenames']
             if timelapse:
                 if len(stack) != batch_size:
                     print(f'Changed batch_size:{batch_size} to {len(stack)}, data length:{len(stack)}')
@@ -1619,6 +1664,7 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                     batch = stack[i: i+batch_size, :, :, channels].astype(stack.dtype)
                     
                 batch_filenames = filenames[i: i+batch_size].tolist()
+                
                 if not plot:
                     batch, batch_filenames = check_masks(batch, batch_filenames, output_folder)
                 if batch.size == 0:
@@ -1639,13 +1685,19 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                                                     resample=resample,
                                                     net_avg=net_avg,
                                                     progress=None)
+                    print(f'{object_type}, {batch_filenames}, {count_loc}')
+                    save_object_counts_to_database(masks, object_type, batch_filenames, count_loc, added_string='_before_filtration')
+                    
                     mask_stack = filter_cp_masks(masks, flows, refine_masks, filter_size, minimum_size, maximum_size, remove_border_objects, merge, filter_dimm, batch, moving_avg_q1, moving_avg_q3, moving_count, plot, figuresize)
+                    
+                    save_object_counts_to_database(mask_stack, object_type, batch_filenames, count_loc, added_string='_after_filtration')
+                    
                     if not np.any(mask_stack):
                         average_obj_size = 0
                     else:
                         average_obj_size = get_avg_object_size(mask_stack)
 
-                    average_sizes.append(average_obj_size) # Store the average size
+                    average_sizes.append(average_obj_size) 
                     overall_average_size = np.mean(average_sizes) if len(average_sizes) > 0 else 0
                 else:
                     #if plot:
@@ -1702,28 +1754,7 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
             print(f'Processing {len(paths)} images, Completed {(file_index+1)*(batch_size+1)}/{(len(paths))*(batch_size+1)}: Time/batch {time_in_min:.3f} min: Time/mask {time_per_mask:.3f} sec: Average {object_type} size {overall_average_size:.3f}', end='\r', flush=True)
             if not timelapse:
                 if plot:
-                    plot_masks(stack, mask_stack, flows, figuresize=figuresize, cmap=cmap, nr=batch_size, file_type='.png')        
-        if count:
-            if file_type == '.npz':
-                ecc_int_df = pd.DataFrame()
-                for mask_index, mask in enumerate(mask_stack):
-                    img = batch[mask_index:, :, :, 0]
-                    ecc_int_df_temp = measure_eccentricity_and_intensity(mask, img)
-                    ecc_int_df = pd.concat([ecc_int_df,ecc_int_df_temp], axis=0)
-                    ecc_int_df['filename'] = batch_filenames[mask_index]
-                ecc_int_df['object_type'] = object_type
-            else:
-                ecc_int_df = measure_eccentricity_and_intensity(mask, stack[:, :, 0])
-                ecc_int_df['filename'] = filename
-                ecc_int_df['object_type'] = object_type
-            if len(ecc_int_df) > 0:
-                try:
-                    conn = sqlite3.connect(count_loc, timeout=5)
-                    ecc_int_df.to_sql(object_type, conn, if_exists='append', index=False)
-                except sqlite3.OperationalError as e:
-                    print("SQLite error:", e)
-            if verbose:
-                display(ecc_int_df)
+                    plot_masks(stack, mask_stack, flows, figuresize=figuresize, cmap=cmap, nr=batch_size, file_type='.png')
         if save:
             if timelapse:
                 fov_ls = []
@@ -2925,7 +2956,7 @@ def get_diam(mag, obj):
     diamiter = mag*scale
     return diamiter
 
-def generate_masks(src, object_type, mag, batch_size, channels, cellprob_threshold, plot, save, verbose, nr=1, start_at=0, merge=False, file_type='.npz', count=False, timelapse=False, settings={}):
+def generate_masks(src, object_type, mag, batch_size, channels, cellprob_threshold, plot, save, verbose, nr=1, start_at=0, merge=False, file_type='.npz', timelapse=False, settings={}):
     if verbose:
         logging.getLogger('btrack').setLevel(logging.WARNING)
     else:
@@ -3014,7 +3045,6 @@ def generate_masks(src, object_type, mag, batch_size, channels, cellprob_thresho
                    save=save, 
                    start_at=start_at, 
                    file_type=file_type, 
-                   count=count, 
                    net_avg=net_avg, 
                    resample=resample, 
                    timelapse=timelapse)
@@ -3087,6 +3117,36 @@ def mip_all(src, include_first_chan=True):
             # save
             np.save(os.path.join(src, filename), concatenated)
     return
+    
+def pivot_counts_table(db_path):
+    
+    def read_table_to_dataframe(db_path, table_name='object_counts'):
+        # Connect to the SQLite database
+        conn = sqlite3.connect(db_path)
+        # Read the entire table into a pandas DataFrame
+        query = f"SELECT * FROM {table_name}"
+        df = pd.read_sql_query(query, conn)
+        # Close the connection
+        conn.close()
+        return df
+
+    def pivot_dataframe(df):
+        # Pivot the DataFrame
+        pivoted_df = df.pivot(index='file_name', columns='count_type', values='object_count').reset_index()
+        # Because the pivot operation can introduce NaN values for missing data,
+        # you might want to fill those NaNs with a default value, like 0
+        pivoted_df = pivoted_df.fillna(0)
+        return pivoted_df
+    
+    # Read the original 'object_counts' table
+    df = read_table_to_dataframe(db_path, 'object_counts')
+    # Pivot the DataFrame to have one row per filename and a column for each object type
+    pivoted_df = pivot_dataframe(df)
+    # Reconnect to the SQLite database to overwrite the 'object_counts' table with the pivoted DataFrame
+    conn = sqlite3.connect(db_path)
+    # When overwriting, ensure that you drop the existing table or use if_exists='replace' to overwrite it
+    pivoted_df.to_sql('object_counts', conn, if_exists='replace', index=False)
+    conn.close()
 
 def get_cellpose_channels(mask_channels, nucleus_chann_dim, pathogen_chann_dim, cell_chann_dim):
     cellpose_channels = {}
@@ -3098,7 +3158,6 @@ def get_cellpose_channels(mask_channels, nucleus_chann_dim, pathogen_chann_dim, 
         cellpose_channels['cell'] = [0, mask_channels.index(cell_chann_dim)]
     return cellpose_channels
     
-#def preprocess_generate_masks(src, metadata_type='yokogawa', custom_regex=None, experiment='experiment', preprocess=True, masks=True, save=True,  plot=True, channel_settings={}, examples_to_plot=1,   batch_size=4,  #backgrounds=100,  signal_to_noise=5, magnefication=40,  workers=30,  all_to_mip = False, fps=2, pick_slice=False, skip_mode='01',  timelapse = False, verbose=False):
 def preprocess_generate_masks(src, settings={},advanced_settings={}):
 
     channels = settings['channels']
@@ -3124,7 +3183,6 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
     remove_background = advanced_settings['remove_background']
     lower_quantile = advanced_settings['lower_quantile']
     merge = advanced_settings['merge']
-    count = advanced_settings['count']
     normalize_plots = advanced_settings['normalize_plots']
     all_to_mip = advanced_settings['all_to_mip']
     fps = advanced_settings['fps']
@@ -3133,17 +3191,6 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
     workers = advanced_settings['workers']
     verbose = advanced_settings['verbose']
     
-    #backgrounds = [settings['nucleus_background'], settings['cell_background'], settings['pathogen_background']]
-    #backgrounds = [1 if x == 0 else x for x in backgrounds]
-    #backgrounds = [item for item in backgrounds if item is not None]
-    
-    #signal_to_noise = [settings['nucleus_Signal_to_noise'], settings['cell_Signal_to_noise'], settings['pathogen_Signal_to_noise']]
-    #signal_to_noise = [item for item in signal_to_noise if item is not None]
-    
-    #signal_thresholds = []
-    #for i,element in enumerate(backgrounds):
-    #    signal_thresholds = signal_thresholds+[backgrounds[i]*signal_to_noise[i]]
-
     mask_channels = [nucleus_chann_dim, cell_chann_dim, pathogen_chann_dim]
     mask_channels = [item for item in mask_channels if item is not None]
     
@@ -3154,8 +3201,6 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
         merge = [merge]*3
     if isinstance(save, bool):
         save = [save]*3
-    if isinstance(count, bool):
-        count = [count]*4
 
     if preprocess: 
         preprocess_img_data(src,
@@ -3195,7 +3240,6 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                            save=save[0],
                            merge=merge[0],
                            verbose=verbose,
-                           count=count[0],
                            timelapse=timelapse,
                            file_type='.npz',
                            settings=settings)
@@ -3213,7 +3257,6 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                            save=save[1],
                            merge=merge[1],
                            verbose=verbose,
-                           count=count[1],
                            timelapse=timelapse,
                            file_type='.npz',
                            settings=settings)
@@ -3231,11 +3274,12 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                            save=save[2],
                            merge=merge[2],
                            verbose=verbose,
-                           count=count[2],
                            timelapse=timelapse,
                            file_type='.npz',
                            settings=settings)
             torch.cuda.empty_cache()
+            
+        pivot_counts_table(db_path=os.path.join(src,'measurements', 'measurements.db'))
 	#Concatinate stack with masks
         load_and_concatenate_arrays(src, channels, cell_chann_dim, nucleus_chann_dim, pathogen_chann_dim)
         if plot:
