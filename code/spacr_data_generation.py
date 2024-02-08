@@ -3610,18 +3610,21 @@ def analyze_recruitment(src, metadata_settings, advanced_settings):
     
     def object_filter(df, object_type, size_range, intensity_range, mask_chans, mask_chan):
         if not size_range is None:
-            if isinstance(size_range, list)
-                if isinstance(size_range[0], int) 
+            if isinstance(size_range, list):
+                if isinstance(size_range[0], int): 
                     df = df[df[f'{object_type}_area'] > size_range[0]]
-                if isinstance(size_range[1], int) 
+                    print(f'After {object_type} minimum area filter: {len(df)}')
+                if isinstance(size_range[1], int):
                     df = df[df[f'{object_type}_area'] < size_range[1]]
+                    print(f'After {object_type} maximum area filter: {len(df)}')
         if not intensity_range is None:
-            if isinstance(intensity_range, list)
-                if isinstance(intensity_range[0], int) 
+            if isinstance(intensity_range, list):
+                if isinstance(intensity_range[0], int):
                     df = df[df[f'{object_type}_channel_{mask_chans[mask_chan]}_mean_intensity'] > intensity_range[0]]
-                if isinstance(intensity_range[1], int) 
+                    print(f'After {object_type} minimum mean intensity filter: {len(df)}')
+                if isinstance(intensity_range[1], int):
                     df = df[df[f'{object_type}_channel_{mask_chans[mask_chan]}_mean_intensity'] < intensity_range[1]]
-        print(f'After {object_type} filtration {len(df)}')
+                    print(f'After {object_type} maximum mean intensity filter: {len(df)}')
         return df
     
     def results_to_csv(src, df, df_well):
@@ -3633,8 +3636,6 @@ def analyze_recruitment(src, metadata_settings, advanced_settings):
         os.makedirs(results_loc, exist_ok=True)
         wells.to_csv(wells_loc, index=True, header=True)
         cells.to_csv(cells_loc, index=True, header=True)
-        #plot_data(cells, cells_loc, category_order=pathogen_types, figuresize=20, y_min=1)
-        #plot_data(wells, wells_loc, category_order=pathogen_types, figuresize=20, y_min=1)
         return cells, wells
     
     # metadata settings
@@ -3662,7 +3663,6 @@ def analyze_recruitment(src, metadata_settings, advanced_settings):
     figuresize = advanced_settings['figuresize']
     remove_background = advanced_settings['remove_background']
     backgrounds = advanced_settings['backgrounds']
-    filter_data = advanced_settings['filter_data']
     include_noninfected = advanced_settings['include_noninfected']
     include_multiinfected = advanced_settings['include_multiinfected']
     include_multinucleated = advanced_settings['include_multinucleated']
@@ -3749,8 +3749,8 @@ def analyze_recruitment(src, metadata_settings, advanced_settings):
                          'cmap':'inferno',
                          'verbose':True}
         
-    if os.path.exists(os.path.join(scr,'merged')):
-        plot_merged(src=os.path.join(scr,'merged'), settings=plot_settings)
+    if os.path.exists(os.path.join(src,'merged')):
+        plot_merged(src=os.path.join(src,'merged'), settings=plot_settings)
     
     if not cell_chann_dim is None:
         df = object_filter(df, object_type='cell', size_range=cell_size_range, intensity_range=cell_intensity_range, mask_chans=mask_chans, mask_chan=0)
@@ -3769,7 +3769,6 @@ def analyze_recruitment(src, metadata_settings, advanced_settings):
     df_well = group_by_well(df)
     print(f'found: {len(df_well)} wells')
     
-    #Filter cells per well
     df_well = df_well[df_well['cells_per_well'] >= cells_per_well]
     prc_list = df_well['prc'].unique().tolist()
     df = df[df['prc'].isin(prc_list)]
@@ -3782,13 +3781,7 @@ def analyze_recruitment(src, metadata_settings, advanced_settings):
     plot_recruitment(df=df, df_type='by PV', channel_of_interest=channel_of_interest, target=target, figuresize=figuresize)
     print(f'well level: {len(df_well)} rows')
     plot_recruitment(df=df_well, df_type='by well', channel_of_interest=channel_of_interest, target=target, figuresize=figuresize)
-    
     cells,wells = results_to_csv(src, df, df_well)
-    
-    #conditions = df['condition'].unique()
-    #n_conditions = len(conditions)
-    #fig, axs = plt.subplots(1, n_conditions, figsize=(8*n_conditions, 4), sharey=True)
-    #plt.subplots_adjust(bottom=0.8)
     return [cells,wells]
 
 def filter_pathogen_nuclei(df, upper_quantile=0.95, plot=True):
