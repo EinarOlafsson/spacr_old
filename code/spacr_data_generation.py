@@ -228,6 +228,15 @@ import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning) # Ignore RuntimeWarning
 warnings.filterwarnings("ignore")
 
+def generate_mask_random_cmap(mask):  
+    unique_labels = np.unique(mask)
+    num_objects = len(unique_labels[unique_labels != 0])
+    random_colors = np.random.rand(num_objects+1, 4)
+    random_colors[:, 3] = 1
+    random_colors[0, :] = [0, 0, 0, 1]
+    random_cmap = mpl.colors.ListedColormap(random_colors)
+    return random_cmap
+
 def list_folders(src):
     # List to hold the names of folders
     folders = []
@@ -984,14 +993,15 @@ def normalize_timelapse(src, lower_quantile=0.01, save_dtype=np.float32):
 
         for chan_index in range(stack.shape[-1]):
             single_channel = stack[:, :, :, chan_index]
-            first_image = single_channel[0]
-
-            global_lower = np.quantile(first_image[first_image != 0], lower_quantile)
-            global_upper = np.quantile(first_image[first_image != 0], 0.98)
 
             for array_index in range(single_channel.shape[0]):
                 arr_2d = single_channel[array_index]
-                arr_2d_rescaled = exposure.rescale_intensity(arr_2d, in_range=(global_lower, global_upper), out_range='dtype')
+                # Calculate the 1% and 98% percentiles for this specific image
+                q_low = np.percentile(arr_2d[arr_2d != 0], lower_quantile * 100)  # Avoid zero pixels if necessary
+                q_high = np.percentile(arr_2d[arr_2d != 0], upper_quantile * 100)
+
+                # Rescale intensity based on the calculated percentiles to fill the dtype range
+                arr_2d_rescaled = exposure.rescale_intensity(arr_2d, in_range=(q_low, q_high), out_range='dtype')
                 normalized_stack[array_index, :, :, chan_index] = arr_2d_rescaled
 
                 print(f'Progress: files {file_index+1}/{len(paths)}, channels:{chan_index+1}/{stack.shape[-1]}, arrays:{array_index+1}/{single_channel.shape[0]}', end='\r')
@@ -1002,7 +1012,7 @@ def normalize_timelapse(src, lower_quantile=0.01, save_dtype=np.float32):
         del normalized_stack, stack, filenames
         gc.collect()
 
-    print(f'\nSaved normalized stacks in: {output_fldr}')
+    print(f'\nSaved normalized stacks: {save_loc}')
 
 def normalize_stack(src, backgrounds=[100,100,100], remove_background=False, lower_quantile=0.01, save_dtype=np.float32, signal_to_noise=[5,5,5], signal_thresholds=[1000,1000,1000], correct_illumination=False):
 
@@ -1579,7 +1589,72 @@ def save_object_counts_to_database(arrays, object_type, file_names, db_path, add
     # Commit changes and close the database connection
     conn.commit()
     conn.close()
-    
+
+def visualize_mask_stack(masks):
+    cmap = generate_mask_random_cmap(masks)  # Ensure this function exists and is correctly implemented
+
+    def view_frame(frame=0):
+        # Specify figsize as a tuple (width, height)
+        plt.figure(figsize=(15, 15))  # Adjust the figure size as needed
+        plt.imshow(masks[frame], cmap=cmap)
+        plt.title(f'Frame: {frame}')
+        plt.axis('off')
+        plt.show()
+
+    interact(view_frame, frame=IntSlider(min=0, max=len(masks)-1, step=1, value=0))
+
+
+def relabel_masks_consistently(masks):
+    # Label the first mask and calculate object centers
+    labeled_mask = label(masks[0])
+    regions = regionprops(labeled_mask)
+    object_centers = [region.centroid for region in regions]
+    # Prepare an array to hold the relabeled masks
+    relabeled_masks = np.zeros_like(masks, dtype=int)
+    relabeled_masks[0] = labeled_mask
+    # Process each subsequent mask
+    for i in range(1, len(masks)):
+        current_mask = masks[i]
+        labeled_current_mask = label(current_mask)
+        current_regions = regionprops(labeled_current_mask)
+        # Initialize a map for the current mask with zeros
+        relabel_map = np.zeros(np.max(labeled_current_mask) + 1, dtype=int)
+        # Iterate through current mask regions to find closest original object
+        for region in current_regions:
+            current_center = region.centroid
+            # Calculate distances to all centers in the first mask
+            distances = [np.linalg.norm(np.array(current_center) - np.array(orig_center)) for orig_center in object_centers]
+            closest_object_idx = np.argmin(distances) + 1  # +1 because region label starts from 1
+            relabel_map[region.label] = closest_object_idx
+        # Apply the relabel map to the current labeled mask
+        relabeled_current_mask = relabel_map[labeled_current_mask]
+        # Store the relabeled current mask
+        relabeled_masks[i] = relabeled_current_mask
+    print('Postprocessing: timelapse masks, distance')
+    distance = ndi.distance_transform_edt(masks)
+    print('Postprocessing: timelapse masks, local_maxi')
+    local_maxi = peak_local_max(distance, min_distance=1, exclude_border=True, footprint=np.ones((3, 3, 3)))
+    print('Postprocessing: timelapse masks, markers prepared')
+    markers = np.zeros_like(masks, dtype=np.int32)
+    for i, coord in enumerate(local_maxi, start=1):
+        if all(0 <= coord[j] < markers.shape[j] for j in range(3)):  # Ensure within bounds
+            markers[coord[0], coord[1], coord[2]] = i
+    print('Postprocessing: timelapse masks, watershed applied')
+    labels_ws = watershed(-distance, markers, mask=masks)
+    return labels_ws
+
+def visualize_mask_stack(masks):
+    cmap = generate_mask_random_cmap(masks)
+    def view_frame(frame=0):
+        # Specify figsize as a tuple (width, height)
+        plt.figure(figsize=(50, 50))
+        plt.imshow(masks[frame], cmap=cmap)
+        plt.title(f'Frame: {frame}')
+        plt.axis('off')
+        plt.show()
+    interact(view_frame, frame=IntSlider(min=0, max=len(masks)-1, step=1, value=0))
+
+
 def identify_masks(src, object_type, model_name, batch_size, channels, diameter, minimum_size, maximum_size, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', refine_masks=True, filter_size=True, filter_dimm=True, remove_border_objects=False, verbose=False, plot=False, merge=False, save=True, start_at=0, file_type='.npz', net_avg=True, resample=True, timelapse=False):
     
     #Note add logic that handles batches of size 1 as these will break the code batches must all be > 2 images
@@ -1648,44 +1723,35 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                     continue
                 if batch.max() > 1:
                     batch = batch / batch.max()
-                if not timelapse:
-                    masks, flows, _, _ = model.eval(x=batch,
-                                                    batch_size=batch_size,
-                                                    normalize=False,
-                                                    channels=chans,
-                                                    channel_axis=3,
-                                                    diameter=diameter,
-                                                    flow_threshold=flow_threshold,
-                                                    cellprob_threshold=cellprob_threshold,
-                                                    rescale=None,
-                                                    resample=resample,
-                                                    net_avg=net_avg,
-                                                    progress=None)
-                    print(f'{object_type}, {batch_filenames}, {count_loc}')
-                    save_object_counts_to_database(masks, object_type, batch_filenames, count_loc, added_string='_before_filtration')
-                    
-                    mask_stack = filter_cp_masks(masks, flows, refine_masks, filter_size, minimum_size, maximum_size, remove_border_objects, merge, filter_dimm, batch, moving_avg_q1, moving_avg_q3, moving_count, plot, figuresize)
-                    
-                    save_object_counts_to_database(mask_stack, object_type, batch_filenames, count_loc, added_string='_after_filtration')
-                    
-                    if not np.any(mask_stack):
-                        average_obj_size = 0
-                    else:
-                        average_obj_size = get_avg_object_size(mask_stack)
 
-                    average_sizes.append(average_obj_size) 
-                    overall_average_size = np.mean(average_sizes) if len(average_sizes) > 0 else 0
+                masks, flows, _, _ = model.eval(x=batch,
+                                batch_size=batch_size,
+                                normalize=False,
+                                channels=chans,
+                                channel_axis=3,
+                                diameter=diameter,
+                                flow_threshold=flow_threshold,
+                                cellprob_threshold=cellprob_threshold,
+                                rescale=None,
+                                resample=resample,
+                                net_avg=net_avg,
+                                progress=None)
+		    
+                print(f'{object_type}, {batch_filenames}, {count_loc}')
+                save_object_counts_to_database(masks, object_type, batch_filenames, count_loc, added_string='_before_filtration')
+                mask_stack = filter_cp_masks(masks, flows, refine_masks, filter_size, minimum_size, maximum_size, remove_border_objects, merge, filter_dimm, batch, moving_avg_q1, moving_avg_q3, moving_count, plot, figuresize)
+                save_object_counts_to_database(mask_stack, object_type, batch_filenames, count_loc, added_string='_after_filtration')
+
+		if timelapse:
+		    masks = relabel_masks_consistently(masks)
+
+                if not np.any(mask_stack):
+                    average_obj_size = 0
                 else:
-                    #if plot:
-                    #    print(f'before relabeling')
-                    #    plot_masks(batch, mask_stack, flows, figuresize=figuresize, cmap=cmap, nr=batch_size, file_type='.npz')
-                    print(f'========== generating timelapse masks ==========')
-                    mask_stack = timelapse_segmentation(batch, output_folder, path, chans, model, diameter)
-                    overall_average_size = 0.000
-                    #mask_stack = track_objects_over_time(mask_stack, step_size=2, config=config)
-                    #if plot:
-                    #    print(f'after relabeling')
-                    #    plot_masks(batch, mask_stack, flows, figuresize=figuresize, cmap=cmap, nr=batch_size, file_type='.npz')
+                    average_obj_size = get_avg_object_size(mask_stack)
+
+                average_sizes.append(average_obj_size) 
+                overall_average_size = np.mean(average_sizes) if len(average_sizes) > 0 else 0
             
             stop = time.time()
             duration = (stop - start)
