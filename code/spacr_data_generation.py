@@ -215,6 +215,7 @@ from scipy.optimize import linear_sum_assignment
 from scipy.ndimage import binary_erosion, binary_dilation as binary_erosion, binary_dilation, distance_transform_edt, generate_binary_structure
 from scipy.spatial.distance  import cdist
 from scipy.stats import zscore
+from scipy.ndimage import gaussian_filter
 
 # parallel processing
 import multiprocessing as mp
@@ -1602,8 +1603,52 @@ def visualize_mask_stack(masks):
         plt.show()
 
     interact(view_frame, frame=IntSlider(min=0, max=len(masks)-1, step=1, value=0))
+    
+def compute_divergence(flow_x, flow_y):
+    grad_flow_x = np.gradient(flow_x, axis=0)
+    grad_flow_y = np.gradient(flow_y, axis=1)
+    divergence = grad_flow_x + grad_flow_y
+    return divergence
 
-def relabel_masks_consistently(masks):
+def identify_high_divergence_regions(divergence, percentile=95):
+    threshold = np.percentile(divergence, percentile)
+    high_divergence_regions = divergence > threshold
+    return high_divergence_regions
+    
+def adjust_markers_based_on_divergence(markers, high_divergence_regions):
+
+    # Assuming high_divergence_regions is a binary mask of the same shape as markers
+    # and markers is an array where each cell's approximate center is marked with a unique integer
+    
+    # Label connected components in high_divergence_regions
+    labeled_regions, num_features = label(high_divergence_regions)
+    
+    new_marker_id = np.max(markers) + 1
+    refined_markers = np.copy(markers)
+    
+    for region_id in range(1, num_features + 1):
+        region_mask = labeled_regions == region_id
+        
+        # For simplicity, place a new marker at the centroid of each high divergence region
+        # More sophisticated logic might be needed to adjust existing markers or place new ones optimally
+        region_centroid = np.round(np.mean(np.argwhere(region_mask), axis=0)).astype(int)
+        if refined_markers[tuple(region_centroid)] == 0:  # Place a new marker if there isn't one already
+            refined_markers[tuple(region_centroid)] = new_marker_id
+            new_marker_id += 1
+    
+    return refined_markers
+
+def refine_markers_with_flows(markers, flows):
+    flow_x, flow_y = flows
+    # Compute the divergence of the flow field
+    divergence = compute_divergence(flow_x, flow_y)
+    # Identify regions of high divergence
+    high_divergence_regions = identify_high_divergence_regions(divergence)
+    # Refine markers based on these regions
+    refined_markers = adjust_markers_based_on_divergence(markers, high_divergence_regions, flow_x, flow_y)
+    return refined_markers
+
+def relabel_masks_consistently(masks, flows):
     # Label the first mask and calculate object centers
     labeled_mask = label(masks[0])
     regions = regionprops(labeled_mask)
@@ -1631,16 +1676,19 @@ def relabel_masks_consistently(masks):
         relabeled_masks[i] = relabeled_current_mask
         
     print('Postprocessing: timelapse masks, distance')
-    distance = ndi.distance_transform_edt(masks)
+    distance = ndi.distance_transform_edt(relabeled_masks)
     print('Postprocessing: timelapse masks, local_maxi')
-    local_maxi = peak_local_max(distance, min_distance=3, exclude_border=True, footprint=np.ones((3, 3, 3)))
+    local_maxi = peak_local_max(distance, min_distance=1, exclude_border=True, footprint=np.ones((3, 3, 3)))
     print('Postprocessing: timelapse masks, markers prepared')
-    markers = np.zeros_like(masks, dtype=np.int32)
+    markers = np.zeros_like(relabeled_masks, dtype=np.int32)
     for i, coord in enumerate(local_maxi, start=1):
         if all(0 <= coord[j] < markers.shape[j] for j in range(3)):
             markers[coord[0], coord[1], coord[2]] = i
+            
+    refined_markers = refine_markers_with_flows(markers, flows)
     print('Postprocessing: timelapse masks, watershed applied')
-    labels_ws = watershed(-distance, markers, mask=masks)
+    labels_ws = watershed(-distance, refined_markers, mask=relabeled_masks)
+    
     return labels_ws
 
 def visualize_mask_stack(masks):
@@ -1743,7 +1791,7 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                 save_object_counts_to_database(mask_stack, object_type, batch_filenames, count_loc, added_string='_after_filtration')
 
                 if timelapse:
-                    masks = relabel_masks_consistently(masks)
+                    masks = relabel_masks_consistently(masks, flows)
                     visualize_mask_stack(masks)
 
                 if not np.any(mask_stack):
