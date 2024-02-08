@@ -3606,15 +3606,82 @@ def plot_data(df, csv_loc, category_order, figuresize=50, y_min=1):
     plt.show()
     fig.savefig(os.path.join(results_dir, pdf_name_jitter))
 
-def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_plate_metadata=None, pathogen_types=['genotype_1', 'genotype_2', 'genotype_3', 'genotype_4'], pathogen_plate_metadata=[['c1','c2','c3','c4','c5','c6'], ['c7','c8','c9','c10','c11','c12'], ['c13','c14','c15','c16','c17','c18'], ['c19','c20','c21','c22','c23','c24']], treatments=['cm'], treatment_plate_metadata=None, metadata_types='col', plot=True, plot_control=True, plot_nr=2, figuresize=50, cell_mask_dim=4, nucleus_mask_dim=5, pathogen_mask_dim=6, cell_chann_dim=3, nucleus_chann_dim=0, pathogen_chann_dim=2, channel_of_interest=3, filter_data=True, pathogen_size_min=0, nucleus_size_min=0, cell_size_min=0, pathogen_min=0, nucleus_min=0, cell_min=0, target_min=0, cells_per_well=0, include_noninfected=False, include_multiinfected=True, include_multinucleated=True, remove_background=True, backgrounds=100,  channel_dims=[0,1,2,3], advanced_filter=False):
-
-    print(f'Cells: {cell_types}, in {cell_plate_metadata}')
-    print(f'pathogens: {pathogen_types}, in {pathogen_plate_metadata}')
-    print(f'Treatments: {treatments}, in {treatment_plate_metadata}')
+def analyze_recruitment(src, metadata_settings, advanced_settings):
+    
+    def object_filter(df, object_type, size_range, intensity_range, mask_chans, mask_chan):
+        if not size_range is None:
+            if isinstance(size_range, list)
+                if isinstance(size_range[0], int) 
+                    df = df[df[f'{object_type}_area'] > size_range[0]]
+                if isinstance(size_range[1], int) 
+                    df = df[df[f'{object_type}_area'] < size_range[1]]
+        if not intensity_range is None:
+            if isinstance(intensity_range, list)
+                if isinstance(intensity_range[0], int) 
+                    df = df[df[f'{object_type}_channel_{mask_chans[mask_chan]}_mean_intensity'] > intensity_range[0]]
+                if isinstance(intensity_range[1], int) 
+                    df = df[df[f'{object_type}_channel_{mask_chans[mask_chan]}_mean_intensity'] < intensity_range[1]]
+        print(f'After {object_type} filtration {len(df)}')
+        return df
+    
+    def results_to_csv(src, df, df_well):
+        cells = df
+        wells = df_well
+        results_loc = src+'/results'
+        wells_loc = results_loc+'/wells.csv'
+        cells_loc = results_loc+'/cells.csv'
+        os.makedirs(results_loc, exist_ok=True)
+        wells.to_csv(wells_loc, index=True, header=True)
+        cells.to_csv(cells_loc, index=True, header=True)
+        #plot_data(cells, cells_loc, category_order=pathogen_types, figuresize=20, y_min=1)
+        #plot_data(wells, wells_loc, category_order=pathogen_types, figuresize=20, y_min=1)
+        return cells, wells
+    
+    # metadata settings
+    target = metadata_settings['target']
+    cell_types = metadata_settings['cell_types']
+    cell_plate_metadata = metadata_settings['cell_plate_metadata']
+    pathogen_types = metadata_settings['pathogen_types']
+    pathogen_plate_metadata = metadata_settings['pathogen_plate_metadata']
+    treatments = metadata_settings['treatments']
+    treatment_plate_metadata = metadata_settings['treatment_plate_metadata']
+    metadata_types = metadata_settings['metadata_types']
+    channel_dims = metadata_settings['channel_dims']
+    cell_chann_dim = metadata_settings['cell_chann_dim']
+    cell_mask_dim = metadata_settings['cell_mask_dim']
+    nucleus_chann_dim = metadata_settings['nucleus_chann_dim']
+    nucleus_mask_dim = metadata_settings['nucleus_mask_dim']
+    pathogen_chann_dim = metadata_settings['pathogen_chann_dim']
+    pathogen_mask_dim = metadata_settings['pathogen_mask_dim']
+    channel_of_interest = metadata_settings['channel_of_interest']
+    
+    # Advanced settings
+    plot = advanced_settings['plot']
+    plot_nr = advanced_settings['plot_nr']
+    plot_control = advanced_settings['plot_control']
+    figuresize = advanced_settings['figuresize']
+    remove_background = advanced_settings['remove_background']
+    backgrounds = advanced_settings['backgrounds']
+    filter_data = advanced_settings['filter_data']
+    include_noninfected = advanced_settings['include_noninfected']
+    include_multiinfected = advanced_settings['include_multiinfected']
+    include_multinucleated = advanced_settings['include_multinucleated']
+    cells_per_well = advanced_settings['cells_per_well']
+    pathogen_size_range = advanced_settings['pathogen_size_range']
+    nucleus_size_range = advanced_settings['nucleus_size_range']
+    cell_size_range = advanced_settings['cell_size_range']
+    pathogen_intensity_range = advanced_settings['pathogen_intensity_range']
+    nucleus_intensity_range = advanced_settings['nucleus_intensity_range']
+    cell_intensity_range = advanced_settings['cell_intensity_range']
+    target_intensity_min = advanced_settings['target_intensity_min']
+    
+    print(f'Cell(s): {cell_types}, in {cell_plate_metadata}')
+    print(f'Pathogen(s): {pathogen_types}, in {pathogen_plate_metadata}')
+    print(f'Treatment(s): {treatments}, in {treatment_plate_metadata}')
     
     mask_dims=[cell_mask_dim,nucleus_mask_dim,pathogen_mask_dim]
     mask_chans=[nucleus_chann_dim, pathogen_chann_dim, cell_chann_dim]
-	
+
     if isinstance(metadata_types, str):
         metadata_types = [metadata_types, metadata_types, metadata_types]
     if isinstance(metadata_types, list):
@@ -3624,9 +3691,7 @@ def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_pla
         else:
             metadata_types = metadata_types
     
-    if isinstance(backgrounds, int):
-        backgrounds = [backgrounds, backgrounds, backgrounds, backgrounds]
-    if isinstance(backgrounds, float):
+    if isinstance(backgrounds, (int,float):
         backgrounds = [backgrounds, backgrounds, backgrounds, backgrounds]
 
     sns.color_palette("mako", as_cmap=True)
@@ -3637,100 +3702,72 @@ def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_pla
     
     db_loc = [src+'/measurements/measurements.db']
     tables = ['cell', 'nucleus', 'pathogen','cytoplasm']
-    df, object_dfs = read_and_merge_data(db_loc, tables, verbose=True, include_multinucleated=include_multinucleated, include_multiinfected=include_multiinfected, include_noninfected=include_noninfected)
+    df, object_dfs = read_and_merge_data(db_loc, 
+                                         tables, 
+                                         verbose=True, 
+                                         include_multinucleated=include_multinucleated, 
+                                         include_multiinfected=include_multiinfected, 
+                                         include_noninfected=include_noninfected)
     
     df = annotate_conditions(df, 
-                    cells=cell_types, 
-                    cell_loc=cell_plate_metadata, 
-                    pathogens=pathogen_types,
-                    pathogen_loc=pathogen_plate_metadata,
-                    treatments=treatments, 
-                    treatment_loc=treatment_plate_metadata,
-                    types=metadata_types)
+                             cells=cell_types, 
+                             cell_loc=cell_plate_metadata, 
+                             pathogens=pathogen_types,
+                             pathogen_loc=pathogen_plate_metadata,
+                             treatments=treatments, 
+                             treatment_loc=treatment_plate_metadata,
+                             types=metadata_types)
     
     df = df.dropna(subset=['condition'])
     print(f'After dropping non-annotated wells: {len(df)} rows')
-    
     files = df['file_name'].tolist()
     files = [item + '.npy' for item in files]
     random.shuffle(files)
-    
     max_ = 100**10
-	
+
     if plot:
-        plot_merged(src+'/merged',
-                    src_list=files,
-                    cmap='inferno', 
-                    cell_mask_dim=mask_dims[0],
-                    nucleus_mask_dim=mask_dims[1],
-                    pathogen_mask_dim=mask_dims[2],
-                    channel_dims=channel_dims, 
-                    figuresize=20, 
-                    nr=plot_nr,
-                    print_object_number=True, 
-                    normalize=True, 
-                    normalization_percentiles=[1,99], 
-                    overlay=True,
-                    overlay_chans=overlay_channels, # [3,2,0],#my_list.reverse(), 
-                    outline_thickness=3, 
-                    outline_color='gbr', 
-                    backgrounds=backgrounds, 
-                    remove_background=remove_background, 
-                    filter_objects=filter_data, 
-                    filter_min_max=[[cell_size_min,max_],[nucleus_size_min,max_],[pathogen_size_min,max_],[0,max_]], 
-                    include_multinucleated=include_multinucleated,
-                    include_multiinfected=include_multiinfected,
-                    include_noninfected=include_noninfected,
-                    advanced_filter=False,
-                    verbose=True)    
+        plot_settings = {'include_noninfected':include_noninfected, 
+                         'include_multiinfected':include_multiinfected,
+                         'include_multinucleated':include_multinucleated,
+                         'remove_background':remove_background,
+                         'filter_min_max':[[cell_size_min,max_],[nucleus_size_min,max_],[pathogen_size_min,max_],[0,max_]],
+                         'channel_dims':channel_dims,
+                         'backgrounds':backgrounds,
+                         'cell_mask_dim':mask_dims[0],
+                         'nucleus_mask_dim':mask_dims[1],
+                         'pathogen_mask_dim':mask_dims[2],
+                         'overlay_chans':[0,2,3],
+                         'outline_thickness':3,
+                         'outline_color':'gbr',
+                         'overlay_chans':overlay_channels,
+                         'overlay':True,
+                         'normalization_percentiles':[1,99],
+                         'normalize':True,
+                         'print_object_number':True,
+                         'nr':plot_nr,
+                         'figuresize':20,
+                         'cmap':'inferno',
+                         'verbose':True}
+        
+    if os.path.exists(os.path.join(scr,'merged')):
+        plot_merged(src=os.path.join(scr,'merged'), settings=plot_settings)
     
-    if filter_data:
-        df = df[df['cell_area'] > cell_size_min]
-        df = df[df[f'cell_channel_{mask_chans[0]}_mean_intensity'] > cell_min]
-        print(f'After cell filtration {len(df)}')
-        
-        df = df[df['nucleus_area'] > nucleus_size_min]
-        df = df[df[f'nucleus_channel_{mask_chans[1]}_mean_intensity'] > nucleus_min]
-        print(f'After nucleus filtration {len(df)}')
-        
-        df = df[df['pathogen_area'] > pathogen_size_min]
-        df=df[df[f'pathogen_channel_{mask_chans[2]}_mean_intensity'] > pathogen_min]
-        print(f'After pathogen filtration {len(df)}')
-        
-        df = df[df[f'cell_channel_{channel_of_interest}_percentile_95'] > target_min]
-        print(f'After channel {channel_of_interest} filtration', len(df))
-
-    if advanced_filter:
-        print(f'Advanced filtration')
-        #Removes cells where pathogen objects were not captured correctly
-        df[f'pathogen_vs_cytoplasm_{mask_chans[2]}_channel'] = df[f'pathogen_channel_{mask_chans[2]}_mean_intensity']/df[f'cytoplasm_channel_{mask_chans[2]}_mean_intensity']
-        df = df[df[f'pathogen_vs_cytoplasm_{mask_chans[2]}_channel'] > 2]
-        print(f'After advanced pathogen/cytoplasm intensity filtration (pathogen channel)', len(df))
-
-        #Removes cells where nucleus objects were not captured correctly
-        df[f'nucleus_vs_cytoplasm_{mask_chans[1]}_channel'] = df[f'nucleus_channel_{mask_chans[1]}_mean_intensity']/df[f'cytoplasm_channel_{mask_chans[1]}_mean_intensity']
-        df = df[df[f'nucleus_vs_cytoplasm_{mask_chans[1]}_channel'] > 2]
-        print(f'After advanced nucleus/cytoplasm intensity filtration (nuclear channel)', len(df))
-        
-        #Removes cells where the cytoplasm is too small for comparison
-        df['cell_vs_pathogen_area'] = df[f'cell_area']/df[f'pathogen_area']
-        df = df[df['cell_vs_pathogen_area'] > 2]
-        print(f'After advanced cell/pathogen area filtration', len(df))
-
-        #Removes cells where the cytoplasm is too small for comparison
-        df['cell_vs_nucleus_area'] = df[f'cell_area']/df[f'nucleus_area']
-        df = df[df['cell_vs_nucleus_area'] > 2]
-        print(f'After advanced cell/nucleus area filtration', len(df))
-    
+    if not cell_chann_dim is None:
+        df = object_filter(df, object_type='cell', size_range=cell_size_range, intensity_range=cell_intensity_range, mask_chans=mask_chans, mask_chan=0)
+        if not target_intensity_min is None:
+            df = df[df[f'cell_channel_{channel_of_interest}_percentile_95'] > target_intensity_min]
+            print(f'After channel {channel_of_interest} filtration', len(df))
+    if not nucleus_chann_dim is None:
+        df = object_filter(df, object_type='nucleus', size_range=nucleus_size_range, intensity_range=nucleus_intensity_range, mask_chans=mask_chans, mask_chan=1)
+    if not pathogen_chann_dim is None:
+        df = object_filter(df, object_type='pathogen', size_range=pathogen_size_range, intensity_range=pathogen_intensity_range, mask_chans=mask_chans, mask_chan=2)
+       
     df['recruitment'] = df[f'pathogen_channel_{channel_of_interest}_mean_intensity']/df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
-    
-    df = calculate_recruitment(df, channel=0)
-    df = calculate_recruitment(df, channel=1)
-    df = calculate_recruitment(df, channel=2)
-    df = calculate_recruitment(df, channel=3)
-    print(f'calculated recruitmentfor: {len(df)} rows')
-    
+    for chan in channel_dims:
+        df = calculate_recruitment(df, channel=chan)
+    print(f'calculated recruitment for: {len(df)} rows')
     df_well = group_by_well(df)
+    print(f'found: {len(df_well)} wells')
     
     #Filter cells per well
     df_well = df_well[df_well['cells_per_well'] >= cells_per_well]
@@ -3740,53 +3777,18 @@ def analyze_recruitment(src, target='experiment', cell_types=['HeLa'],  cell_pla
     
     if plot_control:
         plot_controls(df, mask_chans, channel_of_interest, figuresize=5)
+
     print(f'PV level: {len(df)} rows')
     plot_recruitment(df=df, df_type='by PV', channel_of_interest=channel_of_interest, target=target, figuresize=figuresize)
     print(f'well level: {len(df_well)} rows')
     plot_recruitment(df=df_well, df_type='by well', channel_of_interest=channel_of_interest, target=target, figuresize=figuresize)
     
-    conditions = df['condition'].unique()
-    n_conditions = len(conditions)
-    fig, axs = plt.subplots(1, n_conditions, figsize=(8*n_conditions, 4), sharey=True)
-    plt.subplots_adjust(bottom=0.8)
-    #if size_quantiles:
-    #    for ax, condition in zip(axs, conditions):
-    #        df_condition = df[df['condition'] == condition]
-    #        df_condition['pathogen_area_quartiles'] = pd.qcut(df_condition['pathogen_area'], 
-    #                                                          q=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], 
-    #                                                          labels=['0-10%','10-20%', '20-30%', '30-40%', '40-50%', '50-60%', '60-70%', '70-80%', '80-90%', '90-100%'])
-    #
-    #        sns.barplot(data=df_condition, x='pathogen_area_quartiles', y='recruitment', ci='sd', capsize=.2, ax=ax)
-    #        ax.set_title(f'Recruitment by pathogen Size ({condition})')
-    #        ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
-    #        for i, p in enumerate(ax.patches):
-    #            x = p.get_x() + p.get_width() / 2.
-    #            quartile = df_condition['pathogen_area_quartiles'].cat.categories[i]
-    #            n_samples = df_condition['pathogen_area_quartiles'].value_counts().loc[quartile]
-    #            min_recruitment = df_condition.loc[df_condition['pathogen_area_quartiles'] == quartile, 'pathogen_area'].min()
-    #            max_recruitment = df_condition.loc[df_condition['pathogen_area_quartiles'] == quartile, 'pathogen_area'].max()
-    #            x_norm = x / len(df_condition['pathogen_area_quartiles'].cat.categories)
-    #            ax.text(x_norm, -0.4, f'n:{n_samples}\n{min_recruitment:.2f}\n{max_recruitment:.2f}', ha='center', va='top', transform=ax.transAxes)
-    #    plt.tight_layout()
-    #    plt.show()
-    #if save_filtered_filelist:
-    #    save_filtered_cells_to_csv(src, cell_dim=cell_dim, nucleus_dim=nucleus_dim, pathogen_dim=pathogen_dim, include_multinucleated=include_multinucleated, include_multiinfected=include_multiinfected, include_noninfected=include_noninfected, include_border_pathogens=include_border_pathogens, verbose=True)
+    cells,wells = results_to_csv(src, df, df_well)
     
-    cells = df
-    wells = df_well
-
-    results_loc = src+'/results'
-    wells_loc = results_loc+'/wells.csv'
-    cells_loc = results_loc+'/cells.csv'
-
-    os.makedirs(results_loc, exist_ok=True)
-
-    wells.to_csv(wells_loc, index=True, header=True)
-    cells.to_csv(cells_loc, index=True, header=True)
-
-    plot_data(cells, cells_loc, category_order=pathogen_types, figuresize=20, y_min=1)
-    plot_data(wells, wells_loc, category_order=pathogen_types, figuresize=20, y_min=1)
-
+    #conditions = df['condition'].unique()
+    #n_conditions = len(conditions)
+    #fig, axs = plt.subplots(1, n_conditions, figsize=(8*n_conditions, 4), sharey=True)
+    #plt.subplots_adjust(bottom=0.8)
     return [cells,wells]
 
 def filter_pathogen_nuclei(df, upper_quantile=0.95, plot=True):
