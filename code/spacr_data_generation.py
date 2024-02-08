@@ -3131,6 +3131,12 @@ def get_cellpose_channels(mask_channels, nucleus_chann_dim, pathogen_chann_dim, 
     return cellpose_channels
     
 def preprocess_generate_masks(src, settings={},advanced_settings={}):
+	
+    settings_dict = {**settings, **advanced_settings}
+    settings_df = pd.DataFrame(list(settings_dict.items()), columns=['Key', 'Value'])
+    settings_csv = os.path.join(src,'settings','preprocess_generate_masks_settings.csv')
+    os.makedirs(os.path.join(src,'settings'), exist_ok=True)
+    settings_df.to_csv(settings_csv, index=False)
 
     channels = settings['channels']
     nucleus_chann_dim = settings['nucleus_channel']
@@ -3856,6 +3862,12 @@ def analyze_recruitment(src, metadata_settings, advanced_settings):
         cells.to_csv(cells_loc, index=True, header=True)
         return cells, wells
     
+    settings_dict = {**metadata_settings, **advanced_settings}
+    settings_df = pd.DataFrame(list(settings_dict.items()), columns=['Key', 'Value'])
+    settings_csv = os.path.join(src,'settings','analyze_settings.csv')
+    os.makedirs(os.path.join(src,'settings'), exist_ok=True)
+    settings_df.to_csv(settings_csv, index=False)
+
     # metadata settings
     target = metadata_settings['target']
     cell_types = metadata_settings['cell_types']
