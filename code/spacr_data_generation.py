@@ -3691,7 +3691,7 @@ def analyze_recruitment(src, metadata_settings, advanced_settings):
         else:
             metadata_types = metadata_types
     
-    if isinstance(backgrounds, (int,float):
+    if isinstance(backgrounds, (int,float)):
         backgrounds = [backgrounds, backgrounds, backgrounds, backgrounds]
 
     sns.color_palette("mako", as_cmap=True)
