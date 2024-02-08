@@ -3256,8 +3256,8 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                            file_type='.npz',
                            settings=settings)
             torch.cuda.empty_cache()
-            
-        pivot_counts_table(db_path=os.path.join(src,'measurements', 'measurements.db'))
+        if os.path.exists(os.path.join(src,'measurements'))
+            pivot_counts_table(db_path=os.path.join(src,'measurements', 'measurements.db'))
 	#Concatinate stack with masks
         load_and_concatenate_arrays(src, channels, cell_chann_dim, nucleus_chann_dim, pathogen_chann_dim)
         if plot:
