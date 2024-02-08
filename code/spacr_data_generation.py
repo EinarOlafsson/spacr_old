@@ -970,7 +970,7 @@ def get_lists_for_normalization(settings):
     
 def normalize_timelapse(src, lower_quantile=0.01, save_dtype=np.float32):
     paths = [os.path.join(src, file) for file in os.listdir(src) if file.endswith('.npz')]
-    output_fldr = os.path.join(os.path.dirname(src), 'norm_timelapse_stack')
+    output_fldr = os.path.join(os.path.dirname(src), 'norm_channel_stack')
     os.makedirs(output_fldr, exist_ok=True)
 
     for file_index, path in enumerate(paths):
