@@ -1742,9 +1742,9 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                 mask_stack = filter_cp_masks(masks, flows, refine_masks, filter_size, minimum_size, maximum_size, remove_border_objects, merge, filter_dimm, batch, moving_avg_q1, moving_avg_q3, moving_count, plot, figuresize)
                 save_object_counts_to_database(mask_stack, object_type, batch_filenames, count_loc, added_string='_after_filtration')
 
-		if timelapse:
-		    masks = relabel_masks_consistently(masks)
-		    visualize_mask_stack(masks)
+                if timelapse:
+                    masks = relabel_masks_consistently(masks)
+                    visualize_mask_stack(masks)
 
                 if not np.any(mask_stack):
                     average_obj_size = 0
