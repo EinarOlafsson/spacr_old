@@ -997,8 +997,8 @@ def normalize_timelapse(src, lower_quantile=0.01, save_dtype=np.float32):
             for array_index in range(single_channel.shape[0]):
                 arr_2d = single_channel[array_index]
                 # Calculate the 1% and 98% percentiles for this specific image
-                q_low = np.percentile(arr_2d[arr_2d != 0], lower_quantile * 100)  # Avoid zero pixels if necessary
-                q_high = np.percentile(arr_2d[arr_2d != 0], upper_quantile * 100)
+                q_low = np.percentile(arr_2d[arr_2d != 0], 2)
+                q_high = np.percentile(arr_2d[arr_2d != 0], 98)
 
                 # Rescale intensity based on the calculated percentiles to fill the dtype range
                 arr_2d_rescaled = exposure.rescale_intensity(arr_2d, in_range=(q_low, q_high), out_range='dtype')
@@ -1012,7 +1012,7 @@ def normalize_timelapse(src, lower_quantile=0.01, save_dtype=np.float32):
         del normalized_stack, stack, filenames
         gc.collect()
 
-    print(f'\nSaved normalized stacks: {save_loc}')
+    print(f'\nSaved normalized stacks: {output_fldr}')
 
 def normalize_stack(src, backgrounds=[100,100,100], remove_background=False, lower_quantile=0.01, save_dtype=np.float32, signal_to_noise=[5,5,5], signal_thresholds=[1000,1000,1000], correct_illumination=False):
 
@@ -1603,7 +1603,6 @@ def visualize_mask_stack(masks):
 
     interact(view_frame, frame=IntSlider(min=0, max=len(masks)-1, step=1, value=0))
 
-
 def relabel_masks_consistently(masks):
     # Label the first mask and calculate object centers
     labeled_mask = label(masks[0])
@@ -1630,14 +1629,15 @@ def relabel_masks_consistently(masks):
         relabeled_current_mask = relabel_map[labeled_current_mask]
         # Store the relabeled current mask
         relabeled_masks[i] = relabeled_current_mask
+        
     print('Postprocessing: timelapse masks, distance')
     distance = ndi.distance_transform_edt(masks)
     print('Postprocessing: timelapse masks, local_maxi')
-    local_maxi = peak_local_max(distance, min_distance=1, exclude_border=True, footprint=np.ones((3, 3, 3)))
+    local_maxi = peak_local_max(distance, min_distance=3, exclude_border=True, footprint=np.ones((3, 3, 3)))
     print('Postprocessing: timelapse masks, markers prepared')
     markers = np.zeros_like(masks, dtype=np.int32)
     for i, coord in enumerate(local_maxi, start=1):
-        if all(0 <= coord[j] < markers.shape[j] for j in range(3)):  # Ensure within bounds
+        if all(0 <= coord[j] < markers.shape[j] for j in range(3)):
             markers[coord[0], coord[1], coord[2]] = i
     print('Postprocessing: timelapse masks, watershed applied')
     labels_ws = watershed(-distance, markers, mask=masks)
@@ -1799,17 +1799,17 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                 if plot:
                     plot_masks(stack, mask_stack, flows, figuresize=figuresize, cmap=cmap, nr=batch_size, file_type='.png')
         if save:
-            if timelapse:
-                fov_ls = []
-                for fn in batch_filenames:
-                    nme = os.splitext(fn)
-                    comp = split.nme('_')
-                    fov = comp[0]+'_'+comp[1]+'_'+comp[2]
-                    if fov not in fov_ls:
-                        fov_ls.append(fov)
-                for fov in fov_ls:
-                    image_list = plot_masks_to_image(f'{src}/{name}_{fov}_mask_stack', fov=fov)
-                    concatenate_images_to_movie(image_list, 'cell', fps=2)
+            #if timelapse:
+            #    fov_ls = []
+            #    for fn in batch_filenames:
+            #        nme, _ = os.path.splitext(fn)
+            #        comp = nme.split('_')
+            #        fov = comp[0]+'_'+comp[1]+'_'+comp[2]
+            #        if fov not in fov_ls:
+            #            fov_ls.append(fov)
+            #    for fov in fov_ls:
+            #        image_list = plot_masks_to_image(f'{src}/{nme}_{fov}_mask_stack', fov=fov)
+            #        concatenate_images_to_movie(image_list, 'cell', fps=2)
                 
             if file_type == '.npz':
                 for mask_index, mask in enumerate(mask_stack):
@@ -2942,10 +2942,6 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
     print(f'========== normalizing concatinated npz ==========: {batch_size} stacks per npz in {nr_of_chan_stacks}')
     
     backgrounds, signal_to_noise, signal_thresholds = get_lists_for_normalization(settings=settings)
-
-    #print(f'backgrounds:{backgrounds}')
-    #print(f'signal_to_noise:{signal_to_noise}')
-    #print(f'signal_thresholds:{signal_thresholds}')
     
     if not timelapse:
         normalize_stack(src+'/channel_stack',
@@ -2957,7 +2953,7 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
                     signal_to_noise=signal_to_noise, 
                     remove_background=remove_background)
     else:
-        normalize_timelapse(src, lower_quantile=lower_quantile, save_dtype=save_dtype)
+        normalize_timelapse(src+'/channel_stack', lower_quantile=lower_quantile, save_dtype=np.float32)
         
     if plot:
         plot_4D_arrays(src+'/norm_channel_stack', nr_npz=1, nr=nr)
@@ -3323,7 +3319,7 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                            file_type='.npz',
                            settings=settings)
             torch.cuda.empty_cache()
-        if os.path.exists(os.path.join(src,'measurements'))
+        if os.path.exists(os.path.join(src,'measurements')):
             pivot_counts_table(db_path=os.path.join(src,'measurements', 'measurements.db'))
 	#Concatinate stack with masks
         load_and_concatenate_arrays(src, channels, cell_chann_dim, nucleus_chann_dim, pathogen_chann_dim)
@@ -3366,8 +3362,8 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                              'figuresize':20,
                              'cmap':'inferno',
                              'verbose':True}
-
-            plot_merged(src=os.path.join(src,'merged'), settings=plot_settings)
+            if not timelapse:
+                plot_merged(src=os.path.join(src,'merged'), settings=plot_settings)
             
     torch.cuda.empty_cache()
     gc.collect()
