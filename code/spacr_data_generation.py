@@ -1744,6 +1744,7 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
 
 		if timelapse:
 		    masks = relabel_masks_consistently(masks)
+		    visualize_mask_stack(masks)
 
                 if not np.any(mask_stack):
                     average_obj_size = 0
