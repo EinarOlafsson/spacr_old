@@ -1689,7 +1689,7 @@ def save_mask_timelapse(masks, tracks_df, path, fps, highest_label, cmap, norm):
         for label_value in np.unique(current_mask):
             if label_value == 0: continue
             y, x = np.mean(np.where(current_mask == label_value), axis=1)
-            ax.text(x, y, str(label_value), color='white', fontsize=12, ha='center', va='center')
+            ax.text(x, y, str(label_value), color='white', fontsize=24, ha='center', va='center')
         # Overlay tracks
         for particle in tracks_df['particle'].unique():
             particle_track = tracks_df[tracks_df['particle'] == particle]
@@ -1719,7 +1719,7 @@ def visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df, save, src, 
         for label_value in np.unique(current_mask):
             if label_value == 0: continue  # Skip background
             y, x = np.mean(np.where(current_mask == label_value), axis=1)
-            ax.text(x, y, str(label_value), color='white', fontsize=16, ha='center', va='center')
+            ax.text(x, y, str(label_value), color='white', fontsize=24, ha='center', va='center')
         
         # Overlay tracks
         unique_particles = tracks_df['particle'].unique()
@@ -1772,7 +1772,7 @@ def prepare_for_tracking(mask_array):
             })
     return pd.DataFrame(frames)
     
-def find_optimal_search_range(features, initial_search_range=10, increment=10, max_attempts=10, memory=3):
+def find_optimal_search_range(features, initial_search_range=500, increment=10, max_attempts=49, memory=3):
     optimal_search_range = initial_search_range
     for attempt in range(max_attempts):
         try:
@@ -1780,14 +1780,13 @@ def find_optimal_search_range(features, initial_search_range=10, increment=10, m
             tracks_df = tp.link(features, search_range=optimal_search_range, memory=memory)
             print(f"Success with search_range={optimal_search_range}")
             return optimal_search_range
-        except SubnetOversizeException as e:
-            # If the search range is too large, reduce it and try again
-            print(f"SubnetOversizeException with search_range={optimal_search_range}: {e}")
+        except Exception as e:
+            #print(f"SubnetOversizeException with search_range={optimal_search_range}: {e}")
             optimal_search_range -= increment
-    # If all attempts fail, return the last tried search_range
+            print(f'Retrying with displacement value: {optimal_search_range}', end='\r', flush=True)
     return optimal_search_range
     
-def identify_masks(src, object_type, model_name, batch_size, channels, diameter, minimum_size, maximum_size, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', refine_masks=True, filter_size=True, filter_dimm=True, remove_border_objects=False, verbose=False, plot=False, merge=False, save=True, start_at=0, file_type='.npz', net_avg=True, resample=True, timelapse=False, fps=2, timelapse_displacement=100, timelapse_memory=3):
+def identify_masks(src, object_type, model_name, batch_size, channels, diameter, minimum_size, maximum_size, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', refine_masks=True, filter_size=True, filter_dimm=True, remove_border_objects=False, verbose=False, plot=False, merge=False, save=True, start_at=0, file_type='.npz', net_avg=True, resample=True, timelapse=False, fps=2, timelapse_displacement=None, timelapse_memory=3):
     
     #Note add logic that handles batches of size 1 as these will break the code batches must all be > 2 images
     gc.collect()
@@ -1878,13 +1877,15 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                                 progress=None)
                                 
                 if timelapse:
-                    #masks has the shape [frame,X,Y]
-                    features = prepare_for_tracking(masks)   
-                    
+
+                    features = prepare_for_tracking(masks)
                     if timelapse_displacement is None:
-                        timelapse_displacement = find_optimal_search_range(features, initial_search_range=500, increment=40, max_attempts=12, memory=3)
-                        print(f'Using {timelapse_displacement} px as timelapse displacement threshold')
-                    tracks_df = tp.link(features, search_range=timelapse_displacement, memory=timelapse_memory)
+                    	timelapse_displacement = find_optimal_search_range(features, initial_search_range=500, increment=10, max_attempts=49, memory=3)
+                    try:
+                        tracks_df = tp.link(features, search_range=timelapse_displacement, memory=timelapse_memory)
+                    except Exception as e:
+                        print('timelapse_displacement={timelapse_displacement} is to high. Lower timelapse_displacement or set to None for automatic thresholding.')
+                    
                     tracks_df['particle'] += 1
                     tracks_df = tp.filter_stubs(tracks_df, 3)
                     masks = relabel_masks_based_on_tracks(masks, tracks_df)
@@ -3083,7 +3084,7 @@ def load_and_concatenate_arrays(src, channels, cell_chann_dim, nucleus_chann_dim
         print(f'Files merged: {count}/{all_imgs}', end='\r', flush=True)
     return
 
-def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img_format='.tif', bitdepth='uint16', cmap='inferno', figuresize=15, normalize=False, nr=1, plot=False, mask_channels=[0,1,2], batch_size=[100,100,100], timelapse=False, remove_background=False, backgrounds=100, lower_quantile=0.01, save_dtype=np.float32, correct_illumination=False, randomize=True, generate_movies=False, all_to_mip=False, fps=2, pick_slice=False, skip_mode='01', timelapse_displacement=100, timelapse_memory=3,settings={}):
+def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img_format='.tif', bitdepth='uint16', cmap='inferno', figuresize=15, normalize=False, nr=1, plot=False, mask_channels=[0,1,2], batch_size=[100,100,100], timelapse=False, remove_background=False, backgrounds=100, lower_quantile=0.01, save_dtype=np.float32, correct_illumination=False, randomize=True, generate_movies=False, all_to_mip=False, fps=2, pick_slice=False, skip_mode='01',settings={}):
     
     print(f'========== settings ==========')
     print(f'source == {src}')
@@ -3205,7 +3206,7 @@ def get_diam(mag, obj):
     diamiter = mag*scale
     return diamiter
 
-def generate_masks(src, object_type, mag, batch_size, channels, cellprob_threshold, plot, save, verbose, nr=1, start_at=0, merge=False, file_type='.npz', fps=2, timelapse=False, timelapse_displacement=100, timelapse_memory=3, settings={}):
+def generate_masks(src, object_type, mag, batch_size, channels, cellprob_threshold, plot, save, verbose, nr=1, start_at=0, merge=False, file_type='.npz', fps=2, timelapse=False, timelapse_displacement=None, timelapse_memory=3, settings={}):
     
     if object_type == 'cell':
         refine_masks = False
@@ -3294,8 +3295,8 @@ def generate_masks(src, object_type, mag, batch_size, channels, cellprob_thresho
                    resample=resample, 
                    timelapse=timelapse,
                    fps=fps,
-                   timelapse_displacement=100,
-                   timelapse_memory=3)
+                   timelapse_displacement=timelapse_displacement,
+                   timelapse_memory=timelapse_memory)
     
     return print('========== complete ==========')
 
@@ -3446,8 +3447,6 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                             fps=settings['fps'],
                             pick_slice=settings['pick_slice'],
                             skip_mode=settings['skip_mode'],
-                            timelapse_displacement=settings['timelapse_displacement'], 
-                            timelapse_memory=settings['timelapse_memory'],
                             settings = settings)
     if settings['masks']:
 
@@ -3469,6 +3468,8 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                            timelapse=settings['timelapse'],
                            file_type='.npz',
                            fps=settings['fps'],
+                           timelapse_displacement=settings['timelapse_displacement'], 
+                           timelapse_memory=settings['timelapse_memory'],
                            settings=settings)
             torch.cuda.empty_cache()
         if settings['nucleus_channel'] != None:
@@ -3487,6 +3488,8 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                            timelapse=settings['timelapse'],
                            file_type='.npz',
                            fps=settings['fps'],
+                           timelapse_displacement=settings['timelapse_displacement'], 
+                           timelapse_memory=settings['timelapse_memory'],
                            settings=settings)
             torch.cuda.empty_cache()
         if settings['pathogen_channel'] != None:
@@ -3505,6 +3508,8 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                            timelapse=settings['timelapse'],
                            file_type='.npz',
                            fps=settings['fps'],
+                           timelapse_displacement=settings['timelapse_displacement'], 
+                           timelapse_memory=settings['timelapse_memory'],
                            settings=settings)
             torch.cuda.empty_cache()
         if os.path.exists(os.path.join(src,'measurements')):
