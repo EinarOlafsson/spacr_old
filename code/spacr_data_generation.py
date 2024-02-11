@@ -129,7 +129,7 @@ env_name = "spacr_data_generation"
 
 conda_PATH, python_PATH, pip_PATH, env_PATH = get_paths(env_name)
 
-dependencies = ["pandas", "ipykernel", "mahotas","scikit-learn", "scikit-image", "seaborn", "matplotlib", "xgboost", "moviepy", "ipywidgets"]
+dependencies = ["pandas", "ipykernel", "mahotas","scikit-learn", "scikit-image", "seaborn", "matplotlib", "xgboost", "moviepy", "ipywidgets", "ffmpeg"]
 
 if not os.path.exists(env_PATH):
 	print(f'System type: {sys.platform}')
@@ -185,6 +185,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.animation import FuncAnimation
 from collections import defaultdict
 
 # scikit-image
@@ -196,6 +197,8 @@ from skimage.exposure import rescale_intensity
 from skimage.measure import label, regionprops_table, regionprops, shannon_entropy, find_contours
 from skimage.feature import graycomatrix, graycoprops, peak_local_max
 from mahotas.features import zernike_moments
+import trackpy as tp
+import matplotlib.colors as mcolors
 
 # scikit-learn
 from sklearn.metrics import classification_report, accuracy_score
@@ -256,7 +259,7 @@ def list_folders(src):
     sorted_folders = sorted(folders)
     return sorted_folders
 
-def z_to_mip(src, regex, batch_size=100, pick_slice=False, skip_mode='01'):
+def z_to_mip(src, regex, batch_size=100, pick_slice=False, skip_mode='01', metadata_type=''):
     regular_expression = re.compile(regex)
     images_by_key = defaultdict(list)
     stack_path = os.path.join(src, 'stack')
@@ -273,11 +276,24 @@ def z_to_mip(src, regex, batch_size=100, pick_slice=False, skip_mode='01'):
                             plate = match.group('plateID')
                         except:
                             plate = os.path.basename(src)
+                        
                         well = match.group('wellID')
                         field = match.group('fieldID')
                         channel = match.group('chanID')
                         mode = None
-
+                        
+                        if well[0].isdigit():
+                            well = str(safe_int_convert(well))
+                        if field[0].isdigit():
+                            field = str(safe_int_convert(field))
+                        if channel[0].isdigit():
+                            channel = str(safe_int_convert(channel))
+                            
+                        if metadata_type =='cq1':
+                            orig_wellID = wellID
+                            wellID = convert_cq1_well_id(wellID)
+                            print(f'Converted Well ID: {orig_wellID} to {wellID}')
+                            
                         if pick_slice:
                             try:
                                 mode = match.group('AID')
@@ -341,7 +357,19 @@ def z_to_mip(src, regex, batch_size=100, pick_slice=False, skip_mode='01'):
                     shutil.move(os.path.join(src, filename), move)
     return
 
-def move_to_chan_folder(src, regex, timelapse=False):
+def convert_cq1_well_id(well_id):
+    well_id = int(well_id)
+    # ASCII code for 'A'
+    ascii_A = ord('A')
+    # Calculate row and column
+    row, col = divmod(well_id - 1, 24)
+    # Convert row to letter (A-P) and adjust col to start from 1
+    row_letter = chr(ascii_A + row)
+    # Format column as two digits
+    well_format = f"{row_letter}{col + 1:02d}" 
+    return well_format
+
+def move_to_chan_folder(src, regex, timelapse=False, metadata_type=''):
     src = Path(src)
     valid_exts = ['.tif', '.png']
 
@@ -355,10 +383,26 @@ def move_to_chan_folder(src, regex, timelapse=False):
                         plateID = metadata.group('plateID')
                     except:
                         plateID = src.name
+                    
                     wellID = metadata.group('wellID')
                     fieldID = metadata.group('fieldID')
                     chanID = metadata.group('chanID')
                     timeID = metadata.group('timeID')
+                    
+                    if wellID[0].isdigit():
+                        wellID = str(safe_int_convert(wellID))
+                    if fieldID[0].isdigit():
+                        fieldID = str(safe_int_convert(fieldID))
+                    if chanID[0].isdigit():
+                        chanID = str(safe_int_convert(chanID))
+                    if timeID[0].isdigit():
+                        timeID = str(safe_int_convert(timeID))
+                        
+                    if metadata_type =='cq1':
+                        orig_wellID = wellID
+                        wellID = convert_cq1_well_id(wellID)
+                        print(f'Converted Well ID: {orig_wellID} to {wellID}')
+                    
                     newname = f"{plateID}_{wellID}_{fieldID}_{timeID if timelapse else ''}{ext}"
                     newpath = src / chanID
                     move = newpath / newname
@@ -368,6 +412,7 @@ def move_to_chan_folder(src, regex, timelapse=False):
                         newpath.mkdir(exist_ok=True)
                         shutil.move(file, move)
     return
+
 # Generate random colour cmap
 def random_cmap(num_objects=100):
     #num_objects = len(unique_labels[unique_labels != 0])
@@ -702,7 +747,7 @@ def plot_merged(src, settings):
             if settings['pathogen_mask_dim'] is not None and settings['cell_mask_dim'] is not None:
                 stack = remove_noninfected(stack, settings['cell_mask_dim'], settings['nucleus_mask_dim'], settings['pathogen_mask_dim'])
 
-        if settings['include_multiinfected'] is not None or settings['include_multinucleated'] is not None or settings['filter_min_max'] is not None:
+        if settings['include_multiinfected'] is not True or settings['include_multinucleated'] is not True or settings['filter_min_max'] is not None:
             stack = filter_objects_in_plot(stack, settings['cell_mask_dim'], settings['nucleus_mask_dim'], settings['pathogen_mask_dim'], mask_dims, settings['filter_min_max'], settings['include_multinucleated'], settings['include_multiinfected'])
 
         image = np.take(stack, settings['channel_dims'], axis=2)
@@ -1591,119 +1636,158 @@ def save_object_counts_to_database(arrays, object_type, file_names, db_path, add
     conn.commit()
     conn.close()
 
-def visualize_mask_stack(masks):
-    cmap = generate_mask_random_cmap(masks)  # Ensure this function exists and is correctly implemented
-
-    def view_frame(frame=0):
-        # Specify figsize as a tuple (width, height)
-        plt.figure(figsize=(15, 15))  # Adjust the figure size as needed
-        plt.imshow(masks[frame], cmap=cmap)
-        plt.title(f'Frame: {frame}')
-        plt.axis('off')
-        plt.show()
-
-    interact(view_frame, frame=IntSlider(min=0, max=len(masks)-1, step=1, value=0))
+#######################
+#                     #
+# Timelapse functions #
+#                     #  
+#######################
     
-def compute_divergence(flow_x, flow_y):
-    grad_flow_x = np.gradient(flow_x, axis=0)
-    grad_flow_y = np.gradient(flow_y, axis=1)
-    divergence = grad_flow_x + grad_flow_y
-    return divergence
-
-def identify_high_divergence_regions(divergence, percentile=95):
-    threshold = np.percentile(divergence, percentile)
-    high_divergence_regions = divergence > threshold
-    return high_divergence_regions
-    
-def adjust_markers_based_on_divergence(markers, high_divergence_regions):
-
-    # Assuming high_divergence_regions is a binary mask of the same shape as markers
-    # and markers is an array where each cell's approximate center is marked with a unique integer
-    
-    # Label connected components in high_divergence_regions
-    labeled_regions, num_features = label(high_divergence_regions)
-    
-    new_marker_id = np.max(markers) + 1
-    refined_markers = np.copy(markers)
-    
-    for region_id in range(1, num_features + 1):
-        region_mask = labeled_regions == region_id
+def visualize_timelapse_stack_with_tracks(masks, tracks_df):
+    highest_label = max(np.max(mask) for mask in masks)
+    # Generate random colors for each label, including the background
+    random_colors = np.random.rand(highest_label + 1, 4)
+    random_colors[:, 3] = 1  # Full opacity
+    random_colors[0] = [0, 0, 0, 1]  # Background color
+    cmap = plt.cm.colors.ListedColormap(random_colors)
+    # Ensure the normalization range covers all labels
+    norm = plt.cm.colors.Normalize(vmin=0, vmax=highest_label)
+    # Function to plot a frame and overlay tracks
+    def view_frame_with_tracks(frame=0):
+        fig, ax = plt.subplots(figsize=(50, 50))
+        current_mask = masks[frame]
+        ax.imshow(current_mask, cmap=cmap, norm=norm)  # Apply both colormap and normalization
+        ax.set_title(f'Frame: {frame}')
         
-        # For simplicity, place a new marker at the centroid of each high divergence region
-        # More sophisticated logic might be needed to adjust existing markers or place new ones optimally
-        region_centroid = np.round(np.mean(np.argwhere(region_mask), axis=0)).astype(int)
-        if refined_markers[tuple(region_centroid)] == 0:  # Place a new marker if there isn't one already
-            refined_markers[tuple(region_centroid)] = new_marker_id
-            new_marker_id += 1
-    
-    return refined_markers
-
-def refine_markers_with_flows(markers, flows):
-    flow_x, flow_y = flows
-    # Compute the divergence of the flow field
-    divergence = compute_divergence(flow_x, flow_y)
-    # Identify regions of high divergence
-    high_divergence_regions = identify_high_divergence_regions(divergence)
-    # Refine markers based on these regions
-    refined_markers = adjust_markers_based_on_divergence(markers, high_divergence_regions, flow_x, flow_y)
-    return refined_markers
-
-def relabel_masks_consistently(masks, flows):
-    # Label the first mask and calculate object centers
-    labeled_mask = label(masks[0])
-    regions = regionprops(labeled_mask)
-    object_centers = [region.centroid for region in regions]
-    # Prepare an array to hold the relabeled masks
-    relabeled_masks = np.zeros_like(masks, dtype=int)
-    relabeled_masks[0] = labeled_mask
-    # Process each subsequent mask
-    for i in range(1, len(masks)):
-        current_mask = masks[i]
-        labeled_current_mask = label(current_mask)
-        current_regions = regionprops(labeled_current_mask)
-        # Initialize a map for the current mask with zeros
-        relabel_map = np.zeros(np.max(labeled_current_mask) + 1, dtype=int)
-        # Iterate through current mask regions to find closest original object
-        for region in current_regions:
-            current_center = region.centroid
-            # Calculate distances to all centers in the first mask
-            distances = [np.linalg.norm(np.array(current_center) - np.array(orig_center)) for orig_center in object_centers]
-            closest_object_idx = np.argmin(distances) + 1  # +1 because region label starts from 1
-            relabel_map[region.label] = closest_object_idx
-        # Apply the relabel map to the current labeled mask
-        relabeled_current_mask = relabel_map[labeled_current_mask]
-        # Store the relabeled current mask
-        relabeled_masks[i] = relabeled_current_mask
+        # Directly annotate each object with its label number from the mask
+        for label_value in np.unique(current_mask):
+            if label_value == 0: continue  # Skip background
+            y, x = np.mean(np.where(current_mask == label_value), axis=1)
+            ax.text(x, y, str(label_value), color='white', fontsize=16, ha='center', va='center')
         
-    print('Postprocessing: timelapse masks, distance')
-    distance = ndi.distance_transform_edt(relabeled_masks)
-    print('Postprocessing: timelapse masks, local_maxi')
-    local_maxi = peak_local_max(distance, min_distance=1, exclude_border=True, footprint=np.ones((3, 3, 3)))
-    print('Postprocessing: timelapse masks, markers prepared')
-    markers = np.zeros_like(relabeled_masks, dtype=np.int32)
-    for i, coord in enumerate(local_maxi, start=1):
-        if all(0 <= coord[j] < markers.shape[j] for j in range(3)):
-            markers[coord[0], coord[1], coord[2]] = i
-            
-    refined_markers = refine_markers_with_flows(markers, flows)
-    print('Postprocessing: timelapse masks, watershed applied')
-    labels_ws = watershed(-distance, refined_markers, mask=relabeled_masks)
-    
-    return labels_ws
+        # Overlay tracks
+        unique_particles = tracks_df['particle'].unique()
+        for particle in unique_particles:
+            particle_track = tracks_df[tracks_df['particle'] == particle]
+            ax.plot(particle_track['x'], particle_track['y'], '-k', linewidth=1)  # Draw track as a black line
 
-def visualize_mask_stack(masks):
-    cmap = generate_mask_random_cmap(masks)
-    def view_frame(frame=0):
-        # Specify figsize as a tuple (width, height)
-        plt.figure(figsize=(50, 50))
-        plt.imshow(masks[frame], cmap=cmap)
-        plt.title(f'Frame: {frame}')
-        plt.axis('off')
+        ax.axis('off')
         plt.show()
-    interact(view_frame, frame=IntSlider(min=0, max=len(masks)-1, step=1, value=0))
+    
+    interact(view_frame_with_tracks, frame=IntSlider(min=0, max=len(masks)-1, step=1, value=0))
 
+def save_mask_timelapse(masks, tracks_df, path, fps, highest_label, cmap, norm):
+    
+    fig, ax = plt.subplots(figsize=(50, 50))
 
-def identify_masks(src, object_type, model_name, batch_size, channels, diameter, minimum_size, maximum_size, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', refine_masks=True, filter_size=True, filter_dimm=True, remove_border_objects=False, verbose=False, plot=False, merge=False, save=True, start_at=0, file_type='.npz', net_avg=True, resample=True, timelapse=False):
+    def update(frame):
+        ax.clear()
+        ax.axis('off')
+        current_mask = masks[frame]
+        ax.imshow(current_mask, cmap=cmap, norm=norm)
+        ax.set_title(f'Frame: {frame}')
+        # Annotate each object with its label number from the mask
+        for label_value in np.unique(current_mask):
+            if label_value == 0: continue
+            y, x = np.mean(np.where(current_mask == label_value), axis=1)
+            ax.text(x, y, str(label_value), color='white', fontsize=12, ha='center', va='center')
+        # Overlay tracks
+        for particle in tracks_df['particle'].unique():
+            particle_track = tracks_df[tracks_df['particle'] == particle]
+            ax.plot(particle_track['x'], particle_track['y'], '-k', linewidth=1)
+
+    anim = FuncAnimation(fig, update, frames=len(masks), blit=False)
+    anim.save(path, writer='pillow', fps=fps)
+    print(f'saved timelaps to {path}')
+
+def visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df, save, src, name, fps, plot):
+    highest_label = max(np.max(mask) for mask in masks)
+    # Generate random colors for each label, including the background
+    random_colors = np.random.rand(highest_label + 1, 4)
+    random_colors[:, 3] = 1  # Full opacity
+    random_colors[0] = [0, 0, 0, 1]  # Background color
+    cmap = plt.cm.colors.ListedColormap(random_colors)
+    # Ensure the normalization range covers all labels
+    norm = plt.cm.colors.Normalize(vmin=0, vmax=highest_label)
+    # Function to plot a frame and overlay tracks
+    def view_frame_with_tracks(frame=0):
+        fig, ax = plt.subplots(figsize=(50, 50))
+        current_mask = masks[frame]
+        ax.imshow(current_mask, cmap=cmap, norm=norm)  # Apply both colormap and normalization
+        ax.set_title(f'Frame: {frame}')
+        
+        # Directly annotate each object with its label number from the mask
+        for label_value in np.unique(current_mask):
+            if label_value == 0: continue  # Skip background
+            y, x = np.mean(np.where(current_mask == label_value), axis=1)
+            ax.text(x, y, str(label_value), color='white', fontsize=16, ha='center', va='center')
+        
+        # Overlay tracks
+        unique_particles = tracks_df['particle'].unique()
+        for particle in unique_particles:
+            particle_track = tracks_df[tracks_df['particle'] == particle]
+            ax.plot(particle_track['x'], particle_track['y'], '-k', linewidth=1)  # Draw track as a black line
+
+        ax.axis('off')
+        plt.show()
+    if plot:
+    	interact(view_frame_with_tracks, frame=IntSlider(min=0, max=len(masks)-1, step=1, value=0))
+    
+    if save:
+        movies_path = os.path.join(os.path.dirname(src), 'movies')
+        save_path = os.path.join(movies_path, f'timelapse_masks_{name}.gif')
+        os.makedirs(movies_path, exist_ok=True)
+        save_mask_timelapse(masks, tracks_df, save_path, fps, highest_label, cmap, norm)
+    
+def relabel_masks_based_on_tracks(masks, tracks):
+    # Initialize an array to hold the relabeled masks with the same shape and dtype as the input masks
+    relabeled_masks = np.zeros(masks.shape, dtype=masks.dtype)
+    
+    # Iterate through each frame
+    for frame_number in range(masks.shape[0]):
+        # Extract the mapping for the current frame from the tracks DataFrame
+        frame_tracks = tracks[tracks['frame'] == frame_number]
+        mapping = dict(zip(frame_tracks['original_label'], frame_tracks['particle']))
+        
+        current_mask = masks[frame_number, :, :]
+        
+        # Apply the mapping to the current mask
+        for original_label, particle in mapping.items():
+            # Where the current mask equals the original label, set it to the new particle value
+            relabeled_masks[frame_number][current_mask == original_label] = particle
+
+    return relabeled_masks
+    
+def prepare_for_tracking(mask_array):
+    frames = []
+    for t, frame in enumerate(mask_array):
+        props = regionprops(frame)
+        for obj in props:
+            # Include 'label' in the dictionary to capture the original label of the object
+            frames.append({
+                'frame': t, 
+                'y': obj.centroid[0], 
+                'x': obj.centroid[1], 
+                'mass': obj.area,
+                'original_label': obj.label  # Capture the original label
+            })
+    return pd.DataFrame(frames)
+    
+def find_optimal_search_range(features, initial_search_range=10, increment=10, max_attempts=10, memory=3):
+    optimal_search_range = initial_search_range
+    for attempt in range(max_attempts):
+        try:
+            # Attempt to link features with the current search range
+            tracks_df = tp.link(features, search_range=optimal_search_range, memory=memory)
+            print(f"Success with search_range={optimal_search_range}")
+            return optimal_search_range
+        except SubnetOversizeException as e:
+            # If the search range is too large, reduce it and try again
+            print(f"SubnetOversizeException with search_range={optimal_search_range}: {e}")
+            optimal_search_range -= increment
+    # If all attempts fail, return the last tried search_range
+    return optimal_search_range
+    
+def identify_masks(src, object_type, model_name, batch_size, channels, diameter, minimum_size, maximum_size, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', refine_masks=True, filter_size=True, filter_dimm=True, remove_border_objects=False, verbose=False, plot=False, merge=False, save=True, start_at=0, file_type='.npz', net_avg=True, resample=True, timelapse=False, fps=2, timelapse_displacement=100, timelapse_memory=3):
     
     #Note add logic that handles batches of size 1 as these will break the code batches must all be > 2 images
     gc.collect()
@@ -1737,6 +1821,8 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
     moving_avg_q3 = 0
     moving_count = 0
     for file_index, path in enumerate(paths):
+        name = os.path.basename(path)
+        name, ext = os.path.splitext(name)
         if file_type == '.npz':
             if start_at: 
                 print(f'starting at file index:{start_at}')
@@ -1771,7 +1857,12 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                     continue
                 if batch.max() > 1:
                     batch = batch / batch.max()
-
+                    
+                if timelapse:
+                    stitch_threshold=100.0
+                else:
+                    stitch_threshold=0.0
+                   
                 masks, flows, _, _ = model.eval(x=batch,
                                 batch_size=batch_size,
                                 normalize=False,
@@ -1783,16 +1874,29 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                                 rescale=None,
                                 resample=resample,
                                 net_avg=net_avg,
+                                stitch_threshold=stitch_threshold,
                                 progress=None)
-		    
-                print(f'{object_type}, {batch_filenames}, {count_loc}')
+                                
+                if timelapse:
+                    #masks has the shape [frame,X,Y]
+                    features = prepare_for_tracking(masks)   
+                    
+                    if timelapse_displacement is None:
+                        timelapse_displacement = find_optimal_search_range(features, initial_search_range=500, increment=40, max_attempts=12, memory=3)
+                        print(f'Using {timelapse_displacement} px as timelapse displacement threshold')
+                    tracks_df = tp.link(features, search_range=timelapse_displacement, memory=timelapse_memory)
+                    tracks_df['particle'] += 1
+                    tracks_df = tp.filter_stubs(tracks_df, 3)
+                    masks = relabel_masks_based_on_tracks(masks, tracks_df)
+                    tracks_path = os.path.join(os.path.dirname(src), 'tracks')
+                    os.makedirs(tracks_path, exist_ok=True)
+                    tracks_df.to_csv(os.path.join(tracks_path, f'tracks_{name}.csv'), index=False)
+                    if plot or save:
+                    	visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df, save, src, name, fps, plot)
+                    	
                 save_object_counts_to_database(masks, object_type, batch_filenames, count_loc, added_string='_before_filtration')
                 mask_stack = filter_cp_masks(masks, flows, refine_masks, filter_size, minimum_size, maximum_size, remove_border_objects, merge, filter_dimm, batch, moving_avg_q1, moving_avg_q3, moving_count, plot, figuresize)
                 save_object_counts_to_database(mask_stack, object_type, batch_filenames, count_loc, added_string='_after_filtration')
-
-                if timelapse:
-                    masks = relabel_masks_consistently(masks, flows)
-                    visualize_mask_stack(masks)
 
                 if not np.any(mask_stack):
                     average_obj_size = 0
@@ -2333,46 +2437,83 @@ def check_integrity(df):
     df = df.drop(columns=label_cols)
     df['label_list'] = df['label_list'].astype(str)
     return df
-
-def map_wells(file_name):
-    try:
-        parts = file_name.split('_')
-        plate = 'p' + parts[0][5:]
-        field = 'f' + str(int(parts[2]))
-        well = parts[1]
-        row = 'r' + str(string.ascii_uppercase.index(well[0]) + 1)
-        column = 'c' + str(int(well[1:]))
-        prcf = '_'.join([plate, row, column, field])
-    except Exception as e:
-        print(f"Error processing filename: {file_name}")
-        print(f"Error: {e}")
-        plate, row, column, field, prcf = 'error','error','error','error','error'
-    return plate, row, column, field, prcf
-
+    
 def safe_int_convert(value, default=0):
     try:
         return int(value)
     except ValueError:
+        print(f'Could not convert {value} to int using {default}')
         return default
 
-def map_wells_png(file_name):
+def map_wells(file_name, timelapse=False):
+    
     try:
-        root, ext = os.path.splitext(file_name)
-        parts = root.split('_')
-        plate = 'p' + parts[0][5:]
-        field = 'f' + str(safe_int_convert(parts[2]))
+        parts = file_name.split('_')
+        
+        #plate = 'p' + parts[0][5:]
+        plate = 'p' + parts[0]
         well = parts[1]
-        row = 'r' + str(string.ascii_uppercase.index(well[0]) + 1)
-        column = 'c' + str(safe_int_convert(well[1:]))
-        cell_id = 'o' + str(safe_int_convert(parts[-1], default='none'))
-        prcfo = '_'.join([plate, row, column, field, cell_id])
+        field = 'f' + str(safe_int_convert(parts[2]))
+        if timelapse:
+            timeid = 't' + str(safe_int_convert(parts[3]))
+            
+        if well[0].isalpha():
+            row = 'r' + str(string.ascii_uppercase.index(well[0]) + 1)
+            column = 'c' + str(int(well[1:]))
+        else:
+            row, column = well, well
+        if timelapse:    
+            prcf = '_'.join([plate, row, column, field, timeid])
+        else:
+            prcf = '_'.join([plate, row, column, field])
+        
+            
     except Exception as e:
         print(f"Error processing filename: {file_name}")
         print(f"Error: {e}")
-        plate, row, column, field, cell_id, prcfo = 'error', 'error', 'error', 'error', 'error', 'error'
-    return plate, row, column, field, cell_id, prcfo
+        plate, row, column, field, timeid, prcf = 'error','error','error','error','error', 'error'
     
-def merge_and_save_to_database(morph_df, intensity_df, table_type, source_folder, file_name, experiment):
+    if timelapse:
+        return plate, row, column, field, timeid, prcf
+    else:
+        return plate, row, column, field, prcf
+
+def map_wells_png(file_name, timelapse=False):
+    try:
+        root, ext = os.path.splitext(file_name)
+        parts = root.split('_')
+        
+        #plate = 'p' + parts[0][5:]
+        plate = 'p' + parts[0]
+        well = parts[1]
+        field = 'f' + str(safe_int_convert(parts[2]))
+        
+        if timelapse:
+            timeid = 't' + str(safe_int_convert(parts[3]))
+        
+        object_id = 'o' + str(safe_int_convert(parts[-1], default='none'))
+        
+        if well[0].isalpha():
+            row = 'r' + str(string.ascii_uppercase.index(well[0]) + 1)
+            column = 'c' + str(safe_int_convert(well[1:]))
+        
+        else:
+            row, column = well, well
+            
+        if timelapse:
+            prcfo = '_'.join([plate, row, column, field, timeid, object_id])
+        else:
+            prcfo = '_'.join([plate, row, column, field, object_id])
+    except Exception as e:
+        print(f"Error processing filename: {file_name}")
+        print(f"Error: {e}")
+        plate, row, column, field, object_id, prcfo = 'error', 'error', 'error', 'error', 'error', 'error'
+    if timelapse:
+        return plate, row, column, field, timeid, prcfo, object_id,
+    else:
+        return plate, row, column, field, prcfo, object_id
+
+def merge_and_save_to_database(morph_df, intensity_df, table_type, source_folder, file_name, experiment, timelapse=False):
     morph_df = check_integrity(morph_df)
     intensity_df = check_integrity(intensity_df)
     if len(morph_df) > 0 and len(intensity_df) > 0:
@@ -2380,7 +2521,10 @@ def merge_and_save_to_database(morph_df, intensity_df, table_type, source_folder
         merged_df = merged_df.rename(columns={"label_list_x": "label_list_morphology", "label_list_y": "label_list_intensity"})
         merged_df['file_name'] = file_name
         merged_df['path_name'] = os.path.join(source_folder, file_name + '.npy')
-        merged_df[['plate', 'row', 'col', 'field', 'prcf']] = merged_df['file_name'].apply(lambda x: pd.Series(map_wells(x)))
+        if timelapse:
+            merged_df[['plate', 'row', 'col', 'field', 'timeid', 'prcf']] = merged_df['file_name'].apply(lambda x: pd.Series(map_wells(x, timelapse)))
+        else:
+            merged_df[['plate', 'row', 'col', 'field', 'prcf']] = merged_df['file_name'].apply(lambda x: pd.Series(map_wells(x, timelapse)))
         cols = merged_df.columns.tolist()  # get the list of all columns
         
         if table_type == 'cell' or table_type == 'cytoplasm':
@@ -2599,9 +2743,10 @@ def measure_crop_core(index, time_ls, file, settings):
             pathogen_mask = filter_object(pathogen_mask, settings['pathogen_min_size']) # Filter out small pathogens
         if settings['cytoplasm_min_size'] is not None and settings['cytoplasm_min_size'] != 0:
             cytoplasm_mask = filter_object(cytoplasm_mask, settings['cytoplasm_min_size']) # Filter out small cytoplasms
-
-        if settings['include_uninfected'] == False:
-            cell_mask, nuclei_mask, pathogen_mask, cytoplasm_mask = exclude_objects(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_mask, include_uninfected=False)
+	
+        if settings['cell_mask_dim'] is not None and settings['pathogen_mask_dim'] is not None:
+            if settings['include_uninfected'] == False:
+                cell_mask, nuclei_mask, pathogen_mask, cytoplasm_mask = exclude_objects(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_mask, include_uninfected=False)
         
         # Update data with the new masks
         if settings['cell_mask_dim'] is not None:
@@ -2621,14 +2766,15 @@ def measure_crop_core(index, time_ls, file, settings):
 		
             cell_df, nucleus_df, pathogen_df, cytoplasm_df = morphological_measurements(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_mask, settings)
             cell_intensity_df, nucleus_intensity_df, pathogen_intensity_df, cytoplasm_intensity_df = intensity_measurements(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_mask, channel_arrays, settings, sizes=[1, 2, 3, 4, 5], periphery=True, outside=True)
+            
             if settings['cell_mask_dim'] is not None:
-            	cell_merged_df = merge_and_save_to_database(cell_df, cell_intensity_df, 'cell', source_folder, file_name, settings['experiment'])
+            	cell_merged_df = merge_and_save_to_database(cell_df, cell_intensity_df, 'cell', source_folder, file_name, settings['experiment'], settings['timelapse'])
             if settings['nuclei_mask_dim'] is not None:
-            	nucleus_merged_df = merge_and_save_to_database(nucleus_df, nucleus_intensity_df, 'nucleus', source_folder, file_name, settings['experiment'])
+            	nucleus_merged_df = merge_and_save_to_database(nucleus_df, nucleus_intensity_df, 'nucleus', source_folder, file_name, settings['experiment'], settings['timelapse'])
             if settings['pathogen_mask_dim'] is not None:
-            	pathogen_merged_df = merge_and_save_to_database(pathogen_df, pathogen_intensity_df, 'pathogen', source_folder, file_name, settings['experiment'])
+            	pathogen_merged_df = merge_and_save_to_database(pathogen_df, pathogen_intensity_df, 'pathogen', source_folder, file_name, settings['experiment'], settings['timelapse'])
             if settings['cytoplasm']:
-            	cytoplasm_merged_df = merge_and_save_to_database(cytoplasm_df, cytoplasm_intensity_df, 'cytoplasm', source_folder, file_name, settings['experiment'])
+            	cytoplasm_merged_df = merge_and_save_to_database(cytoplasm_df, cytoplasm_intensity_df, 'cytoplasm', source_folder, file_name, settings['experiment'], settings['timelapse'])
 
         if settings['save_png'] or settings['save_arrays'] or settings['plot']:
             
@@ -2639,8 +2785,12 @@ def measure_crop_core(index, time_ls, file, settings):
 
             if isinstance(settings['dialate_png_ratios'], float):
                 dialate_png_ratios = [settings['dialate_png_ratios'], settings['dialate_png_ratios'], settings['dialate_png_ratios']]
+            
             if isinstance(settings['dialate_png_ratios'], list):
                 dialate_png_ratios = settings['dialate_png_ratios']
+                
+            #if isinstance(settings['dialate_png_ratios'], None):
+                
                 
             if isinstance(settings['crop_mode'], str):
                 crop_mode = [settings['crop_mode']]
@@ -2716,22 +2866,37 @@ def measure_crop_core(index, time_ls, file, settings):
                                 cv2.imwrite(img_path, png_channels)
 
                         	#if settings['save_measurements']:
+                        	
                             img_paths.append(img_path)
+                            
                             if len(img_paths) == len(objects_in_image):
+                                
                                 png_df = pd.DataFrame(img_paths, columns=['png_path'])
+                                
                                 png_df['file_name'] = png_df['png_path'].apply(lambda x: os.path.basename(x))
+                                
+                                parts = png_df['file_name'].apply(lambda x: pd.Series(map_wells_png(x, timelapse=settings['timelapse'])))
 
+                                columns = ['plate', 'row', 'col', 'field']
+                                
+                                if settings['timelapse']:
+                                    columns = columns + ['time_id']
+                                
+                                columns = columns + ['prcfo']
+                                
                                 if crop_mode == 'cell':
-                                    png_df[['plate', 'row', 'col', 'field', 'cell_id', 'prcfo']] = png_df['file_name'].apply(lambda x: pd.Series(map_wells_png(x)))
+                                    columns = columns + ['cell_id']
 
-                                elif crop_mode == 'nucleus':
-                                    png_df[['plate', 'row', 'col', 'field', 'nucleus_id', 'prcfo']] = png_df['file_name'].apply(lambda x: pd.Series(map_wells_png(x)))
+                                if crop_mode == 'nucleus':
+                                    columns = columns + ['nucleus_id']
 
-                                elif crop_mode == 'pathogen':
-                                    png_df[['plate', 'row', 'col', 'field', 'pathogen_id', 'prcfo']] = png_df['file_name'].apply(lambda x: pd.Series(map_wells_png(x)))
+                                if crop_mode == 'pathogen':
+                                    columns = columns + ['pathogen_id']
 
-                                elif crop_mode == 'cytoplasm':
-                                    png_df[['plate', 'row', 'col', 'field', 'cytoplasm_id', 'prcfo']] = png_df['file_name'].apply(lambda x: pd.Series(map_wells_png(x)))
+                                if crop_mode == 'cytoplasm':
+                                    columns = columns + ['cytoplasm_id']
+
+                                png_df[columns] = parts
 
                                 try:
                                     conn = sqlite3.connect(f'{source_folder}/measurements/measurements.db', timeout=5)
@@ -2918,7 +3083,7 @@ def load_and_concatenate_arrays(src, channels, cell_chann_dim, nucleus_chann_dim
         print(f'Files merged: {count}/{all_imgs}', end='\r', flush=True)
     return
 
-def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img_format='.tif', bitdepth='uint16', cmap='inferno', figuresize=15, normalize=False, nr=1, plot=False, mask_channels=[0,1,2], batch_size=[100,100,100], timelapse=False, remove_background=False, backgrounds=100, lower_quantile=0.01, save_dtype=np.float32, correct_illumination=False, randomize=True, generate_movies=False, all_to_mip=False, fps=2, pick_slice=False, skip_mode='01', settings={}):
+def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img_format='.tif', bitdepth='uint16', cmap='inferno', figuresize=15, normalize=False, nr=1, plot=False, mask_channels=[0,1,2], batch_size=[100,100,100], timelapse=False, remove_background=False, backgrounds=100, lower_quantile=0.01, save_dtype=np.float32, correct_illumination=False, randomize=True, generate_movies=False, all_to_mip=False, fps=2, pick_slice=False, skip_mode='01', timelapse_displacement=100, timelapse_memory=3,settings={}):
     
     print(f'========== settings ==========')
     print(f'source == {src}')
@@ -2940,14 +3105,11 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
     
     print(f'regex == {regex}')
     if not os.path.exists(src+'/stack'):
+        print(f'========== creating single channel folders ==========')
         if timelapse:
-            move_to_chan_folder(src, 
-                                regex=regex, 
-                                timelapse=timelapse)
+            move_to_chan_folder(src, regex, timelapse, metadata_type)
         else:
-            print(f'========== creating single channel folders ==========')
-            #z_to_mip(src, regex=regex)
-            z_to_mip(src, regex=regex, batch_size=batch_size, pick_slice=pick_slice, skip_mode=skip_mode)
+            z_to_mip(src, regex, batch_size, pick_slice, skip_mode, metadata_type)
 		
             #Make sure no batches will be of only one image
             all_imgs = len(src+'/stack')
@@ -3043,7 +3205,7 @@ def get_diam(mag, obj):
     diamiter = mag*scale
     return diamiter
 
-def generate_masks(src, object_type, mag, batch_size, channels, cellprob_threshold, plot, save, verbose, nr=1, start_at=0, merge=False, file_type='.npz', timelapse=False, settings={}):
+def generate_masks(src, object_type, mag, batch_size, channels, cellprob_threshold, plot, save, verbose, nr=1, start_at=0, merge=False, file_type='.npz', fps=2, timelapse=False, timelapse_displacement=100, timelapse_memory=3, settings={}):
     
     if object_type == 'cell':
         refine_masks = False
@@ -3130,7 +3292,10 @@ def generate_masks(src, object_type, mag, batch_size, channels, cellprob_thresho
                    file_type=file_type, 
                    net_avg=net_avg, 
                    resample=resample, 
-                   timelapse=timelapse)
+                   timelapse=timelapse,
+                   fps=fps,
+                   timelapse_displacement=100,
+                   timelapse_memory=3)
     
     return print('========== complete ==========')
 
@@ -3243,149 +3408,125 @@ def get_cellpose_channels(mask_channels, nucleus_chann_dim, pathogen_chann_dim, 
     
 def preprocess_generate_masks(src, settings={},advanced_settings={}):
 	
-    settings_dict = {**settings, **advanced_settings}
-    settings_df = pd.DataFrame(list(settings_dict.items()), columns=['Key', 'Value'])
+    settings = {**settings, **advanced_settings}
+    settings_df = pd.DataFrame(list(settings.items()), columns=['Key', 'Value'])
     settings_csv = os.path.join(src,'settings','preprocess_generate_masks_settings.csv')
     os.makedirs(os.path.join(src,'settings'), exist_ok=True)
     settings_df.to_csv(settings_csv, index=False)
-
-    channels = settings['channels']
-    nucleus_chann_dim = settings['nucleus_channel']
-    nucleus_cp_prob = settings['nucleus_CP_prob']
-    pathogen_chann_dim = settings['pathogen_channel']
-    pathogen_cp_prob = settings['pathogen_CP_prob']
-    cell_chann_dim = settings['cell_channel']
-    cell_cp_prob = settings['cell_CP_prob']
-    metadata_type = settings['metadata_type']
-    experiment = settings['experiment']
-    magnefication = settings['magnefication']
     
-    custom_regex = advanced_settings['custom_regex']
-    save = advanced_settings['save']
-    plot = advanced_settings['plot']
-    examples_to_plot = advanced_settings['examples_to_plot']
-    batch_size = advanced_settings['batch_size']
-    preprocess = advanced_settings['preprocess']
-    masks = advanced_settings['masks']
-    timelapse = advanced_settings['timelapse']
-    randomize = advanced_settings['randomize']
-    remove_background = advanced_settings['remove_background']
-    lower_quantile = advanced_settings['lower_quantile']
-    merge = advanced_settings['merge']
-    normalize_plots = advanced_settings['normalize_plots']
-    all_to_mip = advanced_settings['all_to_mip']
-    fps = advanced_settings['fps']
-    pick_slice = advanced_settings['pick_slice']
-    skip_mode = advanced_settings['skip_mode']
-    workers = advanced_settings['workers']
-    verbose = advanced_settings['verbose']
-    
-    mask_channels = [nucleus_chann_dim, cell_chann_dim, pathogen_chann_dim]
+    mask_channels = [settings['nucleus_channel'], settings['cell_channel'], settings['pathogen_channel']]
     mask_channels = [item for item in mask_channels if item is not None]
     
-    if preprocess and not masks:
-        print(f'WARNING: channels for mask generation are defined when preprocess = True')
+    if settings['preprocess']:
+        if not settings['masks']:
+            print(f'WARNING: channels for mask generation are defined when preprocess = True')
     
-    if isinstance(merge, bool):
-        merge = [merge]*3
-    if isinstance(save, bool):
-        save = [save]*3
+    if isinstance(settings['merge'], bool):
+        settings['merge'] = [settings['merge']]*3
+    if isinstance(settings['save'], bool):
+        settings['save'] = [settings['save']]*3
 
-    if preprocess: 
+    if settings['preprocess']: 
         preprocess_img_data(src,
-                            metadata_type=metadata_type,
-                            custom_regex=custom_regex,
-                            plot=plot,
-                            normalize=normalize_plots,
+                            metadata_type=settings['metadata_type'],
+                            custom_regex=settings['custom_regex'],
+                            plot=settings['plot'],
+                            normalize=settings['normalize_plots'],
                             mask_channels=mask_channels,
-                            batch_size=batch_size,
-                            timelapse=timelapse,
-                            remove_background=remove_background,
-                            lower_quantile=lower_quantile,
+                            batch_size=settings['batch_size'],
+                            timelapse=settings['timelapse'],
+                            remove_background=settings['remove_background'],
+                            lower_quantile=settings['lower_quantile'],
                             save_dtype=np.float32,
                             correct_illumination=False,
-                            randomize=randomize,
-                            generate_movies=timelapse,
-                            nr=examples_to_plot,
-                            all_to_mip=all_to_mip,
-                            fps=fps,
-			    pick_slice=pick_slice,
-			    skip_mode=skip_mode,
-			    settings = settings)
-    if masks:
+                            randomize=settings['randomize'],
+                            generate_movies=settings['timelapse'],
+                            nr=settings['examples_to_plot'],
+                            all_to_mip=settings['all_to_mip'],
+                            fps=settings['fps'],
+                            pick_slice=settings['pick_slice'],
+                            skip_mode=settings['skip_mode'],
+                            timelapse_displacement=settings['timelapse_displacement'], 
+                            timelapse_memory=settings['timelapse_memory'],
+                            settings = settings)
+    if settings['masks']:
 
-        cellpose_channels = get_cellpose_channels(mask_channels, nucleus_chann_dim, pathogen_chann_dim, cell_chann_dim)
+        cellpose_channels = get_cellpose_channels(mask_channels, settings['nucleus_channel'], settings['pathogen_channel'], settings['cell_channel'])
 
-        if cell_chann_dim != None:
+        if settings['cell_channel'] != None:
             cell_channels = cellpose_channels['cell']
             generate_masks(src,
                            object_type='cell',
-                           mag=magnefication,
-                           batch_size=batch_size,
+                           mag=settings['magnefication'],
+                           batch_size=settings['batch_size'],
                            channels=cell_channels,
-                           cellprob_threshold=cell_cp_prob,
-                           plot=plot,
-                           nr=examples_to_plot,
-                           save=save[0],
-                           merge=merge[0],
-                           verbose=verbose,
-                           timelapse=timelapse,
+                           cellprob_threshold=settings['cell_CP_prob'],
+                           plot=settings['plot'],
+                           nr=settings['examples_to_plot'],
+                           save=settings['save'][0],
+                           merge=settings['merge'][0],
+                           verbose=settings['verbose'],
+                           timelapse=settings['timelapse'],
                            file_type='.npz',
+                           fps=settings['fps'],
                            settings=settings)
             torch.cuda.empty_cache()
-        if nucleus_chann_dim != None:
+        if settings['nucleus_channel'] != None:
             nucleus_channels = cellpose_channels['nucleus']
             generate_masks(src,
                            object_type='nuclei',
-                           mag=magnefication,
-                           batch_size=batch_size,
+                           mag=settings['magnefication'],
+                           batch_size=settings['batch_size'],
                            channels=nucleus_channels,
-                           cellprob_threshold=nucleus_cp_prob,
-                           plot=plot,
-                           nr=examples_to_plot,
-                           save=save[1],
-                           merge=merge[1],
-                           verbose=verbose,
-                           timelapse=timelapse,
+                           cellprob_threshold=settings['nucleus_CP_prob'],
+                           plot=settings['plot'],
+                           nr=settings['examples_to_plot'],
+                           save=settings['save'][1],
+                           merge=settings['merge'][1],
+                           verbose=settings['verbose'],
+                           timelapse=settings['timelapse'],
                            file_type='.npz',
+                           fps=settings['fps'],
                            settings=settings)
             torch.cuda.empty_cache()
-        if pathogen_chann_dim != None:
+        if settings['pathogen_channel'] != None:
             pathogen_channels = cellpose_channels['pathogen']
             generate_masks(src,
                            object_type='pathogen',
-                           mag=magnefication,
-                           batch_size=batch_size,
+                           mag=settings['magnefication'],
+                           batch_size=settings['batch_size'],
                            channels=pathogen_channels,
-                           cellprob_threshold=pathogen_cp_prob,
-                           plot=plot,
-                           nr=examples_to_plot,
-                           save=save[2],
-                           merge=merge[2],
-                           verbose=verbose,
-                           timelapse=timelapse,
+                           cellprob_threshold=settings['pathogen_CP_prob'],
+                           plot=settings['plot'],
+                           nr=settings['examples_to_plot'],
+                           save=settings['save'][2],
+                           merge=settings['merge'][2],
+                           verbose=settings['verbose'],
+                           timelapse=settings['timelapse'],
                            file_type='.npz',
+                           fps=settings['fps'],
                            settings=settings)
             torch.cuda.empty_cache()
         if os.path.exists(os.path.join(src,'measurements')):
             pivot_counts_table(db_path=os.path.join(src,'measurements', 'measurements.db'))
+	
 	#Concatinate stack with masks
-        load_and_concatenate_arrays(src, channels, cell_chann_dim, nucleus_chann_dim, pathogen_chann_dim)
+        load_and_concatenate_arrays(src, setting['channels'], setting['cell_chann_dim'], setting['nucleus_chann_dim'], setting['pathogen_chann_dim'])
         if plot:
-            plot_dims = len(channels)
+            plot_dims = len(setting['channels'])
             overlay_channels = [2,1,0]
             cell_mask_dim = nucleus_mask_dim = pathogen_mask_dim = None
             plot_counter = plot_dims
 		
-            if cell_chann_dim is not None:
+            if setting['cell_chann_dim'] is not None:
                 cell_mask_dim = plot_counter
                 plot_counter += 1
 
-            if nucleus_chann_dim is not None:
+            if setting['nucleus_chann_dim'] is not None:
                 nucleus_mask_dim = plot_counter
                 plot_counter += 1
 
-            if pathogen_chann_dim is not None:
+            if setting['pathogen_chann_dim'] is not None:
                 pathogen_mask_dim = plot_counter
                 
             plot_settings = {'include_noninfected':True, 
@@ -3406,7 +3547,7 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                              'normalization_percentiles':[1,99],
                              'normalize':True,
                              'print_object_number':True,
-                             'nr':examples_to_plot,
+                             'nr':setting['examples_to_plot'],
                              'figuresize':20,
                              'cmap':'inferno',
                              'verbose':True}
