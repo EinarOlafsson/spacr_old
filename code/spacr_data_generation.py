@@ -1895,6 +1895,8 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                     if plot or save:
                     	visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df, save, src, name, fps, plot)
                     	
+                    # add logic to delete tracks that are not present from start...
+                    	
                 save_object_counts_to_database(masks, object_type, batch_filenames, count_loc, added_string='_before_filtration')
                 mask_stack = filter_cp_masks(masks, flows, refine_masks, filter_size, minimum_size, maximum_size, remove_border_objects, merge, filter_dimm, batch, moving_avg_q1, moving_avg_q3, moving_count, plot, figuresize)
                 save_object_counts_to_database(mask_stack, object_type, batch_filenames, count_loc, added_string='_after_filtration')
