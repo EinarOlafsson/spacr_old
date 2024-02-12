@@ -1969,11 +1969,12 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                 if len(stack) != batch_size:
                     print(f'Changed batch_size:{batch_size} to {len(stack)}, data length:{len(stack)}')
                     batch_size = len(stack)
-                    if timelapse_frame_limits is not None and isinstance(timelapse_frame_limits, list):
-                        stack = stack[timelapse_frame_limits[0]: timelapse_frame_limits[1], :, :, :].astype(stack.dtype)
-                        filenames = filenames[timelapse_frame_limits[0]: timelapse_frame_limits[1]]
-                        batch_size = len(stack)
-                        print(f'Cut batch an indecies: {timelapse_frame_limits}, New batch_size: {batch_size} ')
+                    if isinstance(timelapse_frame_limits, list):
+			if len(timelapse_frame_limits) >= 2:
+			    stack = stack[timelapse_frame_limits[0]: timelapse_frame_limits[1], :, :, :].astype(stack.dtype)
+                            filenames = filenames[timelapse_frame_limits[0]: timelapse_frame_limits[1]]
+                            batch_size = len(stack)
+                            print(f'Cut batch an indecies: {timelapse_frame_limits}, New batch_size: {batch_size} ')
 
             for i in range(0, stack.shape[0], batch_size):
                 mask_stack = []
