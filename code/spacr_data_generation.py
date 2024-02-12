@@ -176,6 +176,7 @@ import moviepy.editor as mpy
 import ipywidgets as widgets
 from ipywidgets import IntProgress, interact, interact_manual, Button, HBox, IntSlider
 from IPython.display import display, clear_output, HTML
+from IPython.display import Image as ipyimage
 
 # Data visualization
 #%matplotlib inline
@@ -1641,7 +1642,11 @@ def save_object_counts_to_database(arrays, object_type, file_names, db_path, add
 # Timelapse functions #
 #                     #  
 #######################
-    
+
+def display_gif(path):
+    with open(path, 'rb') as file:
+        display(ipyimage(file.read()))
+
 def visualize_timelapse_stack_with_tracks(masks, tracks_df):
     highest_label = max(np.max(mask) for mask in masks)
     # Generate random colors for each label, including the background
@@ -1674,32 +1679,79 @@ def visualize_timelapse_stack_with_tracks(masks, tracks_df):
         plt.show()
     
     interact(view_frame_with_tracks, frame=IntSlider(min=0, max=len(masks)-1, step=1, value=0))
-
-def save_mask_timelapse(masks, tracks_df, path, fps, highest_label, cmap, norm):
     
-    fig, ax = plt.subplots(figsize=(50, 50))
+def save_mask_timelapse_as_gif(masks, tracks_df, path, fps, cmap, norm):
+    
+    # Set the face color for the figure to black
+    fig, ax = plt.subplots(figsize=(50, 50), facecolor='black')
+    ax.set_facecolor('black')  # Set the axes background color to black
+
+    ax.axis('off')  # Turn off the axis
+    plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0) # Adjust the subplot edges
 
     def update(frame):
-        ax.clear()
-        ax.axis('off')
+        ax.clear()  # Clear the axis to draw the new frame
+        ax.axis('off')  # Ensure axis is still off after clearing
         current_mask = masks[frame]
         ax.imshow(current_mask, cmap=cmap, norm=norm)
-        ax.set_title(f'Frame: {frame}')
+        ax.set_title(f'Frame: {frame}', fontsize=24)
+        
         # Annotate each object with its label number from the mask
         for label_value in np.unique(current_mask):
-            if label_value == 0: continue
+            if label_value == 0: continue  # Skip background
             y, x = np.mean(np.where(current_mask == label_value), axis=1)
             ax.text(x, y, str(label_value), color='white', fontsize=24, ha='center', va='center')
+
         # Overlay tracks
         for particle in tracks_df['particle'].unique():
             particle_track = tracks_df[tracks_df['particle'] == particle]
-            ax.plot(particle_track['x'], particle_track['y'], '-k', linewidth=1)
+            ax.plot(particle_track['x'], particle_track['y'], '-w', linewidth=1)
 
     anim = FuncAnimation(fig, update, frames=len(masks), blit=False)
-    anim.save(path, writer='pillow', fps=fps)
-    print(f'saved timelaps to {path}')
-
-def visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df, save, src, name, fps, plot):
+    anim.save(path, writer='pillow', fps=fps, dpi=80)  # Adjust DPI for size/quality
+    plt.close(fig)
+    print(f'Saved timelapse to {path}')
+    
+def save_mask_timelapse_as_tif(masks, tracks_df, path, cmap, norm, figsize=(50, 50), dpi=300):
+    # Prepare a writer to save the images as a TIFF stack
+    with imageio.get_writer(path, mode='I') as writer:
+        for frame_number, mask in enumerate(masks):
+            # Create a figure for each frame
+            fig, ax = plt.subplots(figsize=figsize, dpi=dpi)  # Adjust figsize and DPI as needed
+            ax.axis('off')
+            
+            # Ensure the data fills the figure by adjusting the aspect ratio
+            ax.imshow(mask, cmap=cmap, norm=norm, aspect='auto')
+            
+            ax.set_title(f'Frame: {frame_number}', color='white', fontsize=24)
+            
+            # Annotate each object with its label number from the mask
+            for label_value in np.unique(mask):
+                if label_value == 0: continue  # Skip background
+                y, x = np.mean(np.where(mask == label_value), axis=1)
+                ax.text(x, y, str(label_value), color='white', fontsize=24, ha='center', va='center')
+                
+            # Overlay tracks
+            for particle in tracks_df['particle'].unique():
+                particle_track = tracks_df[tracks_df['particle'] == particle]
+                ax.plot(particle_track['x'], particle_track['y'], '-w', linewidth=1)  # Changed to '-w' for visibility
+            
+            # Use tight_layout to minimize whitespace
+            fig.tight_layout(pad=0)
+            
+            # Convert the Matplotlib figure to an image (numpy array) at the specified DPI
+            fig.canvas.draw()
+            img_array = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+            img_array = img_array.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+            
+            plt.close(fig)  # Close the figure to free memory
+            
+            # Append the image array to the TIFF stack
+            writer.append_data(img_array)
+    
+    print(f'Saved timelapse to {path}')
+    
+def visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df, save, src, name, fps, plot, interactive=False):
     highest_label = max(np.max(mask) for mask in masks)
     # Generate random colors for each label, including the background
     random_colors = np.random.rand(highest_label + 1, 4)
@@ -1729,14 +1781,26 @@ def visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df, save, src, 
 
         ax.axis('off')
         plt.show()
+        
     if plot:
-    	interact(view_frame_with_tracks, frame=IntSlider(min=0, max=len(masks)-1, step=1, value=0))
+        if interactive:
+            interact(view_frame_with_tracks, frame=IntSlider(min=0, max=len(masks)-1, step=1, value=0))
     
     if save:
-        movies_path = os.path.join(os.path.dirname(src), 'movies')
-        save_path = os.path.join(movies_path, f'timelapse_masks_{name}.gif')
-        os.makedirs(movies_path, exist_ok=True)
-        save_mask_timelapse(masks, tracks_df, save_path, fps, highest_label, cmap, norm)
+    	#save as gif
+        gif_path = os.path.join(os.path.dirname(src), 'movies', 'gif')
+        os.makedirs(gif_path, exist_ok=True)
+        save_path_gif = os.path.join(gif_path, f'timelapse_masks_{name}.gif')
+        save_mask_timelapse_as_gif(masks, tracks_df, save_path_gif, fps, cmap, norm)
+        if plot:
+            if not interactive:
+                display_gif(save_path_gif)
+                
+        #save as tif
+        tif_path = os.path.join(os.path.dirname(src), 'movies', 'tif')
+        os.makedirs(tif_path, exist_ok=True)
+        save_path_tif = os.path.join(tif_path, f'timelapse_masks_{name}.tif')
+        save_mask_timelapse_as_tif(masks, tracks_df, save_path_tif, cmap, norm)
     
 def relabel_masks_based_on_tracks(masks, tracks):
     # Initialize an array to hold the relabeled masks with the same shape and dtype as the input masks
@@ -1896,10 +1960,11 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                     	visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df, save, src, name, fps, plot)
                     	
                     # add logic to delete tracks that are not present from start...
-                    	
-                save_object_counts_to_database(masks, object_type, batch_filenames, count_loc, added_string='_before_filtration')
-                mask_stack = filter_cp_masks(masks, flows, refine_masks, filter_size, minimum_size, maximum_size, remove_border_objects, merge, filter_dimm, batch, moving_avg_q1, moving_avg_q3, moving_count, plot, figuresize)
-                save_object_counts_to_database(mask_stack, object_type, batch_filenames, count_loc, added_string='_after_filtration')
+                    save_object_counts_to_database(masks, object_type, batch_filenames, count_loc, added_string='_timelapse')
+                else:
+                    save_object_counts_to_database(masks, object_type, batch_filenames, count_loc, added_string='_before_filtration')
+                    mask_stack = filter_cp_masks(masks, flows, refine_masks, filter_size, minimum_size, maximum_size, remove_border_objects, merge, filter_dimm, batch, moving_avg_q1, moving_avg_q3, moving_count, plot, figuresize)
+                    save_object_counts_to_database(mask_stack, object_type, batch_filenames, count_loc, added_string='_after_filtration')
 
                 if not np.any(mask_stack):
                     average_obj_size = 0
@@ -3518,47 +3583,47 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
             pivot_counts_table(db_path=os.path.join(src,'measurements', 'measurements.db'))
 	
 	#Concatinate stack with masks
-        load_and_concatenate_arrays(src, setting['channels'], setting['cell_chann_dim'], setting['nucleus_chann_dim'], setting['pathogen_chann_dim'])
-        if plot:
-            plot_dims = len(setting['channels'])
-            overlay_channels = [2,1,0]
-            cell_mask_dim = nucleus_mask_dim = pathogen_mask_dim = None
-            plot_counter = plot_dims
-		
-            if setting['cell_chann_dim'] is not None:
-                cell_mask_dim = plot_counter
-                plot_counter += 1
+        load_and_concatenate_arrays(src, settings['channels'], settings['cell_channel'], settings['nucleus_channel'], settings['pathogen_channel'])
+        if settings['plot']:
+            if not settings['timelapse']:
+                plot_dims = len(settings['channels'])
+                overlay_channels = [2,1,0]
+                cell_mask_dim = nucleus_mask_dim = pathogen_mask_dim = None
+                plot_counter = plot_dims
 
-            if setting['nucleus_chann_dim'] is not None:
-                nucleus_mask_dim = plot_counter
-                plot_counter += 1
+                if settings['cell_channel'] is not None:
+                    cell_mask_dim = plot_counter
+                    plot_counter += 1
 
-            if setting['pathogen_chann_dim'] is not None:
-                pathogen_mask_dim = plot_counter
-                
-            plot_settings = {'include_noninfected':True, 
-                             'include_multiinfect':True,
-                             'include_multinucleated':True,
-                             'remove_background':False,
-                             'filter_min_max':None,
-                             'channel_dims':channels,
-                             'backgrounds':[100,100,100,100],
-                             'cell_mask_dim':cell_mask_dim,
-                             'nucleus_mask_dim':nucleus_mask_dim,
-                             'pathogen_mask_dim':pathogen_mask_dim,
-                             'overlay_chans':[0,2,3],
-                             'outline_thickness':3,
-                             'outline_color':'gbr',
-                             'overlay_chans':overlay_channels,
-                             'overlay':True,
-                             'normalization_percentiles':[1,99],
-                             'normalize':True,
-                             'print_object_number':True,
-                             'nr':setting['examples_to_plot'],
-                             'figuresize':20,
-                             'cmap':'inferno',
-                             'verbose':True}
-            if not timelapse:
+                if settings['nucleus_channel'] is not None:
+                    nucleus_mask_dim = plot_counter
+                    plot_counter += 1
+
+                if settings['pathogen_channel'] is not None:
+                    pathogen_mask_dim = plot_counter
+
+                plot_settings = {'include_noninfected':True, 
+                                 'include_multiinfect':True,
+                                 'include_multinucleated':True,
+                                 'remove_background':False,
+                                 'filter_min_max':None,
+                                 'channel_dims':settings['channels'],
+                                 'backgrounds':[100,100,100,100],
+                                 'cell_mask_dim':cell_mask_dim,
+                                 'nucleus_mask_dim':nucleus_mask_dim,
+                                 'pathogen_mask_dim':pathogen_mask_dim,
+                                 'overlay_chans':[0,2,3],
+                                 'outline_thickness':3,
+                                 'outline_color':'gbr',
+                                 'overlay_chans':overlay_channels,
+                                 'overlay':True,
+                                 'normalization_percentiles':[1,99],
+                                 'normalize':True,
+                                 'print_object_number':True,
+                                 'nr':settings['examples_to_plot'],
+                                 'figuresize':20,
+                                 'cmap':'inferno',
+                                 'verbose':True}
                 plot_merged(src=os.path.join(src,'merged'), settings=plot_settings)
             
     torch.cuda.empty_cache()
