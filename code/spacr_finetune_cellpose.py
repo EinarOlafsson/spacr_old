@@ -164,13 +164,17 @@ import matplotlib as mpl
 from cellpose.io import imread
 from glob import glob
 
+from skimage.io import imshow
+from skimage.io import imread as scikitimread
+from skimage.transform import resize as resizescikit
+
 
 import imageio.v2 as imageio2
 from skimage import img_as_uint
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import matplotlib.pyplot as plt
+
 from skimage.morphology import binary_dilation, binary_erosion
 from skimage.metrics import adapted_rand_error as rand_error
 from skimage.measure import label, regionprops
@@ -208,17 +212,6 @@ def generate_cellpose_train_set(folders, dst, min_objects=5):
                     shutil.copy(img_path, new_img)
                 except Exception as e:
                     print(f"Error copying {path} to {new_mask}: {e}")
-
-#def generate_cellpose_dataset(src, dst, channel, number):
-#    if channel == 1:
-#        channel = '01'
-#    os.makedirs(dst, exist_ok=True)
-#    folder = os.path.join(src,channel)
-#    files = random.sample(os.listdir(folder), number)
-#    for file in files:
-#        path = os.path.join(folder, file)
-#        new_path = os.path.join(dst,file)
-#        shutil.copy(path,new_path)
 
 def normalize_to_dtype(array, q1=2, q2=98, percentiles=None):
     if len(array.shape) == 2:
@@ -288,7 +281,7 @@ def print_mask_and_flows(stack, mask, flows):
     fig.tight_layout()
     plt.show()
     
-def identify_masks(src, dst, model_name, channels, diameter, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False, custom_model=None, signal_thresholds=1000):
+def identify_masks(src, dst, model_name, channels, diameter, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False, custom_model=None, signal_thresholds=1000, normalize=True, resize=False, target_height=None, target_width=None):
     print('========== generating masks ==========')
     print('Torch available:', torch.cuda.is_available())
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -309,8 +302,13 @@ def identify_masks(src, dst, model_name, channels, diameter, flow_threshold=30, 
         print(f'Cellpose settings: Model: {model_name}, channels: {channels}, cellpose_chans: {chans}, diameter:{diameter}, flow_threshold:{flow_threshold}, cellprob_threshold:{cellprob_threshold}')
         
     time_ls = []
+    if normalize:
+    	images, _, image_names, _ = load_normalized_images_and_labels(src, None, None, signal_thresholds, channels, verbose)
+    else:
+        images, _, image_names, _ = load_images_and_labels(src, None) 
         
-    images, _, image_names, _ = load_images_and_labels(image_dir=src, label_dir=None, secondary_image_dir=None, signal_thresholds=signal_thresholds, channels=channels, visualize=verbose)
+    if resize:
+        images, _ = resize_images_and_labels(images, None, target_height, target_width, True)
     
     for file_index, stack in enumerate(images):
         start = time.time()
@@ -348,28 +346,41 @@ def identify_masks(src, dst, model_name, channels, diameter, flow_threshold=30, 
 def get_files_from_dir(dir_path, file_extension="*"):
     return glob(os.path.join(dir_path, file_extension))
 
-def load_images_and_labels(image_dir, label_dir, image_extension="*.png", label_extension="*.png"):
-    # Get lists of image and label files
-    image_files = get_files_from_dir(image_dir, image_extension)
-    label_files = get_files_from_dir(label_dir, label_extension)
-
+def load_images_and_labels(image_dir, label_dir, image_extension="*.tif", label_extension="*.tif"):
     images = []
     labels = []
-
-    # Assuming image and label files are matched by filename sorting
-    image_names = sorted([os.path.basename(f) for f in image_files])
-    label_names = sorted([os.path.basename(f) for f in label_files])
-
-    # Load images and labels
-    for img_file, lbl_file in zip(image_files, label_files):
-        image = imread(img_file)
-        label = imread(lbl_file)
-
-        if image.max() > 1:
-            image = image / image.max()
+    
+    if not image_dir is None:
+        image_files = get_files_from_dir(image_dir, image_extension)
+        image_names = sorted([os.path.basename(f) for f in image_files])
+    else:
+        image_names = []
         
-        images.append(image)
-        labels.append(label)
+    if not label_dir is None:
+        label_files = get_files_from_dir(label_dir, label_extension)
+        label_names = sorted([os.path.basename(f) for f in label_files])
+    else:
+        label_names = []
+
+    if not image_dir is None and not label_dir is None: 
+        for img_file, lbl_file in zip(image_files, label_files):
+            image = imread(img_file)
+
+            label = imread(lbl_file)
+            if image.max() > 1:
+                image = image / image.max()
+            images.append(image)
+            labels.append(label)
+    elif not image_dir is None:
+        for img_file in image_files:
+            image = imread(img_file)
+            if image.max() > 1:
+                image = image / image.max()
+            images.append(image)
+    elif not label_dir is None:
+            for lbl_file in label_files:
+                label = imread(lbl_file)
+            labels.append(label)
 
     # Log the number of loaded images and labels
     print(f'Loaded {len(images)} images and {len(labels)} labels from {image_dir} and {label_dir}')
@@ -395,7 +406,7 @@ def normalize_and_visualize(image, normalized_image, title=""):
     
     plt.show()
 
-def load_images_and_labels(image_dir, label_dir, secondary_image_dir=None, image_extension="*.tif", label_extension="*.tif", signal_thresholds=[1000], channels=None, visualize=False):
+def load_normalized_images_and_labels(image_dir, label_dir, secondary_image_dir=None, image_extension="*.tif", label_extension="*.tif", signal_thresholds=[1000], channels=None, visualize=False):
     
     if isinstance(signal_thresholds, int):
         signal_thresholds = [signal_thresholds] * (len(channels) if channels is not None else 1)
@@ -485,18 +496,90 @@ def load_images_and_labels(image_dir, label_dir, secondary_image_dir=None, image
     print(f'Loaded and normalized {len(normalized_images)} images and {len(labels)} labels from {image_dir} and {label_dir}')
     return normalized_images, labels, image_names, label_names
 
-def train_cellpose(img_src, mask_src, secondary_image_dir, model_name='toxopv', model_type='cyto', channels=[0, 0], learning_rate=0.2, weight_decay=1e-05, batch_size=8, n_epochs=500, signal_thresholds=[1000], verbose=False):
+def plot_resize(images, resized_images, labels, resized_labels):
+    # Display an example image and label before and after resizing
+    fig, ax = plt.subplots(2, 2, figsize=(20, 20))
+
+    # Check if the image is grayscale; if so, add a colormap and keep dimensions correct
+    if images[0].ndim == 2:  # Grayscale image
+        ax[0, 0].imshow(images[0], cmap='gray')
+    else:  # RGB or RGBA image
+        ax[0, 0].imshow(images[0])
+    ax[0, 0].set_title('Original Image')
+
+    if resized_images[0].ndim == 2:  # Grayscale image
+        ax[0, 1].imshow(resized_images[0], cmap='gray')
+    else:  # RGB or RGBA image
+        ax[0, 1].imshow(resized_images[0])
+    ax[0, 1].set_title('Resized Image')
+
+    # Assuming labels are always grayscale (most common scenario)
+    ax[1, 0].imshow(labels[0], cmap='gray')
+    ax[1, 0].set_title('Original Label')
+    ax[1, 1].imshow(resized_labels[0], cmap='gray')
+    ax[1, 1].set_title('Resized Label')
+    plt.show()
+
+def resize_images_and_labels(images, labels, target_height, target_width, show_example=True):
+    resized_images = []
+    resized_labels = []
+    if not images is None and not labels is None:
+        for image, label in zip(images, labels):
+
+            if image.ndim == 2:
+                image_shape = (target_height, target_width)
+            elif image.ndim == 3:
+                image_shape = (target_height, target_width, image.shape[-1])
+                
+            resized_image = resizescikit(image, image_shape, preserve_range=True, anti_aliasing=True).astype(image.dtype)
+            resized_label = resizescikit(label, (target_height, target_width), order=0, preserve_range=True, anti_aliasing=False).astype(label.dtype)
+            resized_images.append(resized_image)
+            resized_labels.append(resized_label)
+    
+    elif not images is None:
+        for image in images:
+        
+            if image.ndim == 2:
+                image_shape = (target_height, target_width)
+            elif image.ndim == 3:
+                image_shape = (target_height, target_width, image.shape[-1])
+                
+            resized_image = resizescikit(image, image_shape, preserve_range=True, anti_aliasing=True).astype(image.dtype)
+            resized_images.append(resized_image)
+            
+    elif not labels is None:
+        for label in labels:
+            resized_label = resizescikit(label, (target_height, target_width), order=0, preserve_range=True, anti_aliasing=False).astype(label.dtype)
+            resized_labels.append(resized_label)
+        
+    if show_example:     
+        if not images is None and not labels is None:
+            plot_resize(images, resized_images, labels, resized_labels)
+        elif not images is None:
+            plot_resize(images, resized_images, images, resized_images)
+        elif not labels is None:
+            plot_resize(labels, resized_labels, labels, resized_labels)
+    
+    return resized_images, resized_labels
+
+def train_cellpose(img_src, mask_src, secondary_image_dir, model_name='toxopv', model_type='cyto', learning_rate=0.2, weight_decay=1e-05, batch_size=8, n_epochs=500, verbose=False, signal_thresholds=[1000], channels=[0, 0], from_scratch=False, diamiter=30, resize=False, target_height=None, target_width=None):
     
     print(f'Paramiters - model_type:{model_type} learning_rate:{learning_rate} weight_decay:{weight_decay} batch_size:{batch_size} n_epochs:{n_epochs}')
     
     model_name=f'{model_name}_epochs_{n_epochs}.CP_model'
     model_save_path = os.path.join(mask_src, 'models', 'cellpose_model')
     os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
-    model = models.CellposeModel(gpu=True, model_type=model_type)
     
-    # Load training data
-    images, masks, image_names, mask_names = load_images_and_labels(image_dir=img_src, label_dir=mask_src, secondary_image_dir=secondary_image_dir, signal_thresholds=signal_thresholds, channels=channels, visualize=verbose)
-    #images, masks, image_names, mask_names = load_images_and_labels(img_src, mask_src, image_extension="*.tif", label_extension="*.tif")
+    if not from_scratch:
+    	model = models.CellposeModel(gpu=True, model_type=model_type)
+    	images, masks, image_names, mask_names = load_normalized_images_and_labels(img_src, mask_src, secondary_image_dir, signal_thresholds, channels, verbose)
+    else:
+        model = models.CellposeModel(gpu=True, model_type=model_type, net_avg=False, diam_mean=diamiter, pretrained_model=None)
+        #model = models.CellposeModel(gpu=True, model_type=model_type, diam_mean=diamiter, nclasses=2)
+        images, masks, image_names, mask_names = load_images_and_labels(img_src, mask_src)
+    
+    if resize:
+        images, masks = resize_images_and_labels(images, masks, target_height, target_width, show_example=True)
 
     if model_type == 'cyto':
         cp_channels = [0,1]
@@ -504,7 +587,7 @@ def train_cellpose(img_src, mask_src, secondary_image_dir, model_name='toxopv', 
         cp_channels = [0,2]
     if model_type == 'nucleus':
         cp_channels = [0,0]
-
+    
     # Train the model
     model.train(train_data=images, #(list of arrays (2D or 3D)) – images for training
                 train_labels=masks, #(list of arrays (2D or 3D)) – labels for train_data, where 0=no masks; 1,2,…=mask labels can include flows as additional images
@@ -528,11 +611,11 @@ def train_cellpose(img_src, mask_src, secondary_image_dir, model_name='toxopv', 
 
     return print(f"Model saved at: {model_save_path}/{model_name}")
 
-def generate_cp_masks(src, model_name, channels, diameter, regex='.tif', flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False, custom_model=None, signal_thresholds=1000):
+def generate_cp_masks(src, model_name, channels, diameter, regex='.tif', flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False, custom_model=None, signal_thresholds=1000, normalize=True, resize=False, target_height=None, target_width=None):
     dst = os.path.join(src,'masks')
     os.makedirs(dst, exist_ok=True)
- 
-    identify_masks(src, dst, model_name, channels, diameter,  flow_threshold=flow_threshold, cellprob_threshold=cellprob_threshold, figuresize=figuresize, cmap=cmap, verbose=verbose, plot=plot, save=save, custom_model=custom_model)
+		   
+    identify_masks(src, dst, model_name, channels, diameter, flow_threshold, cellprob_threshold, figuresize, cmap, verbose, plot, save, custom_model, signal_thresholds, normalize, resize, target_height, target_width)
 
 def read_mask(mask_path):
     mask = imageio2.imread(mask_path)
