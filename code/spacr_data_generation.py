@@ -934,18 +934,22 @@ def generate_time_lists(file_list):
     for filename in file_list:
         if filename.endswith('.npy'):
             parts = filename.split('_')
-            plate = parts[0]
-            well = parts[1]
-            field = parts[2]
-            timepoint = int(parts[3].split('.')[0])  # Convert timepoint to integer for proper sorting
-            key = (plate, well, field)
-            file_dict[key].append((timepoint, filename))  # Store a tuple of (timepoint, filename)
-    
-    # Sort each list by timepoint and then extract filenames
-    sorted_file_lists = [sorted(files, key=lambda x: x[0]) for files in file_dict.values()]
-    # Flatten the list of tuples to just filenames, maintaining the sorted order
-    sorted_filenames = [filename for sublist in sorted_file_lists for (_, filename) in sublist]
-    return sorted_filenames
+            if len(parts) >= 4:
+                plate, well, field = parts[:3]
+                try:
+                    timepoint = int(parts[3].split('.')[0])
+                except ValueError:
+                    continue  # Skip file on conversion error
+                key = (plate, well, field)
+                file_dict[key].append((timepoint, filename))
+            else:
+                continue  # Skip file if not correctly formatted
+
+    # Sort each list by timepoint, but keep them grouped
+    sorted_grouped_filenames = [sorted(files, key=lambda x: x[0]) for files in file_dict.values()]
+    # Extract just the filenames from each group
+    sorted_file_lists = [[filename for _, filename in group] for group in sorted_grouped_filenames]
+    return sorted_file_lists
 
 def concatenate_channel(src, channels, randomize=True, timelapse=False, batch_size=100):
     channels = [item for item in channels if item is not None]
