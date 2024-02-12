@@ -1959,7 +1959,7 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                 if timelapse:    
                     if timelapse_frame_limits is not None and isinstance(timelapse_frame_limits, list):
                         batch = stack[timelapse_frame_limits[0]: timelapse_frame_limits[1], :, :, :].astype(stack.dtype)
-                        batch_filenames = batch_filenames[timelapse_frame_limits[0]: timelapse_frame_limits[1]].tolist()
+                        batch_filenames = batch_filenames[timelapse_frame_limits[0]: timelapse_frame_limits[1]]
                         
                 if not plot:
                     batch, batch_filenames = check_masks(batch, batch_filenames, output_folder)
