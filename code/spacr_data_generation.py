@@ -915,7 +915,7 @@ def png_to_npz(src, randomize=True, batch_size=1000):
     print(f'\nAll files concatenated and saved to:{channel_stack_loc}')
     return channel_stack_loc
 
-def generate_time_lists(file_list):
+def generate_time_lists_v1(file_list):
     file_dict = defaultdict(list)
     for filename in file_list:
         if filename.endswith('.npy'):
@@ -928,6 +928,24 @@ def generate_time_lists(file_list):
             file_dict[key].append(filename)
     sorted_file_lists = [sorted(files) for files in file_dict.values()]
     return sorted_file_lists
+
+def generate_time_lists(file_list):
+    file_dict = defaultdict(list)
+    for filename in file_list:
+        if filename.endswith('.npy'):
+            parts = filename.split('_')
+            plate = parts[0]
+            well = parts[1]
+            field = parts[2]
+            timepoint = int(parts[3].split('.')[0])  # Convert timepoint to integer for proper sorting
+            key = (plate, well, field)
+            file_dict[key].append((timepoint, filename))  # Store a tuple of (timepoint, filename)
+    
+    # Sort each list by timepoint and then extract filenames
+    sorted_file_lists = [sorted(files, key=lambda x: x[0]) for files in file_dict.values()]
+    # Flatten the list of tuples to just filenames, maintaining the sorted order
+    sorted_filenames = [filename for sublist in sorted_file_lists for (_, filename) in sublist]
+    return sorted_filenames
 
 def concatenate_channel(src, channels, randomize=True, timelapse=False, batch_size=100):
     channels = [item for item in channels if item is not None]
