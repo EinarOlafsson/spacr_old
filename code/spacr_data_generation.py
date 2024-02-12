@@ -1999,13 +1999,14 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                         print(f'timelapse_displacement={timelapse_displacement} is to high. Lower timelapse_displacement or set to None for automatic thresholding.')
                     
                     tracks_df['particle'] += 1
-                    tracks_df = tp.filter_stubs(tracks_df, 3)
-                    masks = relabel_masks_based_on_tracks(masks, tracks_df)
+                    tracks_df_filter = tp.filter_stubs(tracks_df, len(masks))
+                    print(f'Removed {len(tracks_df)-len(tracks_df_filter)} objects that were not present in all frames')
+                    masks = relabel_masks_based_on_tracks(masks, tracks_df_filter)
                     tracks_path = os.path.join(os.path.dirname(src), 'tracks')
                     os.makedirs(tracks_path, exist_ok=True)
-                    tracks_df.to_csv(os.path.join(tracks_path, f'tracks_{name}.csv'), index=False)
+                    tracks_df_filter.to_csv(os.path.join(tracks_path, f'tracks_{name}.csv'), index=False)
                     if plot or save:
-                    	visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df, save, src, name, fps, plot, batch_filenames)
+                    	visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df_filter, save, src, name, fps, plot, batch_filenames)
                     	
                     # add logic to delete tracks that are not present from start...
                     save_object_counts_to_database(masks, object_type, batch_filenames, count_loc, added_string='_timelapse')
