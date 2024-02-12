@@ -949,7 +949,9 @@ def generate_time_lists(file_list):
     sorted_grouped_filenames = [sorted(files, key=lambda x: x[0]) for files in file_dict.values()]
     # Extract just the filenames from each group
     sorted_file_lists = [[filename for _, filename in group] for group in sorted_grouped_filenames]
+
     return sorted_file_lists
+    
 
 def concatenate_channel(src, channels, randomize=True, timelapse=False, batch_size=100):
     channels = [item for item in channels if item is not None]
@@ -960,6 +962,7 @@ def concatenate_channel(src, channels, randomize=True, timelapse=False, batch_si
     if timelapse:
         try:
             time_stack_path_lists = generate_time_lists(os.listdir(src))
+            print(time_stack_path_lists)
             for i, time_stack_list in enumerate(time_stack_path_lists):
                 stack_region = []
                 filenames_region = []
@@ -1966,6 +1969,11 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                 if len(stack) != batch_size:
                     print(f'Changed batch_size:{batch_size} to {len(stack)}, data length:{len(stack)}')
                     batch_size = len(stack)
+                    if timelapse_frame_limits is not None and isinstance(timelapse_frame_limits, list):
+                        stack = stack[timelapse_frame_limits[0]: timelapse_frame_limits[1], :, :, :].astype(stack.dtype)
+                        filenames = filenames[timelapse_frame_limits[0]: timelapse_frame_limits[1]]
+                        batch_size = len(stack)
+                        print(f'Cut batch an indecies: {timelapse_frame_limits}, New batch_size: {batch_size} ')
 
             for i in range(0, stack.shape[0], batch_size):
                 mask_stack = []
@@ -1978,10 +1986,10 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                     
                 batch_filenames = filenames[i: i+batch_size].tolist()
                 
-                if timelapse:    
-                    if timelapse_frame_limits is not None and isinstance(timelapse_frame_limits, list):
-                        batch = stack[timelapse_frame_limits[0]: timelapse_frame_limits[1], :, :, :].astype(stack.dtype)
-                        batch_filenames = batch_filenames[timelapse_frame_limits[0]: timelapse_frame_limits[1]]
+                #if timelapse:    
+                #    if timelapse_frame_limits is not None and isinstance(timelapse_frame_limits, list):
+                #        batch = stack[timelapse_frame_limits[0]: timelapse_frame_limits[1], :, :, :].astype(stack.dtype)
+                #        batch_filenames = batch_filenames[timelapse_frame_limits[0]: timelapse_frame_limits[1]]
                         
                 if not plot:
                     batch, batch_filenames = check_masks(batch, batch_filenames, output_folder)
@@ -3553,6 +3561,9 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
     settings_csv = os.path.join(src,'settings','preprocess_generate_masks_settings.csv')
     os.makedirs(os.path.join(src,'settings'), exist_ok=True)
     settings_df.to_csv(settings_csv, index=False)
+    
+    if settings['timelapse']:
+    	settings['randomize'] = False
     
     mask_channels = [settings['nucleus_channel'], settings['cell_channel'], settings['pathogen_channel']]
     mask_channels = [item for item in mask_channels if item is not None]
