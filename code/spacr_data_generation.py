@@ -1884,7 +1884,7 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                     try:
                         tracks_df = tp.link(features, search_range=timelapse_displacement, memory=timelapse_memory)
                     except Exception as e:
-                        print('timelapse_displacement={timelapse_displacement} is to high. Lower timelapse_displacement or set to None for automatic thresholding.')
+                        print(f'timelapse_displacement={timelapse_displacement} is to high. Lower timelapse_displacement or set to None for automatic thresholding.')
                     
                     tracks_df['particle'] += 1
                     tracks_df = tp.filter_stubs(tracks_df, 3)
