@@ -1918,7 +1918,7 @@ def find_optimal_search_range(features, initial_search_range=500, increment=10, 
             print(f'Retrying with displacement value: {optimal_search_range}', end='\r', flush=True)
     return optimal_search_range
     
-def identify_masks(src, object_type, model_name, batch_size, channels, diameter, minimum_size, maximum_size, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', refine_masks=True, filter_size=True, filter_dimm=True, remove_border_objects=False, verbose=False, plot=False, merge=False, save=True, start_at=0, file_type='.npz', net_avg=True, resample=True, timelapse=False, fps=2, timelapse_displacement=None, timelapse_frame_limits=None, timelapse_memory=3):
+def identify_masks(src, object_type, model_name, batch_size, channels, diameter, minimum_size, maximum_size, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', refine_masks=True, filter_size=True, filter_dimm=True, remove_border_objects=False, verbose=False, plot=False, merge=False, save=True, start_at=0, file_type='.npz', net_avg=True, resample=True, timelapse=False, fps=2, timelapse_displacement=None, timelapse_frame_limits=None, timelapse_memory=3, timelapse_remove_transient=False):
     
     #Note add logic that handles batches of size 1 as these will break the code batches must all be > 2 images
     gc.collect()
@@ -1970,8 +1970,8 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                     print(f'Changed batch_size:{batch_size} to {len(stack)}, data length:{len(stack)}')
                     batch_size = len(stack)
                     if isinstance(timelapse_frame_limits, list):
-			if len(timelapse_frame_limits) >= 2:
-			    stack = stack[timelapse_frame_limits[0]: timelapse_frame_limits[1], :, :, :].astype(stack.dtype)
+                        if len(timelapse_frame_limits) >= 2:
+                            stack = stack[timelapse_frame_limits[0]: timelapse_frame_limits[1], :, :, :].astype(stack.dtype)
                             filenames = filenames[timelapse_frame_limits[0]: timelapse_frame_limits[1]]
                             batch_size = len(stack)
                             print(f'Cut batch an indecies: {timelapse_frame_limits}, New batch_size: {batch_size} ')
@@ -2030,7 +2030,10 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                         print(f'timelapse_displacement={timelapse_displacement} is to high. Lower timelapse_displacement or set to None for automatic thresholding.')
                     
                     tracks_df['particle'] += 1
-                    tracks_df_filter = tp.filter_stubs(tracks_df, len(masks))
+                    if timelapse_remove_transient:
+                    	tracks_df_filter = tp.filter_stubs(tracks_df, len(masks))
+                    else:
+                        tracks_df_filter = tracks_df.copy()
                     print(f'Removed {len(tracks_df)-len(tracks_df_filter)} objects that were not present in all frames')
                     masks = relabel_masks_based_on_tracks(masks, tracks_df_filter)
                     tracks_path = os.path.join(os.path.dirname(src), 'tracks')
@@ -3353,7 +3356,7 @@ def get_diam(mag, obj):
     diamiter = mag*scale
     return diamiter
 
-def generate_masks(src, object_type, mag, batch_size, channels, cellprob_threshold, plot, save, verbose, nr=1, start_at=0, merge=False, file_type='.npz', fps=2, timelapse=False, timelapse_displacement=None, timelapse_memory=3, timelapse_frame_limits=None, settings={}):
+def generate_masks(src, object_type, mag, batch_size, channels, cellprob_threshold, plot, save, verbose, nr=1, start_at=0, merge=False, file_type='.npz', fps=2, timelapse=False, timelapse_displacement=None, timelapse_memory=3, timelapse_frame_limits=None, timelapse_remove_transient=False, settings={}):
     
     if object_type == 'cell':
         refine_masks = False
@@ -3444,7 +3447,8 @@ def generate_masks(src, object_type, mag, batch_size, channels, cellprob_thresho
                    fps=fps,
                    timelapse_displacement=timelapse_displacement,
                    timelapse_frame_limits=timelapse_frame_limits,
-                   timelapse_memory=timelapse_memory)
+                   timelapse_memory=timelapse_memory,
+                   timelapse_remove_transient=timelapse_remove_transient)
     
     return print('========== complete ==========')
 
@@ -3622,6 +3626,7 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                            timelapse_displacement=settings['timelapse_displacement'], 
                            timelapse_memory=settings['timelapse_memory'],
                            timelapse_frame_limits=settings['timelapse_frame_limits'],
+                           timelapse_remove_transient=settings['timelapse_remove_transient'],
                            settings=settings)
             torch.cuda.empty_cache()
         if settings['nucleus_channel'] != None:
@@ -3643,6 +3648,7 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                            timelapse_displacement=settings['timelapse_displacement'], 
                            timelapse_memory=settings['timelapse_memory'],
                            timelapse_frame_limits=settings['timelapse_frame_limits'],
+                           timelapse_remove_transient=settings['timelapse_remove_transient'],
                            settings=settings)
             torch.cuda.empty_cache()
         if settings['pathogen_channel'] != None:
@@ -3664,6 +3670,7 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                            timelapse_displacement=settings['timelapse_displacement'], 
                            timelapse_memory=settings['timelapse_memory'],
                            timelapse_frame_limits=settings['timelapse_frame_limits'],
+                           timelapse_remove_transient=settings['timelapse_remove_transient'],
                            settings=settings)
             torch.cuda.empty_cache()
         if os.path.exists(os.path.join(src,'measurements')):
