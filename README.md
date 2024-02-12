@@ -6,10 +6,11 @@ Notebooks:
 data_generation - Features:
  - Batch normalization of high content image data.
  - Cellpose mask generation of up to 3 object classes + cytoplasm.
- - Generate object level measurements (~800 measurements).
+ - Generate object level measurements (~800 measurements: intensity,morfology,texture, etc.).
  - Generate object level images for data visualization and Deep learning classification.
+ - Generate time lapse object masks.
  - Metadata, measurement, or manual single object image annotation.
- - Visualize measurement data (alpha).
+ - Visualize measurement data.
    
 classification - Features:
  - Use single object images (e.g. generated in data_generation) to train a torch model.
