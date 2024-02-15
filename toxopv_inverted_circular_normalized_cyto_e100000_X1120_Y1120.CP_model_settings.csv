@@ -1,0 +1,22 @@
+Key,Value
+img_src,/mnt/data/Nikon/Plaque_assay_training/train/imgs
+mask_src,/mnt/data/Nikon/Plaque_assay_training/train/masks
+model_name,toxopv_inverted_circular_normalized
+model_type,cyto
+learning_rate,0.001
+weight_decay,1e-05
+batch_size,8
+n_epochs,100000
+verbose,False
+signal_thresholds,[1000]
+channels,"[0, 0]"
+from_scratch,False
+diameter,30
+rescale,True
+normalize,True
+resize,True
+circular,True
+invert,True
+width_height,"[1120, 1120]"
+percentiles,"[1, 99]"
+grayscale,True
