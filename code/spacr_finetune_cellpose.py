@@ -168,6 +168,7 @@ from skimage.io import imshow
 from skimage.io import imread as scikitimread
 from skimage.transform import resize as resizescikit
 
+import sqlite3
 
 import imageio.v2 as imageio2
 from skimage import img_as_uint
@@ -177,8 +178,11 @@ import seaborn as sns
 
 from skimage.morphology import binary_dilation, binary_erosion
 from skimage.metrics import adapted_rand_error as rand_error
+from skimage.segmentation import find_boundaries
+
 from skimage.measure import label, regionprops
 from sklearn.metrics import precision_recall_curve
+
 import warnings
 
 # Filter out the specific warning
@@ -262,7 +266,7 @@ def plot_arrays(src, figuresize=50, cmap='inferno', nr=1, normalize=True, q1=1, 
         plt.show()
     return
 
-def print_mask_and_flows(stack, mask, flows):
+def print_mask_and_flows_v1(stack, mask, flows):
     # Create subplots: 1 for image, 1 for mask, rest for each flow
     fig, axs = plt.subplots(1,  3, figsize=(40, 5))
     # Plot the original image
@@ -281,111 +285,359 @@ def print_mask_and_flows(stack, mask, flows):
     fig.tight_layout()
     plt.show()
     
-def identify_masks(src, dst, model_name, channels, diameter, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False, custom_model=None, signal_thresholds=1000, normalize=True, resize=False, target_height=None, target_width=None):
+def print_mask_and_flows_v2(stack, mask, flows):
+    # Create subplots: 1 for image, 1 for mask, rest for each flow
+    fig, axs = plt.subplots(1, 3, figsize=(30, 30))
+    
+    # Check if stack is 2D (grayscale) or 3D (color) and plot accordingly
+    if stack.ndim == 2:
+        axs[0].imshow(stack, cmap='gray')  # Grayscale image
+    elif stack.ndim == 3:
+        axs[0].imshow(stack[:, :, 0], cmap='gray')  # First channel of color image
+    else:
+        raise ValueError("Unexpected stack dimensionality.")
+    
+    axs[0].set_title('Original Image')
+    axs[0].axis('off')
+    
+    # Plot the mask
+    axs[1].imshow(mask, cmap='gray')
+    axs[1].set_title('Mask')
+    axs[1].axis('off')
+    
+    # Plot flow - assuming flows is a list with flow images
+    # Check if flows is not empty and has the expected structure
+    if flows and isinstance(flows, list) and flows[0].ndim in [2, 3]:
+        flow_image = flows[0]
+        if flow_image.ndim == 3:
+            flow_image = flow_image[:, :, 0]  # Show first channel if it's 3D
+        axs[2].imshow(flow_image, cmap='jet')
+        axs[2].set_title('Flows')
+        axs[2].axis('off')
+    else:
+        raise ValueError("Unexpected flow dimensionality or structure.")
+    
+    fig.tight_layout()
+    plt.show()
+    
+def generate_mask_random_cmap(mask):
+    unique_labels = np.unique(mask)
+    num_objects = len(unique_labels[unique_labels != 0])
+    random_colors = np.random.rand(num_objects + 1, 4)  # RGBA colors
+    random_colors[:, 3] = 1  # Set alpha to 1
+    random_colors[0, :] = [0, 0, 0, 1]  # Background color
+    random_cmap = mpl.colors.ListedColormap(random_colors)
+    return random_cmap
+
+def print_mask_and_flows(stack, mask, flows, overlay=False):
+    fig, axs = plt.subplots(1, 3, figsize=(30, 10))  # Adjust subplot layout
+    
+    if stack.shape[-1] == 1:
+        stack = np.squeeze(stack)
+    
+    # Display original image or its first channel
+    if stack.ndim == 2:
+        axs[0].imshow(stack, cmap='gray')
+    elif stack.ndim == 3:
+        axs[0].imshow(stack)
+    else:
+        raise ValueError("Unexpected stack dimensionality.")
+
+    axs[0].set_title('Original Image')
+    axs[0].axis('off')
+    
+
+    # Overlay mask on original image if overlay is True
+    if overlay:
+        mask_cmap = generate_mask_random_cmap(mask)  # Generate random colormap for mask
+        mask_overlay = np.ma.masked_where(mask == 0, mask)  # Mask background
+        outlines = find_boundaries(mask, mode='thick')  # Find mask outlines
+
+        if stack.ndim == 2 or stack.ndim == 3:
+            axs[1].imshow(stack, cmap='gray' if stack.ndim == 2 else None)
+            axs[1].imshow(mask_overlay, cmap=mask_cmap, alpha=0.5)  # Overlay mask
+            axs[1].contour(outlines, colors='r', linewidths=2)  # Add red outlines with thickness 2
+    else:
+        axs[1].imshow(mask, cmap='gray')
+    
+    axs[1].set_title('Mask with Overlay' if overlay else 'Mask')
+    axs[1].axis('off')
+
+    # Display flow image or its first channel
+    if flows and isinstance(flows, list) and flows[0].ndim in [2, 3]:
+        flow_image = flows[0]
+        if flow_image.ndim == 3:
+            flow_image = flow_image[:, :, 0]  # Use first channel for 3D
+        axs[2].imshow(flow_image, cmap='jet')
+    else:
+        raise ValueError("Unexpected flow dimensionality or structure.")
+    
+    axs[2].set_title('Flows')
+    axs[2].axis('off')
+
+    fig.tight_layout()
+    plt.show()
+    
+def load_images_and_labels(image_files, label_files, circular=False, invert=False, image_extension="*.tif", label_extension="*.tif"):
+    images = []
+    labels = []
+    
+    if not image_files is None:
+        image_names = sorted([os.path.basename(f) for f in image_files])
+    else:
+        image_names = []
+        
+    if not label_files is None:
+        label_names = sorted([os.path.basename(f) for f in label_files])
+    else:
+        label_names = []
+
+    if not image_files is None and not label_files is None: 
+        for img_file, lbl_file in zip(image_files, label_files):
+            image = imread(img_file)
+            if invert:
+                image = invert_image(image)
+            if circular:
+                image = apply_mask(image, output_value=0)
+            label = imread(lbl_file)
+            if image.max() > 1:
+                image = image / image.max()
+            images.append(image)
+            labels.append(label)
+    elif not image_files is None:
+        for img_file in image_files:
+            image = imread(img_file)
+            if invert:
+                image = invert_image(image)
+            if circular:
+                image = apply_mask(image, output_value=0)
+            if image.max() > 1:
+                image = image / image.max()
+            images.append(image)
+    elif not image_files is None:
+            for lbl_file in label_files:
+                label = imread(lbl_file)
+                if circular:
+                    label = apply_mask(label, output_value=0)
+            labels.append(label)
+            
+    if not image_files is None:
+        image_dir = os.path.dirname(image_files[0])
+    else:
+        image_dir = None
+        
+    if not label_files is None:
+        label_dir = os.path.dirname(label_files[0])
+    else:
+        label_dir = None
+    
+    # Log the number of loaded images and labels
+    print(f'Loaded {len(images)} images and {len(labels)} labels from {image_dir} and {label_dir}')
+    print(f'image shape: {images[0].shape}, image type: images[0].shape mask shape: {labels[0].shape}, image type: labels[0].shape')
+    return images, labels, image_names, label_names
+
+def load_normalized_images_and_labels(image_files, label_files, signal_thresholds=[1000], channels=None, percentiles=None,  circular=False, invert=False, visualize=False):
+    
+    if isinstance(signal_thresholds, int):
+        signal_thresholds = [signal_thresholds] * (len(channels) if channels is not None else 1)
+    elif not isinstance(signal_thresholds, list):
+        signal_thresholds = [signal_thresholds]
+
+    images = []
+    labels = []
+    
+    num_channels = 4
+    percentiles_1 = [[] for _ in range(num_channels)]
+    percentiles_99 = [[] for _ in range(num_channels)]
+
+    image_names = [os.path.basename(f) for f in image_files]
+    
+    if label_files is not None:
+        label_names = [os.path.basename(f) for f in label_files]
+
+    # Load images and check percentiles
+    for i,img_file in enumerate(image_files):
+        image = imread(img_file)
+        if invert:
+            image = invert_image(image)
+        if circular:
+            image = apply_mask(image, output_value=0)
+            
+        # If specific channels are specified, select them
+        if channels is not None and image.ndim == 3:
+            image = image[..., channels]
+        
+        if image.ndim < 3:
+            image = np.expand_dims(image, axis=-1)
+        
+        images.append(image)
+        if percentiles is None:
+            for c in range(image.shape[-1]):
+                p1 = np.percentile(image[..., c], 1)
+                percentiles_1[c].append(p1)
+                for percentile in [99, 99.9, 99.99, 99.999]:
+                    p = np.percentile(image[..., c], percentile)
+                    if p > signal_thresholds[min(c, len(signal_thresholds)-1)]:
+                        percentiles_99[c].append(p)
+                        break
+                    
+    if not percentiles is None:
+        normalized_images = []
+        for image in images:
+            normalized_image = np.zeros_like(image, dtype=np.float32)
+            for c in range(image.shape[-1]):
+                high_p = np.percentile(image[..., c], percentiles[1])
+                low_p = np.percentile(image[..., c], percentiles[0])
+                normalized_image[..., c] = rescale_intensity(image[..., c], in_range=(low_p, high_p), out_range=(0, 1))
+            normalized_images.append(normalized_image)
+            if visualize:
+                normalize_and_visualize(image, normalized_image, title=f"Channel {c+1} Normalized")
+            
+    if percentiles is None:
+        # Calculate average percentiles for normalization
+        avg_p1 = [np.mean(p) for p in percentiles_1]
+        avg_p99 = [np.mean(p) if len(p) > 0 else np.mean(percentiles_1[i]) for i, p in enumerate(percentiles_99)]
+
+        normalized_images = []
+        for image in images:
+            normalized_image = np.zeros_like(image, dtype=np.float32)
+        for c in range(image.shape[-1]):
+            normalized_image[..., c] = rescale_intensity(image[..., c], in_range=(avg_p1[c], avg_p99[c]), out_range=(0, 1))
+        normalized_images.append(normalized_image)
+        if visualize:
+            normalize_and_visualize(image, normalized_image, title=f"Channel {c+1} Normalized")
+            
+    if not image_files is None:
+        image_dir = os.path.dirname(image_files[0])
+    else:
+        image_dir = None
+            
+    if label_files is not None:
+        for lbl_file in label_files:
+            labels.append(imread(lbl_file))
+    else:
+        label_names = []
+        label_dir = None
+
+    print(f'Loaded and normalized {len(normalized_images)} images and {len(labels)} labels from {image_dir} and {label_dir}')
+    
+    return normalized_images, labels, image_names, label_names 
+    
+def identify_masks(src, dst, model_name, channels, diameter, batch_size, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False, custom_model=None, signal_thresholds=1000, normalize=True, resize=False, target_height=None, target_width=None, rescale=True, resample=True, net_avg=False, invert=False, circular=False, percentiles=None, overlay=True, grayscale=False):
     print('========== generating masks ==========')
     print('Torch available:', torch.cuda.is_available())
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+    
     if custom_model == None:
-        model = models.Cellpose(gpu=True, model_type=model_name, net_avg=True, device=device)
-    else:
-        model_state = torch.load(custom_model, map_location=device)
-        model = models.CellposeModel(gpu=True, model_type=model_name)
-        model.net.load_state_dict(model_state)
+        if model_name =='cyto':
+            model = models.CellposeModel(gpu=True, model_type=model_name, net_avg=False, diam_mean=diameter, pretrained_model=None)
+        else:
+            model = models.CellposeModel(gpu=True, model_type=model_name)
+
+    if custom_model != None:
+        model = models.CellposeModel(gpu=torch.cuda.is_available(), model_type=None, pretrained_model=custom_model, diam_mean=diameter, device=device, net_avg=False)  #Assuming diameter is defined elsewhere 
         print(f'loaded custom model:{custom_model}')
 
-    chans = [2, 1] if model_name == 'cyto2' else [0,0] if model_name == 'nuclei' else [1,0] if model_name == 'cyto' else [2, 0] 
+    chans = [2, 1] if model_name == 'cyto2' else [0,0] if model_name == 'nuclei' else [1,0] if model_name == 'cyto' else [2, 0]
+    
+    if grayscale:
+        chans=[0, 0]
     
     print(f'Using channels: {chans} for model of type {model_name}')
     
     if verbose == True:
         print(f'Cellpose settings: Model: {model_name}, channels: {channels}, cellpose_chans: {chans}, diameter:{diameter}, flow_threshold:{flow_threshold}, cellprob_threshold:{cellprob_threshold}')
         
-    time_ls = []
-    if normalize:
-    	images, _, image_names, _ = load_normalized_images_and_labels(src, None, None, signal_thresholds, channels, verbose)
-    else:
-        images, _, image_names, _ = load_images_and_labels(src, None) 
-        
-    if resize:
-        images, _ = resize_images_and_labels(images, None, target_height, target_width, True)
+    all_image_files = get_files_from_dir(src, file_extension="*.tif")
+    random.shuffle(all_image_files)
     
-    for file_index, stack in enumerate(images):
-        start = time.time()
-        results = model.eval(x=stack,
-                     normalize=False,
-                     channels=chans,
-                     channel_axis=3,
-                     diameter=diameter,
-                     flow_threshold=flow_threshold,
-                     cellprob_threshold=cellprob_threshold,
-                     rescale=None,
-                     resample=True,
-                     net_avg=True,
-                     progress=None)
-
-        if len(results) == 4:
-            mask, flows, _, _ = results
-        elif len(results) == 3:
-            mask, flows, _ = results
+    time_ls = []
+    for i in range(0, len(all_image_files), batch_size):
+        image_files = all_image_files[i:i+batch_size]
+        if normalize:
+            images, _, image_names, _ = load_normalized_images_and_labels(image_files=image_files, label_files=None, signal_thresholds=signal_thresholds, channels=channels, percentiles=percentiles,  circular=circular, invert=invert, visualize=verbose)
+            images = [np.squeeze(img) if img.shape[-1] == 1 else img for img in images]
+            orig_dims = [(image.shape[1], image.shape[0]) for image in images]
         else:
-            raise ValueError("Unexpected number of return values from model.eval()")
+            images, _, image_names, _ = load_images_and_labels(image_files=image_files, label_files=None, circular=circular, invert=invert) 
+            images = [np.squeeze(img) if img.shape[-1] == 1 else img for img in images]
+            orig_dims = [(image.shape[1], image.shape[0]) for image in images]
+        if resize:
+            images, _ = resize_images_and_labels(images, None, target_height, target_width, True)
 
-        stop = time.time()
-        duration = (stop - start)
-        time_ls.append(duration)
-        average_time = np.mean(time_ls) if len(time_ls) > 0 else 0
-        print(f'Processing {file_index+1}/{len(images)} images : Time/image {average_time:.3f} sec', end='\r', flush=True)
-        if plot:
-            print_mask_and_flows(stack, mask, flows)
-        if save:
-            output_filename = os.path.join(dst, image_names[file_index])
-            cv2.imwrite(output_filename, mask)
+        for file_index, stack in enumerate(images):
+
+            start = time.time()
+            output = model.eval(x=stack,
+                         normalize=False,
+                         channels=chans,
+                         channel_axis=3,
+                         diameter=diameter,
+                         flow_threshold=flow_threshold,
+                         cellprob_threshold=cellprob_threshold,
+                         rescale=rescale,
+                         resample=resample,
+                         net_avg=net_avg,
+                         progress=False)
+
+            if len(output) == 4:
+                mask, flows, _, _ = output
+            elif len(output) == 3:
+                mask, flows, _ = output
+            else:
+                raise ValueError("Unexpected number of return values from model.eval()")
+
+            if resize:
+                dims = orig_dims[file_index]
+                mask = resizescikit(mask, dims, order=0, preserve_range=True, anti_aliasing=False).astype(mask.dtype)
+
+            stop = time.time()
+            duration = (stop - start)
+            time_ls.append(duration)
+            average_time = np.mean(time_ls) if len(time_ls) > 0 else 0
+            print(f'Processing {file_index+1}/{len(images)} images : Time/image {average_time:.3f} sec', end='\r', flush=True)
+            if plot:
+                if resize:
+                    stack = resizescikit(stack, dims, preserve_range=True, anti_aliasing=False).astype(stack.dtype)
+                print_mask_and_flows(stack, mask, flows, overlay=overlay)
+            if save:
+                output_filename = os.path.join(dst, image_names[file_index])
+                cv2.imwrite(output_filename, mask)
     return
 
 def get_files_from_dir(dir_path, file_extension="*"):
     return glob(os.path.join(dir_path, file_extension))
-
-def load_images_and_labels(image_dir, label_dir, image_extension="*.tif", label_extension="*.tif"):
-    images = []
-    labels = []
     
-    if not image_dir is None:
-        image_files = get_files_from_dir(image_dir, image_extension)
-        image_names = sorted([os.path.basename(f) for f in image_files])
-    else:
-        image_names = []
-        
-    if not label_dir is None:
-        label_files = get_files_from_dir(label_dir, label_extension)
-        label_names = sorted([os.path.basename(f) for f in label_files])
-    else:
-        label_names = []
+def create_circular_mask(h, w, center=None, radius=None):
+    if center is None:  # use the middle of the image
+        center = (int(w/2), int(h/2))
+    if radius is None:  # use the smallest distance between the center and image walls
+        radius = min(center[0], center[1], w-center[0], h-center[1])
 
-    if not image_dir is None and not label_dir is None: 
-        for img_file, lbl_file in zip(image_files, label_files):
-            image = imread(img_file)
+    Y, X = np.ogrid[:h, :w]
+    dist_from_center = np.sqrt((X - center[0])**2 + (Y-center[1])**2)
 
-            label = imread(lbl_file)
-            if image.max() > 1:
-                image = image / image.max()
-            images.append(image)
-            labels.append(label)
-    elif not image_dir is None:
-        for img_file in image_files:
-            image = imread(img_file)
-            if image.max() > 1:
-                image = image / image.max()
-            images.append(image)
-    elif not label_dir is None:
-            for lbl_file in label_files:
-                label = imread(lbl_file)
-            labels.append(label)
+    mask = dist_from_center <= radius
+    return mask
+    
+def apply_mask(image, output_value=0):
+    h, w = image.shape[:2]  # Assuming image is grayscale or RGB
+    mask = create_circular_mask(h, w)
+    
+    # If the image has more than one channel, repeat the mask for each channel
+    if len(image.shape) > 2:
+        mask = np.repeat(mask[:, :, np.newaxis], image.shape[2], axis=2)
+    
+    # Apply the mask - set pixels outside of the mask to output_value
+    masked_image = np.where(mask, image, output_value)
+    return masked_image
+    
+def invert_image(image):
+    # The maximum value depends on the image dtype (e.g., 255 for uint8)
+    max_value = np.iinfo(image.dtype).max
+    inverted_image = max_value - image
+    return inverted_image  
 
-    # Log the number of loaded images and labels
-    print(f'Loaded {len(images)} images and {len(labels)} labels from {image_dir} and {label_dir}')
-
-    return images, labels, image_names, label_names
 
 def normalize_and_visualize(image, normalized_image, title=""):
     """Utility function for visualization"""
@@ -406,100 +658,10 @@ def normalize_and_visualize(image, normalized_image, title=""):
     
     plt.show()
 
-def load_normalized_images_and_labels(image_dir, label_dir, secondary_image_dir=None, image_extension="*.tif", label_extension="*.tif", signal_thresholds=[1000], channels=None, visualize=False):
-    
-    if isinstance(signal_thresholds, int):
-        signal_thresholds = [signal_thresholds] * (len(channels) if channels is not None else 1)
-    elif not isinstance(signal_thresholds, list):
-        signal_thresholds = [signal_thresholds]
-    
-    image_files = get_files_from_dir(image_dir, image_extension)
-    if secondary_image_dir is not None:
-        secondary_image_files = get_files_from_dir(secondary_image_dir, image_extension)
-    
-    if label_dir is not None:
-        label_files = get_files_from_dir(label_dir, label_extension)
-
-    images = []
-    labels = []
-    
-    num_channels = 4
-    percentiles_1 = [[] for _ in range(num_channels)]
-    percentiles_99 = [[] for _ in range(num_channels)]
-
-    image_names = [os.path.basename(f) for f in image_files]
-    
-    if label_dir is not None:
-        label_names = [os.path.basename(f) for f in label_files]
-
-    # Load images and check percentiles
-    for i,img_file in enumerate(image_files):
-        image = imread(img_file)
-
-        # If specific channels are specified, select them
-        if channels is not None and image.ndim == 3:
-            image = image[..., channels]
-
-        if secondary_image_dir is not None:
-            secondary_filename_without_ext = os.path.splitext(os.path.basename(secondary_image_files[i]))[0]
-            primary_filename_without_ext = os.path.splitext(os.path.basename(img_file))[0]
-            if primary_filename_without_ext == secondary_filename_without_ext:
-                secondary_image = imread(secondary_image_files[i])
-            else:
-                print(f"Warning: Image {primary_filename_without_ext} and its secondary image do not match. Skipping.")
-                continue
-
-            if image.shape[:2] == secondary_image.shape[:2]:
-                # Stack along the channel dimension
-                if image.ndim < 3:
-                    image = np.expand_dims(image, axis=-1)
-                if secondary_image.ndim < 3:
-                    secondary_image = np.expand_dims(secondary_image, axis=-1)
-                image = np.concatenate([image, secondary_image], axis=-1)
-            else:
-                print(f"Warning: Image {image_names[i]} and its secondary image have incompatible shapes and cannot be merged.")
-                continue
-        
-        if image.ndim < 3:
-            image = np.expand_dims(image, axis=-1)
-        
-        images.append(image)
-        
-        for c in range(image.shape[-1]):
-            p1 = np.percentile(image[..., c], 1)
-            percentiles_1[c].append(p1)
-            for percentile in [99, 99.9, 99.99, 99.999]:
-                p = np.percentile(image[..., c], percentile)
-                if p > signal_thresholds[min(c, len(signal_thresholds)-1)]:
-                    percentiles_99[c].append(p)
-                    break
-                    
-    # Calculate average percentiles for normalization
-    avg_p1 = [np.mean(p) for p in percentiles_1]
-    avg_p99 = [np.mean(p) if len(p) > 0 else np.mean(percentiles_1[i]) for i, p in enumerate(percentiles_99)]
-
-    normalized_images = []
-    for image in images:
-        normalized_image = np.zeros_like(image, dtype=np.float32)
-        for c in range(image.shape[-1]):
-            normalized_image[..., c] = rescale_intensity(image[..., c], in_range=(avg_p1[c], avg_p99[c]), out_range=(0, 1))
-        normalized_images.append(normalized_image)
-        if visualize:
-            normalize_and_visualize(image, normalized_image, title=f"Channel {c+1} Normalized")
-            
-    if label_dir is not None:
-        for lbl_file in label_files:
-            labels.append(imread(lbl_file))
-    else:
-        label_names = []
-
-    print(f'Loaded and normalized {len(normalized_images)} images and {len(labels)} labels from {image_dir} and {label_dir}')
-    return normalized_images, labels, image_names, label_names
-
 def plot_resize(images, resized_images, labels, resized_labels):
     # Display an example image and label before and after resizing
     fig, ax = plt.subplots(2, 2, figsize=(20, 20))
-
+    
     # Check if the image is grayscale; if so, add a colormap and keep dimensions correct
     if images[0].ndim == 2:  # Grayscale image
         ax[0, 0].imshow(images[0], cmap='gray')
@@ -533,6 +695,10 @@ def resize_images_and_labels(images, labels, target_height, target_width, show_e
                 
             resized_image = resizescikit(image, image_shape, preserve_range=True, anti_aliasing=True).astype(image.dtype)
             resized_label = resizescikit(label, (target_height, target_width), order=0, preserve_range=True, anti_aliasing=False).astype(label.dtype)
+            
+            if resized_image.shape[-1] == 1:
+                resized_image = np.squeeze(resized_image)
+            
             resized_images.append(resized_image)
             resized_labels.append(resized_label)
     
@@ -545,6 +711,10 @@ def resize_images_and_labels(images, labels, target_height, target_width, show_e
                 image_shape = (target_height, target_width, image.shape[-1])
                 
             resized_image = resizescikit(image, image_shape, preserve_range=True, anti_aliasing=True).astype(image.dtype)
+            
+            if resized_image.shape[-1] == 1:
+                resized_image = np.squeeze(resized_image)
+            
             resized_images.append(resized_image)
             
     elif not labels is None:
@@ -561,22 +731,89 @@ def resize_images_and_labels(images, labels, target_height, target_width, show_e
             plot_resize(labels, resized_labels, labels, resized_labels)
     
     return resized_images, resized_labels
+    
+def resize_labels_back_v1(labels, orig_dims):
+    resized_labels = []
 
-def train_cellpose(img_src, mask_src, secondary_image_dir, model_name='toxopv', model_type='cyto', learning_rate=0.2, weight_decay=1e-05, batch_size=8, n_epochs=500, verbose=False, signal_thresholds=[1000], channels=[0, 0], from_scratch=False, diamiter=30, resize=False, target_height=None, target_width=None):
+    for i, label in enumerate(labels):
+        resized_label = resizescikit(label, (orig_dims), order=0, preserve_range=True, anti_aliasing=False).astype(label.dtype)
+        resized_labels.append(resized_label)
     
-    print(f'Paramiters - model_type:{model_type} learning_rate:{learning_rate} weight_decay:{weight_decay} batch_size:{batch_size} n_epochs:{n_epochs}')
+    return resized_labels
     
-    model_name=f'{model_name}_epochs_{n_epochs}.CP_model'
+def resize_labels_back(labels, orig_dims):
+    resized_labels = []
+
+    if len(labels) != len(orig_dims):
+        raise ValueError("The length of labels and orig_dims must match.")
+
+    for label, dims in zip(labels, orig_dims):
+        # Ensure dims is a tuple of two integers (width, height)
+        if not isinstance(dims, tuple) or len(dims) != 2:
+            raise ValueError("Each element in orig_dims must be a tuple of two integers representing the original dimensions (width, height)")
+
+        resized_label = resize(label, dims, order=0, preserve_range=True, anti_aliasing=False).astype(label.dtype)
+        resized_labels.append(resized_label)
+
+    return resized_labels
+    
+
+def train_cellpose(settings):
+
+    img_src = settings['img_src'] 
+    mask_src= settings['mask_src']
+    secondary_image_dir = None
+    model_name = settings['model_name']
+    model_type = settings['model_type']
+    learning_rate = settings['learning_rate']
+    weight_decay = settings['weight_decay']
+    batch_size = settings['batch_size']
+    n_epochs = settings['n_epochs']
+    verbose = settings['verbose']
+    signal_thresholds = settings['signal_thresholds']
+    channels = settings['channels']
+    from_scratch = settings['from_scratch']
+    diameter = settings['diameter']
+    resize = settings['resize']
+    rescale = settings['rescale']
+    normalize = settings['normalize']
+    target_height = settings['width_height'][1]
+    target_width = settings['width_height'][0]
+    circular = settings['circular']
+    invert = settings['invert']
+    percentiles = settings['percentiles']
+    grayscale = settings['grayscale']
+    
+    print(settings)
+
+    if from_scratch:
+    	model_name=f'scratch_{model_name}_{model_type}_e{n_epochs}_X{target_width}_Y{target_height}.CP_model'
+    else:
+    	model_name=f'{model_name}_{model_type}_e{n_epochs}_X{target_width}_Y{target_height}.CP_model'
+    	
     model_save_path = os.path.join(mask_src, 'models', 'cellpose_model')
     os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
     
-    if not from_scratch:
-    	model = models.CellposeModel(gpu=True, model_type=model_type)
-    	images, masks, image_names, mask_names = load_normalized_images_and_labels(img_src, mask_src, secondary_image_dir, signal_thresholds, channels, verbose)
+    settings_df = pd.DataFrame(list(settings.items()), columns=['Key', 'Value'])
+    settings_csv = os.path.join(model_save_path,f'{model_name}_settings.csv')
+    settings_df.to_csv(settings_csv, index=False)
+    
+    if model_type =='cyto':
+        if not from_scratch:
+    	    model = models.CellposeModel(gpu=True, model_type=model_type)
+        else:
+    	    model = models.CellposeModel(gpu=True, model_type=model_type, net_avg=False, diam_mean=diameter, pretrained_model=None)
+    if model_type !='cyto':
+        model = models.CellposeModel(gpu=True, model_type=model_type)
+        
+    
+    
+    if normalize:    	
+    	images, masks, image_names, mask_names = load_normalized_images_and_labels(image_dir=img_src, label_dir=mask_src, secondary_image_dir=secondary_image_dir, signal_thresholds=signal_thresholds, channels=channels, percentiles=percentiles,  circular=circular, invert=invert, visualize=verbose)
+    	images = [np.squeeze(img) if img.shape[-1] == 1 else img for img in images]
     else:
-        model = models.CellposeModel(gpu=True, model_type=model_type, net_avg=False, diam_mean=diamiter, pretrained_model=None)
-        #model = models.CellposeModel(gpu=True, model_type=model_type, diam_mean=diamiter, nclasses=2)
-        images, masks, image_names, mask_names = load_images_and_labels(img_src, mask_src)
+        images, masks, image_names, mask_names = load_images_and_labels(img_src, mask_src, circular, invert)
+        images = [np.squeeze(img) if img.shape[-1] == 1 else img for img in images]
     
     if resize:
         images, masks = resize_images_and_labels(images, masks, target_height, target_width, show_example=True)
@@ -587,35 +824,71 @@ def train_cellpose(img_src, mask_src, secondary_image_dir, model_name='toxopv', 
         cp_channels = [0,2]
     if model_type == 'nucleus':
         cp_channels = [0,0]
+    if grayscale:
+        cp_channels = [0,0]
+        images = [np.squeeze(img) if img.ndim == 3 and 1 in img.shape else img for img in images]
     
+    masks = [np.squeeze(mask) if mask.ndim == 3 and 1 in mask.shape else mask for mask in masks]
+
+    print(f'image shape: {images[0].shape}, image type: images[0].shape mask shape: {masks[0].shape}, image type: masks[0].shape')
+    save_every = int(n_epochs/10)
+    print('cellpose image input dtype', images[0].dtype)
+    print('cellpose mask input dtype', masks[0].dtype)
     # Train the model
     model.train(train_data=images, #(list of arrays (2D or 3D)) – images for training
                 train_labels=masks, #(list of arrays (2D or 3D)) – labels for train_data, where 0=no masks; 1,2,…=mask labels can include flows as additional images
                 train_files=image_names, #(list of strings) – file names for images in train_data (to save flows for future runs)
-                #test_data=X_val, #(list of arrays (2D or 3D)) – images for testing
-                #test_labels=y_val, #(list of arrays (2D or 3D)) – labels for test_data, where 0=no masks; 1,2,…=mask labels; can include flows as additional images
-                #test_files= #(list of strings) – file names for images in test_data (to save flows for future runs)
                 channels=cp_channels, #(list of ints (default, None)) – channels to use for training
                 normalize=False, #(bool (default, True)) – normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
                 save_path=model_save_path, #(string (default, None)) – where to save trained model, if None it is not saved
-                save_every=100, #(int (default, 100)) – save network every [save_every] epochs
+                save_every=save_every, #(int (default, 100)) – save network every [save_every] epochs
                 learning_rate=learning_rate, #(float or list/np.ndarray (default, 0.2)) – learning rate for training, if list, must be same length as n_epochs
                 n_epochs=n_epochs, #(int (default, 500)) – how many times to go through whole training set during training
                 weight_decay=weight_decay, #(float (default, 0.00001)) –
                 SGD=True, #(bool (default, True)) – use SGD as optimization instead of RAdam
                 batch_size=batch_size, #(int (optional, default 8)) – number of 224x224 patches to run simultaneously on the GPU (can make smaller or bigger depending on GPU memory usage)
                 nimg_per_epoch=None, #(int (optional, default None)) – minimum number of images to train on per epoch, with a small training set (< 8 images) it may help to set to 8
-                rescale=True, #(bool (default, True)) – whether or not to rescale images to diam_mean during training, if True it assumes you will fit a size model after training or resize your images accordingly, if False it will try to train the model to be scale-invariant (works worse)
-                min_train_masks=5, #(int (default, 5)) – minimum number of masks an image must have to use in training set
+                rescale=rescale, #(bool (default, True)) – whether or not to rescale images to diam_mean during training, if True it assumes you will fit a size model after training or resize your images accordingly, if False it will try to train the model to be scale-invariant (works worse)
+                min_train_masks=1, #(int (default, 5)) – minimum number of masks an image must have to use in training set
                 model_name=model_name) #(str (default, None)) – name of network, otherwise saved with name as params + training start time 
 
     return print(f"Model saved at: {model_save_path}/{model_name}")
 
-def generate_cp_masks(src, model_name, channels, diameter, regex='.tif', flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', verbose=False, plot=False, save=False, custom_model=None, signal_thresholds=1000, normalize=True, resize=False, target_height=None, target_width=None):
+def generate_cp_masks(settings):
+    
+    src = settings['src']
+    model_name = settings['model_name']
+    channels = settings['channels']
+    diameter = settings['diameter']
+    regex = '.tif'
+    #flow_threshold = 30
+    cellprob_threshold = settings['cellprob_threshold']
+    figuresize = 25
+    cmap = 'inferno'
+    verbose = settings['verbose']
+    plot = settings['plot']
+    save = settings['save']
+    custom_model = settings['custom_model']
+    signal_thresholds = 1000
+    normalize = settings['normalize']
+    resize = settings['resize']
+    target_height = settings['width_height'][1]
+    target_width = settings['width_height'][0]
+    rescale = settings['rescale']
+    resample = settings['resample']
+    net_avg = settings['net_avg']
+    invert = settings['invert']
+    circular = settings['circular']
+    percentiles = settings['percentiles']
+    overlay = settings['overlay']
+    grayscale = settings['grayscale']
+    flow_threshold = settings['flow_threshold']
+    batch_size = settings['batch_size']
+    
     dst = os.path.join(src,'masks')
     os.makedirs(dst, exist_ok=True)
 		   
-    identify_masks(src, dst, model_name, channels, diameter, flow_threshold, cellprob_threshold, figuresize, cmap, verbose, plot, save, custom_model, signal_thresholds, normalize, resize, target_height, target_width)
+    identify_masks(src, dst, model_name, channels, diameter, batch_size, flow_threshold, cellprob_threshold, figuresize, cmap, verbose, plot, save, custom_model, signal_thresholds, normalize, resize, target_height, target_width, rescale, resample, net_avg, invert, circular, percentiles, overlay, grayscale)
 
 def read_mask(mask_path):
     mask = imageio2.imread(mask_path)
@@ -626,13 +899,14 @@ def read_mask(mask_path):
 def visualize_masks(mask1, mask2, mask3, title="Masks Comparison"):
     fig, axs = plt.subplots(1, 3, figsize=(30, 10))
     for ax, mask, title in zip(axs, [mask1, mask2, mask3], ['Mask 1', 'Mask 2', 'Mask 3']):
+        cmap = generate_mask_random_cmap(mask)
         # If the mask is binary, we can skip normalization
         if np.isin(mask, [0, 1]).all():
-            ax.imshow(mask, cmap='gray')
+            ax.imshow(mask, cmap=cmap)
         else:
             # Normalize the image for displaying purposes
             norm = plt.Normalize(vmin=0, vmax=mask.max())
-            ax.imshow(mask, cmap='gray', norm=norm)
+            ax.imshow(mask, cmap=cmap, norm=norm)
         ax.set_title(title)
         ax.axis('off')
     plt.suptitle(title)
@@ -665,7 +939,6 @@ def compute_average_precision(matches, num_true_masks, num_pred_masks):
     precision = TP / (TP + FP) if TP + FP > 0 else 0
     recall = TP / (TP + FN) if TP + FN > 0 else 0
     return precision, recall
-
 
 def pad_to_same_shape(mask1, mask2):
     # Find the shape differences
@@ -719,9 +992,20 @@ def jaccard_index(mask1, mask2):
     return np.sum(intersection) / np.sum(union)
 
 def dice_coefficient(mask1, mask2):
-    intersection = np.sum(mask1[mask2 == 1]) * 2.0
+    # Convert to binary masks
+    mask1 = np.where(mask1 > 0, 1, 0)
+    mask2 = np.where(mask2 > 0, 1, 0)
+
+    # Calculate intersection and total
+    intersection = np.sum(mask1 & mask2)
     total = np.sum(mask1) + np.sum(mask2)
-    return intersection / total
+    
+    # Handle the case where both masks are empty
+    if total == 0:
+        return 1.0
+    
+    # Return the Dice coefficient
+    return 2.0 * intersection / total
 
 def extract_boundaries(mask, dilation_radius=1):
     binary_mask = (mask > 0).astype(np.uint8)
@@ -732,12 +1016,20 @@ def extract_boundaries(mask, dilation_radius=1):
     return boundary
 
 def boundary_f1_score(mask_true, mask_pred, dilation_radius=1):
+    # Assume extract_boundaries is defined to extract object boundaries with given dilation_radius
     boundary_true = extract_boundaries(mask_true, dilation_radius)
     boundary_pred = extract_boundaries(mask_pred, dilation_radius)
+    
+    # Calculate intersection of boundaries
     intersection = np.logical_and(boundary_true, boundary_pred)
+    
+    # Calculate precision and recall for boundary detection
     precision = np.sum(intersection) / (np.sum(boundary_pred) + 1e-6)
     recall = np.sum(intersection) / (np.sum(boundary_true) + 1e-6)
+    
+    # Calculate F1 score as harmonic mean of precision and recall
     f1 = 2 * (precision * recall) / (precision + recall + 1e-6)
+    
     return f1
 
 def plot_comparison_results(comparison_results):
@@ -815,7 +1107,7 @@ def compare_masks(dir1, dir2, dir3, verbose=False):
                 continue
             
             if verbose:
-                unique_values4 = np.unique(boundary_f1_12), np.unique(boundary_f1_13), np.unique(boundary_f1_23)
+                unique_values4, unique_values5, unique_values6 = np.unique(boundary_f1_12), np.unique(boundary_f1_13), np.unique(boundary_f1_23)
                 print(f"Unique values in boundary mask 1: {unique_values4}, mask 2: {unique_values5}, mask 3: {unique_values6}")
                 visualize_masks(mask1, mask2, mask3, title=filename)
             
@@ -844,3 +1136,44 @@ def compare_masks(dir1, dir2, dir3, verbose=False):
             print(f'Cannot find {path1} or {path2} or {path3}')
     fig = plot_comparison_results(results)
     return results, fig
+    
+def analyze_plaques(folder):
+    summary_data = []
+    details_data = []
+    
+    for filename in os.listdir(folder):
+        filepath = os.path.join(folder, filename)
+        if os.path.isfile(filepath):
+            # Assuming each file is a NumPy array file (.npy) containing a 16-bit labeled image
+            image = np.load(filepath)
+            
+            labeled_image = label(image)
+            regions = regionprops(labeled_image)
+            
+            object_count = len(regions)
+            sizes = [region.area for region in regions]
+            average_size = np.mean(sizes) if sizes else 0
+            
+            summary_data.append({'file': filename, 'object_count': object_count, 'average_size': average_size})
+            for size in sizes:
+                details_data.append({'file': filename, 'plaque_size': size})
+    
+    # Convert lists to pandas DataFrames
+    summary_df = pd.DataFrame(summary_data)
+    details_df = pd.DataFrame(details_data)
+    
+    # Save DataFrames to a SQLite database
+    db_name = 'plaques_analysis.db'
+    conn = sqlite3.connect(db_name)
+    
+    summary_df.to_sql('summary', conn, if_exists='replace', index=False)
+    details_df.to_sql('details', conn, if_exists='replace', index=False)
+    
+    conn.close()
+    
+    print(f"Analysis completed and saved to database '{db_name}'.")
+
+
+
+    
+##########################################################################################################################################################################################
