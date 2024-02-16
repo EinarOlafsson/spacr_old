@@ -2803,6 +2803,12 @@ def generate_names(file_name, cell_id, cell_nuclei_ids, cell_pathogen_ids, sourc
         fldr += "single_nucleus/" if cell_nuclei_ids.size == 1 else "multiple_nuclei/" if cell_nuclei_ids.size > 1 else "no_nucleus/"
         fldr += "single_pathogen/" if cell_pathogen_ids.size == 1 else "multiple_pathogens/" if cell_pathogen_ids.size > 1 else "uninfected/"
 
+    #add well to fldr here to ensure low numbers of images per folder
+    parts = file_name.split('_')
+    plate = parts[0]
+    well = parts[1] 
+    metadata = f'{plate}_{well}'
+    fldr = os.path.join(fldr,metadata)
     table_name = fldr.replace("/", "_")
     
     return img_name, fldr, table_name
