@@ -103,10 +103,6 @@ def install_dependencies_in_kernel(dependencies, env_name):
     else:
         print("No NVIDIA GPU found. Installing PyTorch for CPU.")
         subprocess.run([pip_PATH, "install", "torch", "torchvision", "torchaudio"])
-
-    # Install torch, torchvision, torchaudio with pip
-    #print("Installing torch")
-    #subprocess.run([pip_PATH, "install", "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/cu118"])
                     
     # Install cellpose
     print("Installing cellpose")
@@ -117,7 +113,7 @@ def install_dependencies_in_kernel(dependencies, env_name):
         print(f"Installing {package}")
         subprocess.run([conda_PATH, "install", "-n", env_name, package, "-y"])
 
-    pip_packages = ["numpy==1.24.0", "numba==0.58.0"]
+    pip_packages = ["numpy==1.24.0", "numba==0.58.0", "btrack"]
     
     for package in pip_packages:
     	print(f"Installing {package}")
@@ -129,7 +125,7 @@ env_name = "spacr_data_generation"
 
 conda_PATH, python_PATH, pip_PATH, env_PATH = get_paths(env_name)
 
-dependencies = ["pandas", "ipykernel", "mahotas","scikit-learn", "scikit-image", "seaborn", "matplotlib", "xgboost", "moviepy", "ipywidgets", "ffmpeg"]
+dependencies = ["pandas", "ipykernel", "mahotas","scikit-learn", "scikit-image", "seaborn", "matplotlib", "xgboost", "moviepy", "ipywidgets"]
 
 if not os.path.exists(env_PATH):
 	print(f'System type: {sys.platform}')
@@ -178,6 +174,10 @@ from ipywidgets import IntProgress, interact, interact_manual, Button, HBox, Int
 from IPython.display import display, clear_output, HTML
 from IPython.display import Image as ipyimage
 
+import btrack
+
+from btrack import datasets as btrack_datasets
+
 # Data visualization
 #%matplotlib inline
 import seaborn as sns
@@ -187,7 +187,9 @@ from matplotlib.patches import Polygon
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.animation import FuncAnimation
+
 from collections import defaultdict
+
 
 # scikit-image
 from skimage import exposure, measure, morphology, filters
@@ -232,6 +234,10 @@ from functools import partial
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning) # Ignore RuntimeWarning
 warnings.filterwarnings("ignore")
+import logging
+
+# Set the logging level to ERROR to suppress informational and warning messages
+logging.getLogger('btrack').setLevel(logging.ERROR)
 
 def generate_mask_random_cmap(mask):  
     unique_labels = np.unique(mask)
@@ -371,6 +377,7 @@ def convert_cq1_well_id(well_id):
     return well_format
 
 def move_to_chan_folder(src, regex, timelapse=False, metadata_type=''):
+    src_path = src
     src = Path(src)
     valid_exts = ['.tif', '.png']
 
@@ -411,7 +418,19 @@ def move_to_chan_folder(src, regex, timelapse=False, metadata_type=''):
                         print(f'WARNING: A file with the same name already exists at location {move}')
                     else:
                         newpath.mkdir(exist_ok=True)
-                        shutil.move(file, move)
+                        shutil.copy(file, move)
+                        
+        # Move original images to a new directory
+        valid_exts = ['.tif', '.png']
+        newpath = os.path.join(src_path, 'orig')
+        os.makedirs(newpath, exist_ok=True)
+        for filename in os.listdir(src_path):
+            if os.path.splitext(filename)[1] in valid_exts:
+                move = os.path.join(newpath, filename)
+                if os.path.exists(move):
+                    print(f'WARNING: A file with the same name already exists at location {move}')
+                else:
+                    shutil.move(os.path.join(src, filename), move)
     return
 
 # Generate random colour cmap
@@ -962,7 +981,6 @@ def concatenate_channel(src, channels, randomize=True, timelapse=False, batch_si
     if timelapse:
         try:
             time_stack_path_lists = generate_time_lists(os.listdir(src))
-            print(time_stack_path_lists)
             for i, time_stack_list in enumerate(time_stack_path_lists):
                 stack_region = []
                 filenames_region = []
@@ -1631,7 +1649,7 @@ def save_object_counts_to_database(arrays, object_type, file_names, db_path, add
     records = []
     for mask, file_name in zip(arrays, file_names):
         object_count = count_objects(mask)
-        count_type = f"{object_type}{added_string}"  # Combines object_type with added_string for unique count_type
+        count_type = f"{object_type}{added_string}"
         
         # Append a tuple of (file_name, count_type, object_count) to the records list
         records.append((file_name, count_type, object_count))
@@ -1662,11 +1680,85 @@ def save_object_counts_to_database(arrays, object_type, file_names, db_path, add
     conn.commit()
     conn.close()
 
+def pivot_counts_table(db_path):
+    
+    def read_table_to_dataframe(db_path, table_name='object_counts'):
+        # Connect to the SQLite database
+        conn = sqlite3.connect(db_path)
+        # Read the entire table into a pandas DataFrame
+        query = f"SELECT * FROM {table_name}"
+        df = pd.read_sql_query(query, conn)
+        # Close the connection
+        conn.close()
+        return df
+
+    def pivot_dataframe(df):
+        # Pivot the DataFrame
+        pivoted_df = df.pivot(index='file_name', columns='count_type', values='object_count').reset_index()
+        # Because the pivot operation can introduce NaN values for missing data,
+        # you might want to fill those NaNs with a default value, like 0
+        pivoted_df = pivoted_df.fillna(0)
+        return pivoted_df
+    
+    # Read the original 'object_counts' table
+    df = read_table_to_dataframe(db_path, 'object_counts')
+    # Pivot the DataFrame to have one row per filename and a column for each object type
+    pivoted_df = pivot_dataframe(df)
+    # Reconnect to the SQLite database to overwrite the 'object_counts' table with the pivoted DataFrame
+    conn = sqlite3.connect(db_path)
+    # When overwriting, ensure that you drop the existing table or use if_exists='replace' to overwrite it
+    pivoted_df.to_sql('object_counts', conn, if_exists='replace', index=False)
+    conn.close()
+
 #######################
 #                     #
 # Timelapse functions #
 #                     #  
 #######################
+
+def npz_to_movie(arrays, filenames, save_path, fps=10):
+    # Define the codec and create VideoWriter object
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    if save_path.endswith('.mp4'):
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
+    # Initialize VideoWriter with the size of the first image
+    height, width = arrays[0].shape[:2]
+    out = cv2.VideoWriter(save_path, fourcc, fps, (width, height))
+
+    for i, frame in enumerate(arrays):
+        # Handle float32 images by scaling or normalizing
+        if frame.dtype == np.float32:
+            frame = np.clip(frame, 0, 1)  # Ensure values are within [0, 1]
+            frame = (frame * 255).astype(np.uint8)
+
+        # Convert 16-bit image to 8-bit
+        elif frame.dtype == np.uint16:
+            frame = cv2.convertScaleAbs(frame, alpha=(255.0/65535.0))
+
+        # Handling 1-channel (grayscale) or 2-channel images
+        if frame.ndim == 2 or (frame.ndim == 3 and frame.shape[2] in [1, 2]):
+            if frame.ndim == 2 or frame.shape[2] == 1:
+                # Convert grayscale to RGB
+                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+            elif frame.shape[2] == 2:
+                # Create an RGB image with the first channel as red, second as green, blue set to zero
+                rgb_frame = np.zeros((height, width, 3), dtype=np.uint8)
+                rgb_frame[..., 0] = frame[..., 0]  # Red channel
+                rgb_frame[..., 1] = frame[..., 1]  # Green channel
+                frame = rgb_frame
+
+        # For 3-channel images, ensure it's in BGR format for OpenCV
+        elif frame.shape[2] == 3:
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+        # Add filenames as text on frames
+        cv2.putText(frame, filenames[i], (10, height - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+
+        out.write(frame)
+
+    out.release()
+    print(f"Movie saved to {save_path}")
 
 def display_gif(path):
     with open(path, 'rb') as file:
@@ -1695,47 +1787,14 @@ def visualize_timelapse_stack_with_tracks(masks, tracks_df):
             ax.text(x, y, str(label_value), color='white', fontsize=16, ha='center', va='center')
         
         # Overlay tracks
-        unique_particles = tracks_df['particle'].unique()
-        for particle in unique_particles:
-            particle_track = tracks_df[tracks_df['particle'] == particle]
-            ax.plot(particle_track['x'], particle_track['y'], '-k', linewidth=1)  # Draw track as a black line
+        for track in tracks_df['track_id'].unique():
+            _track = tracks_df[tracks_df['track_id'] == track]
+            ax.plot(_track['x'], _track['y'], '-k', linewidth=1)
 
         ax.axis('off')
         plt.show()
     
     interact(view_frame_with_tracks, frame=IntSlider(min=0, max=len(masks)-1, step=1, value=0))
-    
-def save_mask_timelapse_as_gif_v1(masks, tracks_df, path, fps, cmap, norm):
-    
-    # Set the face color for the figure to black
-    fig, ax = plt.subplots(figsize=(50, 50), facecolor='black')
-    ax.set_facecolor('black')  # Set the axes background color to black
-
-    ax.axis('off')  # Turn off the axis
-    plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0) # Adjust the subplot edges
-
-    def update(frame):
-        ax.clear()  # Clear the axis to draw the new frame
-        ax.axis('off')  # Ensure axis is still off after clearing
-        current_mask = masks[frame]
-        ax.imshow(current_mask, cmap=cmap, norm=norm)
-        ax.set_title(f'Frame: {frame}', fontsize=24)
-        
-        # Annotate each object with its label number from the mask
-        for label_value in np.unique(current_mask):
-            if label_value == 0: continue  # Skip background
-            y, x = np.mean(np.where(current_mask == label_value), axis=1)
-            ax.text(x, y, str(label_value), color='white', fontsize=24, ha='center', va='center')
-
-        # Overlay tracks
-        for particle in tracks_df['particle'].unique():
-            particle_track = tracks_df[tracks_df['particle'] == particle]
-            ax.plot(particle_track['x'], particle_track['y'], '-w', linewidth=1)
-
-    anim = FuncAnimation(fig, update, frames=len(masks), blit=False)
-    anim.save(path, writer='pillow', fps=fps, dpi=80)  # Adjust DPI for size/quality
-    plt.close(fig)
-    print(f'Saved timelapse to {path}')
     
 def save_mask_timelapse_as_gif(masks, tracks_df, path, fps, cmap, norm, filenames):
     
@@ -1769,9 +1828,9 @@ def save_mask_timelapse_as_gif(masks, tracks_df, path, fps, cmap, norm, filename
             ax.text(x, y, str(label_value), color='white', fontsize=24, ha='center', va='center')
 
         # Overlay tracks
-        for particle in tracks_df['particle'].unique():
-            particle_track = tracks_df[tracks_df['particle'] == particle]
-            ax.plot(particle_track['x'], particle_track['y'], '-w', linewidth=1)
+        for track in tracks_df['track_id'].unique():
+            _track = tracks_df[tracks_df['track_id'] == track]
+            ax.plot(_track['x'], _track['y'], '-w', linewidth=1)
 
     anim = FuncAnimation(fig, update, frames=len(masks), blit=False)
     anim.save(path, writer='pillow', fps=fps, dpi=80)  # Adjust DPI for size/quality
@@ -1800,10 +1859,10 @@ def save_mask_timelapse_as_tif(masks, tracks_df, path, cmap, norm, figsize=(50, 
                 ax.text(x, y, str(label_value), color='white', fontsize=24, ha='center', va='center')
                 
             # Overlay tracks
-            for particle in tracks_df['particle'].unique():
-                particle_track = tracks_df[tracks_df['particle'] == particle]
-                ax.plot(particle_track['x'], particle_track['y'], '-w', linewidth=1)  # Changed to '-w' for visibility
-            
+            for track in tracks_df['track_id'].unique():
+                _track = tracks_df[tracks_df['track_id'] == track]
+                ax.plot(_track['x'], _track['y'], '-w', linewidth=1)
+                
             # Use tight_layout to minimize whitespace
             fig.tight_layout(pad=0)
             
@@ -1819,7 +1878,7 @@ def save_mask_timelapse_as_tif(masks, tracks_df, path, cmap, norm, figsize=(50, 
     
     print(f'Saved timelapse to {path}')
     
-def visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df, save, src, name, fps, plot, filenames, interactive=False, ):
+def visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df, save, src, name, fps, plot, filenames, object_type, mode='btrack',interactive=False):
     highest_label = max(np.max(mask) for mask in masks)
     # Generate random colors for each label, including the background
     random_colors = np.random.rand(highest_label + 1, 4)
@@ -1840,12 +1899,11 @@ def visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df, save, src, 
             if label_value == 0: continue  # Skip background
             y, x = np.mean(np.where(current_mask == label_value), axis=1)
             ax.text(x, y, str(label_value), color='white', fontsize=24, ha='center', va='center')
-        
+            
         # Overlay tracks
-        unique_particles = tracks_df['particle'].unique()
-        for particle in unique_particles:
-            particle_track = tracks_df[tracks_df['particle'] == particle]
-            ax.plot(particle_track['x'], particle_track['y'], '-k', linewidth=1)  # Draw track as a black line
+        for track in tracks_df['track_id'].unique():
+            _track = tracks_df[tracks_df['track_id'] == track]
+            ax.plot(_track['x'], _track['y'], '-k', linewidth=1)
 
         ax.axis('off')
         plt.show()
@@ -1858,7 +1916,7 @@ def visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df, save, src, 
     	#save as gif
         gif_path = os.path.join(os.path.dirname(src), 'movies', 'gif')
         os.makedirs(gif_path, exist_ok=True)
-        save_path_gif = os.path.join(gif_path, f'timelapse_masks_{name}.gif')
+        save_path_gif = os.path.join(gif_path, f'timelapse_masks_{object_type}_{name}.gif')
         save_mask_timelapse_as_gif(masks, tracks_df, save_path_gif, fps, cmap, norm, filenames)
         if plot:
             if not interactive:
@@ -1870,7 +1928,7 @@ def visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df, save, src, 
         #save_path_tif = os.path.join(tif_path, f'timelapse_masks_{name}.tif')
         #save_mask_timelapse_as_tif(masks, tracks_df, save_path_tif, cmap, norm)
     
-def relabel_masks_based_on_tracks(masks, tracks):
+def relabel_masks_based_on_tracks(masks, tracks, mode='btrack'):
     # Initialize an array to hold the relabeled masks with the same shape and dtype as the input masks
     relabeled_masks = np.zeros(masks.shape, dtype=masks.dtype)
     
@@ -1878,14 +1936,13 @@ def relabel_masks_based_on_tracks(masks, tracks):
     for frame_number in range(masks.shape[0]):
         # Extract the mapping for the current frame from the tracks DataFrame
         frame_tracks = tracks[tracks['frame'] == frame_number]
-        mapping = dict(zip(frame_tracks['original_label'], frame_tracks['particle']))
-        
+        mapping = dict(zip(frame_tracks['original_label'], frame_tracks['track_id']))
         current_mask = masks[frame_number, :, :]
         
         # Apply the mapping to the current mask
-        for original_label, particle in mapping.items():
-            # Where the current mask equals the original label, set it to the new particle value
-            relabeled_masks[frame_number][current_mask == original_label] = particle
+        for original_label, new_label in mapping.items():
+            # Where the current mask equals the original label, set it to the new label value
+            relabeled_masks[frame_number][current_mask == original_label] = new_label
 
     return relabeled_masks
     
@@ -1918,7 +1975,100 @@ def find_optimal_search_range(features, initial_search_range=500, increment=10, 
             print(f'Retrying with displacement value: {optimal_search_range}', end='\r', flush=True)
     return optimal_search_range
     
-def identify_masks(src, object_type, model_name, batch_size, channels, diameter, minimum_size, maximum_size, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', refine_masks=True, filter_size=True, filter_dimm=True, remove_border_objects=False, verbose=False, plot=False, merge=False, save=True, start_at=0, file_type='.npz', net_avg=True, resample=True, timelapse=False, fps=2, timelapse_displacement=None, timelapse_frame_limits=None, timelapse_memory=3, timelapse_remove_transient=False):
+def trackpy_track_cells(src, name, batch_filenames, object_type, fps, masks, timelapse_displacement, timelapse_memory, timelapse_remove_transient, plot, save, mode):
+
+    features = prepare_for_tracking(masks)
+    if timelapse_displacement is None:
+        timelapse_displacement = find_optimal_search_range(features, initial_search_range=500, increment=10, max_attempts=49, memory=timelapse_memory)
+    try:
+        tracks_df = tp.link(features, search_range=timelapse_displacement, memory=timelapse_memory)
+    except Exception as e:
+        print(f'timelapse_displacement={timelapse_displacement} is to high. Lower timelapse_displacement or set to None for automatic thresholding.')
+
+    tracks_df['particle'] += 1
+    if timelapse_remove_transient:
+        tracks_df_filter = tp.filter_stubs(tracks_df, len(masks))
+    else:
+        tracks_df_filter = tracks_df.copy()
+    
+    tracks_df_filter = tracks_df_filter.rename(columns={'particle': 'track_id'})
+    print(f'Removed {len(tracks_df)-len(tracks_df_filter)} objects that were not present in all frames')
+    masks = relabel_masks_based_on_tracks(masks, tracks_df_filter)
+    tracks_path = os.path.join(os.path.dirname(src), 'tracks')
+    os.makedirs(tracks_path, exist_ok=True)
+    tracks_df_filter.to_csv(os.path.join(tracks_path, f'trackpy_tracks_{name}.csv'), index=False)
+    if plot or save:
+        visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df_filter, save, src, name, fps, plot, batch_filenames, mode, object_type)
+    
+    return masks
+    
+def filter_short_tracks(df, min_length=5):
+    """Filter out tracks that are shorter than min_length."""
+    track_lengths = df.groupby('track_id').size()
+    long_tracks = track_lengths[track_lengths >= min_length].index
+    return df[df['track_id'].isin(long_tracks)]
+    
+def btrack_track_cells(src, name, batch_filenames, object_type, fps, plot, save, masks_3D, mode, timelapse_remove_transient, radius=100, workers=10):
+    
+    CONFIG_FILE = btrack_datasets.cell_config()
+    frame, width, height = masks_3D.shape
+
+    FEATURES = ["area", "major_axis_length", "minor_axis_length", "orientation", "solidity"]
+    objects = btrack.utils.segmentation_to_objects(masks_3D, properties=tuple(FEATURES), num_workers=workers)
+    
+    # initialise a tracker session using a context manager
+    with btrack.BayesianTracker() as tracker:
+        tracker.configure(CONFIG_FILE) # configure the tracker using a config file
+        tracker.max_search_radius = radius
+        tracker.tracking_updates = ["MOTION", "VISUAL"]
+        #tracker.tracking_updates = ["MOTION"]
+        tracker.features = FEATURES
+        tracker.append(objects) # append the objects to be tracked
+        tracker.volume=((0, height), (0, width)) # set the tracking volume
+        tracker.track(step_size=100) # track them (in interactive mode)
+        tracker.optimize() # generate hypotheses and run the global optimizer
+        #data, properties, graph = tracker.to_napari() # get the tracks in a format for napari visualization
+        tracks = tracker.tracks # store the tracks
+        #cfg = tracker.configuration # store the configuration
+    
+    # Process the track data to create a DataFrame
+    track_data = []
+    for track in tracks:
+        for t, x, y, z in zip(track.t, track.x, track.y, track.z):
+            track_data.append({
+                'track_id': track.ID,
+                'frame': t,
+                'x': x,
+                'y': y,
+                'z': z
+            })
+    # Convert track data to a DataFrame
+    tracks_df = pd.DataFrame(track_data)
+    if timelapse_remove_transient:
+    	tracks_df = filter_short_tracks(tracks_df, min_length=len(masks_3D))
+    
+    objects_df = prepare_for_tracking(masks_3D)
+    
+    # Optional: If necessary, round 'x' and 'y' to ensure matching precision
+    tracks_df['x'] = tracks_df['x'].round(decimals=2)
+    tracks_df['y'] = tracks_df['y'].round(decimals=2)
+    objects_df['x'] = objects_df['x'].round(decimals=2)
+    objects_df['y'] = objects_df['y'].round(decimals=2)
+
+    # Merge the DataFrames on 'frame', 'x', and 'y'
+    merged_df = pd.merge(tracks_df, objects_df, on=['frame', 'x', 'y'], how='inner')
+    final_df = merged_df[['track_id', 'frame', 'x', 'y', 'original_label']]
+    
+    masks = relabel_masks_based_on_tracks(masks_3D, final_df)
+    tracks_path = os.path.join(os.path.dirname(src), 'tracks')
+    os.makedirs(tracks_path, exist_ok=True)
+    final_df.to_csv(os.path.join(tracks_path, f'btrack_tracks_{name}.csv'), index=False)
+    if plot or save:
+        visualize_and_save_timelapse_stack_with_tracks(masks, final_df, save, src, name, fps, plot, batch_filenames, object_type, mode)
+    
+    return final_df
+    
+def identify_masks(src, object_type, model_name, batch_size, channels, diameter, minimum_size, maximum_size, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', refine_masks=True, filter_size=True, filter_dimm=True, remove_border_objects=False, verbose=False, plot=False, merge=False, save=True, start_at=0, file_type='.npz', net_avg=True, resample=True, timelapse=False, fps=2, timelapse_displacement=None, timelapse_frame_limits=None, timelapse_memory=3, timelapse_remove_transient=False, timelapse_mode='btrack', generate_movies=False):
     
     #Note add logic that handles batches of size 1 as these will break the code batches must all be > 2 images
     gc.collect()
@@ -1952,6 +2102,7 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
     moving_avg_q3 = 0
     moving_count = 0
     for file_index, path in enumerate(paths):
+
         name = os.path.basename(path)
         name, ext = os.path.splitext(name)
         if file_type == '.npz':
@@ -1986,11 +2137,6 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                     batch = stack[i: i+batch_size, :, :, channels].astype(stack.dtype)
                     
                 batch_filenames = filenames[i: i+batch_size].tolist()
-                
-                #if timelapse:    
-                #    if timelapse_frame_limits is not None and isinstance(timelapse_frame_limits, list):
-                #        batch = stack[timelapse_frame_limits[0]: timelapse_frame_limits[1], :, :, :].astype(stack.dtype)
-                #        batch_filenames = batch_filenames[timelapse_frame_limits[0]: timelapse_frame_limits[1]]
                         
                 if not plot:
                     batch, batch_filenames = check_masks(batch, batch_filenames, output_folder)
@@ -2002,6 +2148,11 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                     
                 if timelapse:
                     stitch_threshold=100.0
+                    if generate_movies:
+                        movie_path = os.path.join(os.path.dirname(src), 'movies')
+                        os.makedirs(movie_path, exist_ok=True)
+                        save_path = os.path.join(movie_path, f'timelapse_{object_type}_{name}.mp4')
+                        npz_to_movie(batch, batch_filenames, save_path, fps=fps)
                 else:
                     stitch_threshold=0.0
                    
@@ -2020,29 +2171,20 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                                 progress=None)
                                 
                 if timelapse:
+                    if timelapse_mode == 'btrack':
+                        if not timelapse_displacement is None:
+                            radius = timelapse_displacement
+                        else:
+                            radius = 100
+                        
+                        workers = os.cpu_count()-2
+                        if workers < 1:
+                            workers = 1
 
-                    features = prepare_for_tracking(masks)
-                    if timelapse_displacement is None:
-                    	timelapse_displacement = find_optimal_search_range(features, initial_search_range=500, increment=10, max_attempts=49, memory=3)
-                    try:
-                        tracks_df = tp.link(features, search_range=timelapse_displacement, memory=timelapse_memory)
-                    except Exception as e:
-                        print(f'timelapse_displacement={timelapse_displacement} is to high. Lower timelapse_displacement or set to None for automatic thresholding.')
-                    
-                    tracks_df['particle'] += 1
-                    if timelapse_remove_transient:
-                    	tracks_df_filter = tp.filter_stubs(tracks_df, len(masks))
-                    else:
-                        tracks_df_filter = tracks_df.copy()
-                    print(f'Removed {len(tracks_df)-len(tracks_df_filter)} objects that were not present in all frames')
-                    masks = relabel_masks_based_on_tracks(masks, tracks_df_filter)
-                    tracks_path = os.path.join(os.path.dirname(src), 'tracks')
-                    os.makedirs(tracks_path, exist_ok=True)
-                    tracks_df_filter.to_csv(os.path.join(tracks_path, f'tracks_{name}.csv'), index=False)
-                    if plot or save:
-                    	visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df_filter, save, src, name, fps, plot, batch_filenames)
-                    	
-                    # add logic to delete tracks that are not present from start...
+                        btrack_track_cells(src, name, batch_filenames, object_type, fps, plot, save, masks_3D=masks, mode=timelapse_mode, timelapse_remove_transient=timelapse_remove_transient, radius=radius, workers=workers)
+                    if timelapse_mode == 'trackpy':
+                        trackpy_track_cells(src, name, batch_filenames, object_type, fps, masks, timelapse_displacement, timelapse_memory, timelapse_remove_transient, plot, save, timelapse_mode)
+
                     save_object_counts_to_database(masks, object_type, batch_filenames, count_loc, added_string='_timelapse')
                 else:
                     save_object_counts_to_database(masks, object_type, batch_filenames, count_loc, added_string='_before_filtration')
@@ -2102,18 +2244,6 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                 if plot:
                     plot_masks(stack, mask_stack, flows, figuresize=figuresize, cmap=cmap, nr=batch_size, file_type='.png')
         if save:
-            #if timelapse:
-            #    fov_ls = []
-            #    for fn in batch_filenames:
-            #        nme, _ = os.path.splitext(fn)
-            #        comp = nme.split('_')
-            #        fov = comp[0]+'_'+comp[1]+'_'+comp[2]
-            #        if fov not in fov_ls:
-            #            fov_ls.append(fov)
-            #    for fov in fov_ls:
-            #        image_list = plot_masks_to_image(f'{src}/{nme}_{fov}_mask_stack', fov=fov)
-            #        concatenate_images_to_movie(image_list, 'cell', fps=2)
-                
             if file_type == '.npz':
                 for mask_index, mask in enumerate(mask_stack):
                     output_filename = os.path.join(output_folder, batch_filenames[mask_index])
@@ -2228,7 +2358,6 @@ def create_database(db_path):
     conn = None
     try:
         conn = sqlite3.connect(db_path)
-        #print(f"SQLite version: {sqlite3.version}")
     except Error as e:
         print(e)
     finally:
@@ -3324,8 +3453,7 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
         
     if plot:
         plot_4D_arrays(src+'/norm_channel_stack', nr_npz=1, nr=nr)
-    if generate_movies:
-        make_movies(src+'/norm_channel_stack', fps=fps)
+
     return print(f'========== complete ==========')
 
 def get_diam(mag, obj):
@@ -3362,7 +3490,7 @@ def get_diam(mag, obj):
     diamiter = mag*scale
     return diamiter
 
-def generate_masks(src, object_type, mag, batch_size, channels, cellprob_threshold, plot, save, verbose, nr=1, start_at=0, merge=False, file_type='.npz', fps=2, timelapse=False, timelapse_displacement=None, timelapse_memory=3, timelapse_frame_limits=None, timelapse_remove_transient=False, settings={}):
+def generate_masks(src, object_type, mag, batch_size, channels, cellprob_threshold, plot, save, verbose, nr=1, start_at=0, merge=False, file_type='.npz', fps=2, timelapse=False, timelapse_displacement=None, timelapse_memory=3, timelapse_frame_limits=None, timelapse_remove_transient=False, timelapse_mode='btrack', generate_movies=False, settings={}):
     
     if object_type == 'cell':
         refine_masks = False
@@ -3454,7 +3582,9 @@ def generate_masks(src, object_type, mag, batch_size, channels, cellprob_thresho
                    timelapse_displacement=timelapse_displacement,
                    timelapse_frame_limits=timelapse_frame_limits,
                    timelapse_memory=timelapse_memory,
-                   timelapse_remove_transient=timelapse_remove_transient)
+                   timelapse_remove_transient=timelapse_remove_transient,
+                   timelapse_mode=timelapse_mode,
+                   generate_movies=generate_movies)
     
     return print('========== complete ==========')
 
@@ -3524,36 +3654,6 @@ def mip_all(src, include_first_chan=True):
             # save
             np.save(os.path.join(src, filename), concatenated)
     return
-    
-def pivot_counts_table(db_path):
-    
-    def read_table_to_dataframe(db_path, table_name='object_counts'):
-        # Connect to the SQLite database
-        conn = sqlite3.connect(db_path)
-        # Read the entire table into a pandas DataFrame
-        query = f"SELECT * FROM {table_name}"
-        df = pd.read_sql_query(query, conn)
-        # Close the connection
-        conn.close()
-        return df
-
-    def pivot_dataframe(df):
-        # Pivot the DataFrame
-        pivoted_df = df.pivot(index='file_name', columns='count_type', values='object_count').reset_index()
-        # Because the pivot operation can introduce NaN values for missing data,
-        # you might want to fill those NaNs with a default value, like 0
-        pivoted_df = pivoted_df.fillna(0)
-        return pivoted_df
-    
-    # Read the original 'object_counts' table
-    df = read_table_to_dataframe(db_path, 'object_counts')
-    # Pivot the DataFrame to have one row per filename and a column for each object type
-    pivoted_df = pivot_dataframe(df)
-    # Reconnect to the SQLite database to overwrite the 'object_counts' table with the pivoted DataFrame
-    conn = sqlite3.connect(db_path)
-    # When overwriting, ensure that you drop the existing table or use if_exists='replace' to overwrite it
-    pivoted_df.to_sql('object_counts', conn, if_exists='replace', index=False)
-    conn.close()
 
 def get_cellpose_channels(mask_channels, nucleus_chann_dim, pathogen_chann_dim, cell_chann_dim):
     cellpose_channels = {}
@@ -3633,6 +3733,8 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                            timelapse_memory=settings['timelapse_memory'],
                            timelapse_frame_limits=settings['timelapse_frame_limits'],
                            timelapse_remove_transient=settings['timelapse_remove_transient'],
+                           timelapse_mode=settings['timelapse_mode'],
+                           generate_movies=settings['generate_movies'],
                            settings=settings)
             torch.cuda.empty_cache()
         if settings['nucleus_channel'] != None:
@@ -3655,6 +3757,8 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                            timelapse_memory=settings['timelapse_memory'],
                            timelapse_frame_limits=settings['timelapse_frame_limits'],
                            timelapse_remove_transient=settings['timelapse_remove_transient'],
+                           timelapse_mode=settings['timelapse_mode'],
+                           generate_movies=settings['generate_movies'],
                            settings=settings)
             torch.cuda.empty_cache()
         if settings['pathogen_channel'] != None:
@@ -3677,6 +3781,8 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                            timelapse_memory=settings['timelapse_memory'],
                            timelapse_frame_limits=settings['timelapse_frame_limits'],
                            timelapse_remove_transient=settings['timelapse_remove_transient'],
+                           timelapse_mode=settings['timelapse_mode'],
+                           generate_movies=settings['generate_movies'],
                            settings=settings)
             torch.cuda.empty_cache()
         if os.path.exists(os.path.join(src,'measurements')):
