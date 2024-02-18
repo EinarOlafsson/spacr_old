@@ -827,7 +827,6 @@ def merge_channels(src, plot=False):
     src = Path(src)
     stack_dir = src / 'stack'
     chan_dirs = [d for d in src.iterdir() if d.is_dir() and d.name in ['01', '02', '03', '04', '00', '1', '2', '3', '4','0']]
-    print(chan_dirs)
     chan_dirs.sort(key=lambda x: x.name)
     print(f'List of folders in src: {[d.name for d in chan_dirs]}. Single channel folders.')
     start_time = time.time()
