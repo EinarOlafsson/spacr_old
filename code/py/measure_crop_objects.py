@@ -1,62 +1,37 @@
-import os, gc, re, cv2, csv, math, time, torch, json, traceback
-
-print('Torch available:', torch.cuda.is_available())
-print('CUDA version:',torch.version.cuda)
-
-import string, shutil, random, logging, sqlite3, cellpose, imageio
-
-# Image and array processing
-from cellpose import models
-#from cellpose import dynamics
-from torch.cuda.amp import autocast
-import pandas as pd
-import numpy as np
-from PIL import Image, ImageTk, ImageOps
-import tifffile
-
-# other
-from queue import Queue
-import tkinter as tk
-from tkinter import Tk, Label, Button
-from concurrent.futures import ThreadPoolExecutor
-import threading  # Make sure this line is here
-from pathlib import Path
-
-import ipywidgets as widgets
-from ipywidgets import IntProgress, interact, interact_manual, Button, HBox, IntSlider
-from IPython.display import display, clear_output, HTML
-from IPython.display import Image as ipyimage
-
+## Standard Library Imports
+import os
+import re
+import time
+import traceback
 from collections import defaultdict
+from multiprocessing import Pool, cpu_count, Manager
 
-# scikit-image
-from skimage import exposure, measure, morphology, filters
-from skimage.measure import label, regionprops
-from skimage.segmentation import find_boundaries, clear_border, watershed
-from skimage.morphology import opening, disk, closing, dilation, square
+## Data Handling and Analysis
+import numpy as np
+import pandas as pd
+import sqlite3
+
+## Image Processing and Analysis
+import cv2
+from skimage.measure import regionprops, regionprops_table, label
+from skimage.morphology import binary_dilation, binary_erosion, disk, remove_small_objects, square, dilation
+from skimage.segmentation import find_boundaries
+from skimage.util import img_as_ubyte
+from skimage.filters import threshold_otsu, rank, gaussian
+from skimage.color import label2rgb
+from skimage.feature import greycomatrix, greycoprops
+from skimage.transform import rescale, resize, downscale_local_mean
 from skimage.exposure import rescale_intensity
-from skimage.measure import label, regionprops_table, regionprops, shannon_entropy, find_contours
-from skimage.feature import graycomatrix, graycoprops, peak_local_max
-from mahotas.features import zernike_moments
-import trackpy as tp
-import matplotlib.colors as mcolors
 
-# SciPy
-import scipy.ndimage as ndi
+## Scientific Computing
+from scipy import ndimage as ndi
 from scipy.stats import pearsonr
-from scipy.interpolate import UnivariateSpline
-from scipy.optimize import linear_sum_assignment
-from scipy.ndimage import binary_erosion, binary_dilation as binary_erosion, binary_dilation, distance_transform_edt, generate_binary_structure
-from scipy.spatial.distance  import cdist
-from scipy.stats import zscore
-from scipy.ndimage import gaussian_filter
+from scipy.spatial.distance import cdist
+from scipy.ndimage import distance_transform_edt, center_of_mass
+from scipy.stats import entropy as shannon_entropy
 
-# parallel processing
-import multiprocessing as mp
-from multiprocessing import Lock
-from multiprocessing import Pool, cpu_count
-from concurrent.futures import ProcessPoolExecutor
-from functools import partial
+## Visualization
+import matplotlib.pyplot as plt
 
 def __morphological_measurements(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_mask, settings, zernike=True, degree=8):
 
