@@ -1,13 +1,4 @@
-import os, traceback, sqlite3
-import numpy as np
-from PIL import Image, ImageTk, ImageOps
-from queue import Queue
-import tkinter as tk
-from tkinter import Tk, Label, Button
-from concurrent.futures import ThreadPoolExecutor
-import threading
-from IPython.display import display, clear_output, HTML
-from IPython.display import Image as ipyimage
+
 
 class ImageApp:
     def __init__(self, root, db_path, image_type=None, channels=None, grid_rows=None, grid_cols=None, image_size=(200, 200), annotation_column='annotate'):
