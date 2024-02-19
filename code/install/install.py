@@ -1,3 +1,11 @@
+import subprocess
+import sys
+import os
+import json
+import shutil
+import platform
+import getpass
+
 def get_paths(env_name):
     conda_executable = "conda.exe" if sys.platform == "win32" else "conda"
     python_executable = "python.exe" if sys.platform == "win32" else "python"
