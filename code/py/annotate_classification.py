@@ -1,89 +1,13 @@
-import os, gc, re, cv2, csv, math, time, torch, json, traceback
-
-print('Torch available:', torch.cuda.is_available())
-print('CUDA version:',torch.version.cuda)
-
-import string, shutil, random, logging, sqlite3, cellpose, imageio
-
-# Image and array processing
-from cellpose import models
-#from cellpose import dynamics
-from torch.cuda.amp import autocast
-import pandas as pd
+import os, traceback, sqlite3
 import numpy as np
 from PIL import Image, ImageTk, ImageOps
-import tifffile
-
-# other
 from queue import Queue
 import tkinter as tk
 from tkinter import Tk, Label, Button
 from concurrent.futures import ThreadPoolExecutor
-import threading  # Make sure this line is here
-from pathlib import Path
-import xgboost as xgb
-
-import moviepy.editor as mpy
-import ipywidgets as widgets
-from ipywidgets import IntProgress, interact, interact_manual, Button, HBox, IntSlider
+import threading
 from IPython.display import display, clear_output, HTML
 from IPython.display import Image as ipyimage
-
-import btrack
-
-from btrack import datasets as btrack_datasets
-
-# Data visualization
-#%matplotlib inline
-import seaborn as sns
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from matplotlib.patches import Polygon
-from matplotlib.colors import LinearSegmentedColormap
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from matplotlib.animation import FuncAnimation
-
-from collections import defaultdict
-
-
-# scikit-image
-from skimage import exposure, measure, morphology, filters
-from skimage.measure import label, regionprops
-from skimage.segmentation import find_boundaries, clear_border, watershed
-from skimage.morphology import opening, disk, closing, dilation, square
-from skimage.exposure import rescale_intensity
-from skimage.measure import label, regionprops_table, regionprops, shannon_entropy, find_contours
-from skimage.feature import graycomatrix, graycoprops, peak_local_max
-from mahotas.features import zernike_moments
-import trackpy as tp
-import matplotlib.colors as mcolors
-
-# scikit-learn
-from sklearn.metrics import classification_report, accuracy_score
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_curve, auc, precision_recall_curve, confusion_matrix, roc_auc_score
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, accuracy_score
-from sklearn.ensemble import IsolationForest
-from sklearn.covariance import EllipticEnvelope
-
-# SciPy
-import scipy.ndimage as ndi
-from scipy.stats import pearsonr
-from scipy.interpolate import UnivariateSpline
-from scipy.optimize import linear_sum_assignment
-from scipy.ndimage import binary_erosion, binary_dilation as binary_erosion, binary_dilation, distance_transform_edt, generate_binary_structure
-from scipy.spatial.distance  import cdist
-from scipy.stats import zscore
-from scipy.ndimage import gaussian_filter
-
-# parallel processing
-import multiprocessing as mp
-from multiprocessing import Lock
-from multiprocessing import Pool, cpu_count
-from concurrent.futures import ProcessPoolExecutor
-from functools import partial
 
 class ImageApp:
     def __init__(self, root, db_path, image_type=None, channels=None, grid_rows=None, grid_cols=None, image_size=(200, 200), annotation_column='annotate'):
