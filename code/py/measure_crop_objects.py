@@ -21,30 +21,13 @@ from tkinter import Tk, Label, Button
 from concurrent.futures import ThreadPoolExecutor
 import threading  # Make sure this line is here
 from pathlib import Path
-import xgboost as xgb
 
-import moviepy.editor as mpy
 import ipywidgets as widgets
 from ipywidgets import IntProgress, interact, interact_manual, Button, HBox, IntSlider
 from IPython.display import display, clear_output, HTML
 from IPython.display import Image as ipyimage
 
-import btrack
-
-from btrack import datasets as btrack_datasets
-
-# Data visualization
-#%matplotlib inline
-import seaborn as sns
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from matplotlib.patches import Polygon
-from matplotlib.colors import LinearSegmentedColormap
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from matplotlib.animation import FuncAnimation
-
 from collections import defaultdict
-
 
 # scikit-image
 from skimage import exposure, measure, morphology, filters
@@ -57,16 +40,6 @@ from skimage.feature import graycomatrix, graycoprops, peak_local_max
 from mahotas.features import zernike_moments
 import trackpy as tp
 import matplotlib.colors as mcolors
-
-# scikit-learn
-from sklearn.metrics import classification_report, accuracy_score
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_curve, auc, precision_recall_curve, confusion_matrix, roc_auc_score
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, accuracy_score
-from sklearn.ensemble import IsolationForest
-from sklearn.covariance import EllipticEnvelope
 
 # SciPy
 import scipy.ndimage as ndi
