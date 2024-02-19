@@ -103,10 +103,6 @@ def install_dependencies_in_kernel(dependencies, env_name):
     else:
         print("No NVIDIA GPU found. Installing PyTorch for CPU.")
         subprocess.run([pip_PATH, "install", "torch", "torchvision", "torchaudio"])
-
-    # Install torch, torchvision, torchaudio with pip
-    #print("Installing torch")
-    #subprocess.run([pip_PATH, "install", "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/cu118"])
                     
     # Install cellpose
     print("Installing cellpose")
