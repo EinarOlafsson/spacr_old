@@ -1483,7 +1483,7 @@ def __intensity_measurements(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_ma
             object_labels = np.unique(object_mask[cell_region])
             object_labels = object_labels[object_labels != 0]
 
-            for object_label in object_mask:
+            for object_label in object_labels:
                 objecyt_region = object_mask == object_label
                 object_boundary = find_boundaries(objecyt_region, mode='outer')
                 distance_map = distance_transform_edt(~object_boundary) * cell_region
@@ -1578,12 +1578,12 @@ def __intensity_measurements(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_ma
     
     if radial_dist:
         if np.max(nuclei_mask) != 0:
-            _calculate_radial_distribution(cell_mask, nuclei_mask, channel_arrays, num_bins=6)
+            nucleus_radial_distributions = _calculate_radial_distribution(cell_mask, nuclei_mask, channel_arrays, num_bins=6)
             nucleus_df = _create_dataframe(nucleus_radial_distributions, 'nucleus')
             dfs[1].append(nucleus_df)
             
         if np.max(nuclei_mask) != 0:
-            _calculate_radial_distribution(cell_mask, pathogen_mask, channel_arrays, num_bins=6)
+            pathogen_radial_distributions = _calculate_radial_distribution(cell_mask, pathogen_mask, channel_arrays, num_bins=6)
             pathogen_df = _create_dataframe(pathogen_radial_distributions, 'pathogen')
             dfs[2].append(pathogen_df)
         
