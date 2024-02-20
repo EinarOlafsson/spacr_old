@@ -1939,9 +1939,11 @@ def _measure_crop_core(index, time_ls, file, settings):
                 nuclei_mask, cell_mask = __merge_overlapping_objects(mask1=nuclei_mask, mask2=cell_mask)
             if settings['nucleus_min_size'] is not None and settings['nucleus_min_size'] != 0:
                 nuclei_mask = ___filter_object(nuclei_mask, settings['nucleus_min_size'])
-            if settings['timelapse_objects'] == 'nucleus':
+            if settings['timelapse_objects'] == 'nuclei':
                 if settings['cell_mask_dim'] is not None:
                     cell_mask = _relabel_parent_with_unique_labels(cell_mask, nuclei_mask)
+                    data[:, :, settings['cell_mask_dim']] = cell_mask
+                    np.save(os.path.join(settings['input_folder'], file), data)
                 
         else:
             nuclei_mask = np.zeros_like(data[:, :, 0])
@@ -2174,6 +2176,54 @@ def _measure_crop_core(index, time_ls, file, settings):
     
 def measure_crop(settings):
 
+    def timelapse_masks_to_gif(folder_path, mask_channels):
+        master_folder = os.path.dirname(folder_path)
+        gif_folder = os.path.join(master_folder, 'movies', 'gif')
+        os.makedirs(gif_folder, exist_ok=True)
+
+        def _sort_key(file_path):
+            match = re.search(r'plate(\d+)_well(\d+)_field(\d+)_time(\d+).npy', file_path)
+            if match:
+                return tuple(map(int, match.groups()))
+            return (0, 0, 0, 0)
+
+        files = glob(os.path.join(folder_path, '*.npy'))
+        files.sort(key=_sort_key)  # Corrected to _sort_key
+
+        organized_files = {}
+        for file in files:
+            key = tuple(file.split('_')[:3])
+            if key not in organized_files:
+                organized_files[key] = []
+            organized_files[key].append(file)
+        
+        for key, file_list in organized_files.items():
+            arrays = [np.load(f) for f in file_list]
+            combined_array = np.stack(arrays, axis=0)
+            selected_channels = combined_array[:, :, :, mask_channels]
+
+            for i, channel_array in enumerate(selected_channels.transpose(3, 0, 1, 2)):
+                def ___view_frame(frame, cmap, norm):
+                    fig, ax = plt.subplots(figsize=(10, 10))
+                    ax.imshow(channel_array[frame], cmap=cmap, norm=norm)
+                    ax.set_title(f'Channel {i} Frame: {frame}')
+                    ax.axis('off')
+                    plt.close(fig)
+                    return fig
+
+                highest_label = np.max(channel_array)
+                random_colors = np.random.rand(highest_label + 1, 4)
+                random_colors[:, 3] = 1  # Full opacity
+                random_colors[0] = [0, 0, 0, 1]  # Background color
+                cmap = plt.cm.colors.ListedColormap(random_colors)
+                norm = plt.cm.colors.Normalize(vmin=0, vmax=highest_label)
+
+                # Create and save animation for each channel
+                ani = FuncAnimation(plt.figure(), lambda frame: ___view_frame(frame, cmap, norm), frames=len(channel_array), interval=500)
+                save_path_gif = os.path.join(gif_folder, f"{key[0]}_{key[1]}_{key[2]}_channel_{i}_animation.gif")
+                ani.save(save_path_gif, writer='imagemagick')
+                print(f"Saved GIF: {save_path_gif}")
+
     def _list_endpoint_subdirectories(base_dir):
         endpoint_subdirectories = []
         for root, dirs, _ in os.walk(base_dir):
@@ -2319,6 +2369,12 @@ def measure_crop(settings):
             result.get()
             
     if settings['timelapse']:
+    	if settings['timelapse_objects'] == 'nuclei':
+    	    folder_path = os.path.join(settings['input_folder'], 'merged')
+    	    mask_channels = [settings['nuclei_mask_dim'], settings['pathogen_mask_dim'],settings['cell_mask_dim']]
+    	    mask_channels = [item for item in mask_channels if item is not None]
+            timelapse_masks_to_gif(folder_path, mask_channels)
+            
         if settings['save_png']:
             img_fldr = os.path.join(os.path.dirname(settings['input_folder']), 'data')  
             sc_img_fldrs = _list_endpoint_subdirectories(img_fldr)
