@@ -372,39 +372,42 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
                 if file.is_file():
                     name, ext = file.stem, file.suffix
                     if ext in valid_exts:
-                        metadata = re.match(regex, file.name)                    
-                        try:
-                            plateID = metadata.group('plateID')
+                        metadata = re.match(regex, file.name) 
+                        try:                  
+                            try:
+                                plateID = metadata.group('plateID')
+                            except:
+                                plateID = src.name
+
+                            wellID = metadata.group('wellID')
+                            fieldID = metadata.group('fieldID')
+                            chanID = metadata.group('chanID')
+                            timeID = metadata.group('timeID')
+
+                            if wellID[0].isdigit():
+                                wellID = str(___safe_int_convert(wellID))
+                            if fieldID[0].isdigit():
+                                fieldID = str(___safe_int_convert(fieldID))
+                            if chanID[0].isdigit():
+                                chanID = str(___safe_int_convert(chanID))
+                            if timeID[0].isdigit():
+                                timeID = str(___safe_int_convert(timeID))
+
+                            if metadata_type =='cq1':
+                                orig_wellID = wellID
+                                wellID = __convert_cq1_well_id(wellID)
+                                print(f'Converted Well ID: {orig_wellID} to {wellID}')
+
+                            newname = f"{plateID}_{wellID}_{fieldID}_{timeID if timelapse else ''}{ext}"
+                            newpath = src / chanID
+                            move = newpath / newname
+                            if move.exists():
+                                print(f'WARNING: A file with the same name already exists at location {move}')
+                            else:
+                                newpath.mkdir(exist_ok=True)
+                                shutil.copy(file, move)
                         except:
-                            plateID = src.name
-
-                        wellID = metadata.group('wellID')
-                        fieldID = metadata.group('fieldID')
-                        chanID = metadata.group('chanID')
-                        timeID = metadata.group('timeID')
-
-                        if wellID[0].isdigit():
-                            wellID = str(___safe_int_convert(wellID))
-                        if fieldID[0].isdigit():
-                            fieldID = str(___safe_int_convert(fieldID))
-                        if chanID[0].isdigit():
-                            chanID = str(___safe_int_convert(chanID))
-                        if timeID[0].isdigit():
-                            timeID = str(___safe_int_convert(timeID))
-
-                        if metadata_type =='cq1':
-                            orig_wellID = wellID
-                            wellID = __convert_cq1_well_id(wellID)
-                            print(f'Converted Well ID: {orig_wellID} to {wellID}')
-
-                        newname = f"{plateID}_{wellID}_{fieldID}_{timeID if timelapse else ''}{ext}"
-                        newpath = src / chanID
-                        move = newpath / newname
-                        if move.exists():
-                            print(f'WARNING: A file with the same name already exists at location {move}')
-                        else:
-                            newpath.mkdir(exist_ok=True)
-                            shutil.copy(file, move)
+                            print(f"Could not extract information from filename {name}{ext} with {regex}")
 
             # Move original images to a new directory
             valid_exts = ['.tif', '.png']
