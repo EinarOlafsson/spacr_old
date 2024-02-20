@@ -1483,7 +1483,7 @@ def __intensity_measurements(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_ma
             object_labels = np.unique(object_mask[cell_region])
             object_labels = object_labels[object_labels != 0]
 
-            for object_label in nucleus_labels:
+            for object_label in object_mask:
                 objecyt_region = object_mask == object_label
                 object_boundary = find_boundaries(objecyt_region, mode='outer')
                 distance_map = distance_transform_edt(~object_boundary) * cell_region
