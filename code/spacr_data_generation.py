@@ -506,8 +506,8 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
                     print(f'Region {i+1}/ {len(time_stack_path_lists)}', end='\r', flush=True)
                     stack = np.stack(stack_region)
                     save_loc = os.path.join(channel_stack_loc, f'{name}.npz')
-                    print(save_loc)
                     np.savez(save_loc, data=stack, filenames=filenames_region)
+                    print(save_loc)
                     del stack
             except Exception as e:
                 print(f"Error processing files, make sure filenames metadata is structured plate_well_field_time.npy")
@@ -757,6 +757,8 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
     
         print(f'========== generating stack ==========')
         _merge_channels(src, plot=False)
+        if timelapse:
+            _create_movies_from_npy_per_channel(src+'/stack', fps=2)
 
         if plot:
             print(f'plotting {nr} images from {src}/stack')
@@ -774,6 +776,7 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
                         randomize=randomize, 
                         timelapse=timelapse, 
                         batch_size=batch_size)
+        
     if plot:
         print(f'plotting {nr} images from {src}/channel_stack')
         _plot_4D_arrays(src+'/channel_stack', figuresize, cmap, nr_npz=1, nr=nr)
@@ -1456,7 +1459,7 @@ def __intensity_measurements(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_ma
                                                   np.percentile(intensities,95)))
         return outside_intensity_stats
     
-    def _calculate_radial_distribution(cell_mask, object_mask, channel_arrays, num_bins):
+    def _calculate_radial_distribution(cell_mask, object_mask, channel_arrays, num_bins=6):
         
         def __calculate_average_intensity(distance_map, single_channel_image, num_bins):
             radial_distribution = np.zeros(num_bins)
@@ -1575,12 +1578,12 @@ def __intensity_measurements(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_ma
     
     if radial_dist:
         if np.max(nuclei_mask) != 0:
-            _calculate_radial_distribution(cell_mask, nuclei_mask, channel_arrays, num_bins)
+            _calculate_radial_distribution(cell_mask, nuclei_mask, channel_arrays, num_bins=6)
             nucleus_df = _create_dataframe(nucleus_radial_distributions, 'nucleus')
             dfs[1].append(nucleus_df)
             
         if np.max(nuclei_mask) != 0:
-            _calculate_radial_distribution(cell_mask, pathogen_mask, channel_arrays, num_bins)
+            _calculate_radial_distribution(cell_mask, pathogen_mask, channel_arrays, num_bins=6)
             pathogen_df = _create_dataframe(pathogen_radial_distributions, 'pathogen')
             dfs[2].append(pathogen_df)
         
@@ -1867,61 +1870,6 @@ def _measure_crop_core(index, time_ls, file, settings):
 
         return new_mask
 
-    def __ssmovie(folder_paths):
-
-        for folder_path in folder_paths:
-            folder_path = os.path.join(folder_path, 'movies')
-            os.makedirs(folder_path, exist_ok=True)
-        
-            # Regular expression to parse the filename
-            filename_regex = re.compile(r'(\w+)_(\w+)_(\w+)_(\d+)_(\d+).png')
-
-            # Dictionary to hold lists of images by plate, well, field, and object number
-            grouped_images = defaultdict(list)
-
-            # Iterate over all PNG files in the folder
-            for filename in os.listdir(folder_path):
-                if filename.endswith('.png'):
-                    match = filename_regex.match(filename)
-                    if match:
-                        plate, well, field, time, object_number = match.groups()
-                        key = (plate, well, field, object_number)
-                        grouped_images[key].append((int(time), os.path.join(folder_path, filename)))
-
-            for key, images in grouped_images.items():
-                # Sort images by time using sorted and lambda function for custom sort key
-                images = sorted(images, key=lambda x: x[0])
-                _, image_paths = zip(*images)
-
-                # Determine the size to which all images should be padded
-                max_height = max_width = 0
-                for image_path in image_paths:
-                    image = cv2.imread(image_path)
-                    h, w, _ = image.shape
-                    max_height, max_width = max(max_height, h), max(max_width, w)
-
-                # Initialize VideoWriter
-                plate, well, field, object_number = key
-                output_filename = f"{plate}_{well}_{field}_{object_number}.mp4"
-                output_path = os.path.join(folder_path, output_filename)
-                print(output_path)
-                if not os.path.isfile(output_path):
-                    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-                    video = cv2.VideoWriter(output_path, fourcc, 10, (max_width, max_height))
-
-                    # Process each image
-                    for image_path in image_paths:
-                        image = cv2.imread(image_path)
-                        h, w, _ = image.shape
-                        padded_image = np.zeros((max_height, max_width, 3), dtype=np.uint8)
-                        padded_image[:h, :w, :] = image
-                        video.write(padded_image)
-
-                    video.release()
-                    print(f"Movie saved to {output_path}")
-                else:
-                    continue
-
     start = time.time() 
     try:
         source_folder = os.path.dirname(settings['input_folder'])
@@ -2064,7 +2012,7 @@ def _measure_crop_core(index, time_ls, file, settings):
                     objects_in_image = np.unique(crop_mask)
                     objects_in_image = objects_in_image[objects_in_image != 0]
                     img_paths = []
-                    ssmovie_folders = []
+                    
                     for _id in objects_in_image:
                         
                         region = (crop_mask == _id)  # This creates a boolean mask for the region of interest
@@ -2089,12 +2037,9 @@ def _measure_crop_core(index, time_ls, file, settings):
                         if settings['save_png']:
                             fldr_type = f"{crop_mode}_png/"
                             png_folder = os.path.join(fldr,fldr_type)
-                            
-                            if png_folder not in ssmovie_folders:
-                                ssmovie_folders.append(png_folder)
 
                             img_path = os.path.join(png_folder, img_name)
-
+                            
                             png_channels = data[:, :, settings['png_dims']].astype(data_type)
 
                             if settings['normalize_by'] == 'fov':
@@ -2172,10 +2117,6 @@ def _measure_crop_core(index, time_ls, file, settings):
                             region_array = data[row_idx.min():row_idx.max()+1, col_idx.min():col_idx.max()+1, :]
                             plot_cropped_arrays(region_array)
 
-                    if settings['timelapse']:
-                        if settings['save_png']:
-                            __ssmovie(ssmovie_folders)
-
         cells = np.unique(cell_mask)
     except Exception as e:
         print('main',e)
@@ -2189,6 +2130,67 @@ def _measure_crop_core(index, time_ls, file, settings):
     return average_time, cells
     
 def measure_crop(settings):
+
+    def _list_endpoint_subdirectories(base_dir):
+        endpoint_subdirectories = []
+        for root, dirs, _ in os.walk(base_dir):
+            if not dirs:
+                endpoint_subdirectories.append(root)
+        return endpoint_subdirectories
+
+    def _scmovie(folder_paths):
+
+        folder_paths = list(set(folder_paths))
+
+        for folder_path in folder_paths:
+
+            movie_path = os.path.join(folder_path, 'movies')
+            os.makedirs(movie_path, exist_ok=True)
+
+            # Regular expression to parse the filename
+            filename_regex = re.compile(r'(\w+)_(\w+)_(\w+)_(\d+)_(\d+).png')
+
+            # Dictionary to hold lists of images by plate, well, field, and object number
+            grouped_images = defaultdict(list)
+
+            # Iterate over all PNG files in the folder
+            for filename in os.listdir(folder_path):
+                if filename.endswith('.png'):
+                    match = filename_regex.match(filename)
+                    if match:
+                        plate, well, field, time, object_number = match.groups()
+                        key = (plate, well, field, object_number)
+                        grouped_images[key].append((int(time), os.path.join(folder_path, filename)))
+
+            for key, images in grouped_images.items():
+                # Sort images by time using sorted and lambda function for custom sort key
+                images = sorted(images, key=lambda x: x[0])
+                _, image_paths = zip(*images)
+
+                # Determine the size to which all images should be padded
+                max_height = max_width = 0
+                for image_path in image_paths:
+                    image = cv2.imread(image_path)
+                    h, w, _ = image.shape
+                    max_height, max_width = max(max_height, h), max(max_width, w)
+
+                # Initialize VideoWriter
+                plate, well, field, object_number = key
+                output_filename = f"{plate}_{well}_{field}_{object_number}.mp4"
+                output_path = os.path.join(movie_path, output_filename)
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                video = cv2.VideoWriter(output_path, fourcc, 10, (max_width, max_height))
+
+                # Process each image
+                for image_path in image_paths:
+                    image = cv2.imread(image_path)
+                    h, w, _ = image.shape
+                    padded_image = np.zeros((max_height, max_width, 3), dtype=np.uint8)
+                    padded_image[:h, :w, :] = image
+                    video.write(padded_image)
+
+                video.release()
+                #print(f"Movie saved to {output_path}")
 
     def _save_settings_to_db(settings):
         # Convert the settings dictionary into a DataFrame
@@ -2272,6 +2274,97 @@ def measure_crop(settings):
                 time_left = (((files_to_process-files_processed)*average_time)/max_workers)/60
                 print(f'Progress: {files_processed}/{files_to_process} Time/img {average_time:.3f}sec, Time Remaining {time_left:.3f} min.', end='\r', flush=True)
             result.get()
+            
+    if settings['timelapse']:
+        if settings['save_png']:
+            img_fldr = os.path.join(os.path.dirname(settings['input_folder']), 'data')  
+            sc_img_fldrs = _list_endpoint_subdirectories(img_fldr)
+            _scmovie(sc_img_fldrs)
+            
+def _npz_to_movie(arrays, filenames, save_path, fps=10):
+    # Define the codec and create VideoWriter object
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    if save_path.endswith('.mp4'):
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
+    # Initialize VideoWriter with the size of the first image
+    height, width = arrays[0].shape[:2]
+    out = cv2.VideoWriter(save_path, fourcc, fps, (width, height))
+
+    for i, frame in enumerate(arrays):
+        # Handle float32 images by scaling or normalizing
+        if frame.dtype == np.float32:
+            frame = np.clip(frame, 0, 1)  # Ensure values are within [0, 1]
+            frame = (frame * 255).astype(np.uint8)
+
+        # Convert 16-bit image to 8-bit
+        elif frame.dtype == np.uint16:
+            frame = cv2.convertScaleAbs(frame, alpha=(255.0/65535.0))
+
+        # Handling 1-channel (grayscale) or 2-channel images
+        if frame.ndim == 2 or (frame.ndim == 3 and frame.shape[2] in [1, 2]):
+            if frame.ndim == 2 or frame.shape[2] == 1:
+                # Convert grayscale to RGB
+                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+            elif frame.shape[2] == 2:
+                # Create an RGB image with the first channel as red, second as green, blue set to zero
+                rgb_frame = np.zeros((height, width, 3), dtype=np.uint8)
+                rgb_frame[..., 0] = frame[..., 0]  # Red channel
+                rgb_frame[..., 1] = frame[..., 1]  # Green channel
+                frame = rgb_frame
+
+        # For 3-channel images, ensure it's in BGR format for OpenCV
+        elif frame.shape[2] == 3:
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+        # Add filenames as text on frames
+        cv2.putText(frame, filenames[i], (10, height - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+
+        out.write(frame)
+
+    out.release()
+    print(f"Movie saved to {save_path}")
+    
+def _create_movies_from_npy_per_channel(src, fps=10):
+    master_path = os.path.dirname(src)
+    save_path = os.path.join(master_path,'movies')
+    os.makedirs(save_path, exist_ok=True)
+    # Organize files by plate, well, field
+    files = [f for f in os.listdir(src) if f.endswith('.npy')]
+    organized_files = {}
+    for f in files:
+        match = re.match(r'(\w+)_(\w+)_(\w+)_(\d+)\.npy', f)
+        if match:
+            plate, well, field, time = match.groups()
+            key = (plate, well, field)
+            if key not in organized_files:
+                organized_files[key] = []
+            organized_files[key].append((int(time), os.path.join(src, f)))
+    for key, file_list in organized_files.items():
+        plate, well, field = key
+        file_list.sort(key=lambda x: x[0])
+        arrays = []
+        filenames = []
+        for f in file_list:
+            array = np.load(f[1])
+            #if array.dtype != np.uint8:
+            #    array = ((array - array.min()) / (array.max() - array.min()) * 255).astype(np.uint8)
+            arrays.append(array)
+            filenames.append(os.path.basename(f[1]))
+        arrays = np.stack(arrays, axis=0)
+    for channel in range(arrays.shape[-1]):
+        # Extract the current channel for all time points
+        channel_arrays = arrays[..., channel]
+        # Flatten the channel data to compute global percentiles
+        channel_data_flat = channel_arrays.reshape(-1)
+        p1, p99 = np.percentile(channel_data_flat, [1, 99])
+        # Normalize and rescale each array in the channel
+        normalized_channel_arrays = [(np.clip((arr - p1) / (p99 - p1), 0, 1) * 255).astype(np.uint8) for arr in channel_arrays]
+        # Convert the list of 2D arrays into a list of 3D arrays with a single channel
+        normalized_channel_arrays_3d = [arr[..., np.newaxis] for arr in normalized_channel_arrays]
+        # Save as movie for the current channel
+        channel_save_path = os.path.join(save_path, f'{plate}_{well}_{field}_channel_{channel}.mp4')
+        _npz_to_movie(normalized_channel_arrays_3d, filenames, channel_save_path, fps)
     
 def identify_masks(src, object_type, model_name, batch_size, channels, diameter, minimum_size, maximum_size, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', refine_masks=True, filter_size=True, filter_dimm=True, remove_border_objects=False, verbose=False, plot=False, merge=False, save=True, start_at=0, file_type='.npz', net_avg=True, resample=True, timelapse=False, timelapse_displacement=None, timelapse_frame_limits=None, timelapse_memory=3, timelapse_remove_transient=False, timelapse_mode='btrack', timelapse_objects='cell'):
 
@@ -2374,50 +2467,6 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
         for idx, mask in enumerate(masks):
             mask_stack.append(mask)
         return mask_stack
-
-    def __npz_to_movie(arrays, filenames, save_path, fps=10):
-        # Define the codec and create VideoWriter object
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        if save_path.endswith('.mp4'):
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-
-        # Initialize VideoWriter with the size of the first image
-        height, width = arrays[0].shape[:2]
-        out = cv2.VideoWriter(save_path, fourcc, fps, (width, height))
-
-        for i, frame in enumerate(arrays):
-            # Handle float32 images by scaling or normalizing
-            if frame.dtype == np.float32:
-                frame = np.clip(frame, 0, 1)  # Ensure values are within [0, 1]
-                frame = (frame * 255).astype(np.uint8)
-
-            # Convert 16-bit image to 8-bit
-            elif frame.dtype == np.uint16:
-                frame = cv2.convertScaleAbs(frame, alpha=(255.0/65535.0))
-
-            # Handling 1-channel (grayscale) or 2-channel images
-            if frame.ndim == 2 or (frame.ndim == 3 and frame.shape[2] in [1, 2]):
-                if frame.ndim == 2 or frame.shape[2] == 1:
-                    # Convert grayscale to RGB
-                    frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
-                elif frame.shape[2] == 2:
-                    # Create an RGB image with the first channel as red, second as green, blue set to zero
-                    rgb_frame = np.zeros((height, width, 3), dtype=np.uint8)
-                    rgb_frame[..., 0] = frame[..., 0]  # Red channel
-                    rgb_frame[..., 1] = frame[..., 1]  # Green channel
-                    frame = rgb_frame
-
-            # For 3-channel images, ensure it's in BGR format for OpenCV
-            elif frame.shape[2] == 3:
-                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-
-            # Add filenames as text on frames
-            cv2.putText(frame, filenames[i], (10, height - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-
-            out.write(frame)
-
-        out.release()
-        print(f"Movie saved to {save_path}")
 
     def __display_gif(path):
         with open(path, 'rb') as file:
@@ -2541,6 +2590,18 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                 })
         return pd.DataFrame(frames)
 
+    #def __remove_even_labels_first_frame(array, by=2):
+    #    # Check if the input array has the correct shape (3 dimensions)
+    #    if array.ndim != 3:
+    #        raise ValueError("Input array must be 3D.")
+    #    # Select the first frame
+    #    first_frame = array[0]
+    #    # Find even labels in the first frame
+    #    even_labels_mask = first_frame % by == 0
+    #    # Set those labels to 0
+    #    array[0][even_labels_mask] = 0
+    #    return array
+
     def __find_optimal_search_range(features, initial_search_range=500, increment=10, max_attempts=49, memory=3):
         optimal_search_range = initial_search_range
         for attempt in range(max_attempts):
@@ -2553,19 +2614,54 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                 #print(f"SubnetOversizeException with search_range={optimal_search_range}: {e}")
                 optimal_search_range -= increment
                 print(f'Retrying with displacement value: {optimal_search_range}', end='\r', flush=True)
+        min_range = initial_search_range-(max_attempts*increment)
+        if optimal_search_range <= min_range:
+            print(f'timelapse_displacement={optimal_search_range} is to high. Lower timelapse_displacement or set to None for automatic thresholding.')
         return optimal_search_range
+        
+    def __remove_objects_from_first_frame(masks, percentage=10):
+        first_frame = masks[0]
+        unique_labels = np.unique(first_frame[first_frame != 0])
+        num_labels_to_remove = max(1, int(len(unique_labels) * (percentage / 100)))
+        labels_to_remove = random.sample(list(unique_labels), num_labels_to_remove)
+
+        for label in labels_to_remove:
+            masks[0][first_frame == label] = 0
+        return masks
+
+    def __facilitate_trackin_with_adaptive_removal(masks, search_range=500, max_attempts=100, memory=3):
+        attempts = 0
+        first_frame = masks[0]
+        starting_objects = np.unique(first_frame[first_frame != 0])
+        while attempts < max_attempts:
+            try:
+                masks = __remove_objects_from_first_frame(masks, 10)
+                first_frame = masks[0]
+                objects = np.unique(first_frame[first_frame != 0])
+                print(len(objects))
+                features = __prepare_for_tracking(masks)
+                tracks_df = tp.link(features, search_range=search_range, memory=memory)
+                print(f"Success with {len(objects)} objects, started with {len(starting_objects)} objects")
+                return masks, features, tracks_df
+            except Exception as e:  # Consider catching a more specific exception if possible
+                print(f"Retrying with fewer objects. Exception: {e}", flush=True)
+            finally:
+                attempts += 1
+        print(f"Failed to track objects after {max_attempts} attempts. Consider adjusting parameters.")
+        return None, None, None
 
     def __trackpy_track_cells(src, name, batch_filenames, object_type, masks, timelapse_displacement, timelapse_memory, timelapse_remove_transient, plot, save, mode):
 
-        features = __prepare_for_tracking(masks)
         if timelapse_displacement is None:
-            timelapse_displacement = __find_optimal_search_range(features, initial_search_range=500, increment=10, max_attempts=49, memory=timelapse_memory)
-        try:
-            tracks_df = tp.link(features, search_range=timelapse_displacement, memory=timelapse_memory)
-        except Exception as e:
-            print(f'timelapse_displacement={timelapse_displacement} is to high. Lower timelapse_displacement or set to None for automatic thresholding.')
+            timelapse_displacement = __find_optimal_search_range(features, initial_search_range=500, increment=10, max_attempts=49, memory=3)
 
+        masks, features, tracks_df = __facilitate_trackin_with_adaptive_removal(masks, search_range=timelapse_displacement, max_attempts=100, memory=timelapse_memory)
+
+        #features = __prepare_for_tracking(masks)
+        #tracks_df = tp.link(features, search_range=timelapse_displacement, memory=memory)
+            
         tracks_df['particle'] += 1
+
         if timelapse_remove_transient:
             tracks_df_filter = tp.filter_stubs(tracks_df, len(masks))
         else:
@@ -2731,7 +2827,7 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                     movie_path = os.path.join(os.path.dirname(src), 'movies')
                     os.makedirs(movie_path, exist_ok=True)
                     save_path = os.path.join(movie_path, f'timelapse_{object_type}_{name}.mp4')
-                    __npz_to_movie(batch, batch_filenames, save_path, fps=2)
+                    _npz_to_movie(batch, batch_filenames, save_path, fps=2)
                 else:
                     stitch_threshold=0.0
                    
@@ -3034,6 +3130,7 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                     np.save(output_path, stack)
             print(f'Files merged: {count}/{all_imgs}', end='\r', flush=True)
         return
+        
     def _get_cellpose_channels(mask_channels, nucleus_chann_dim, pathogen_chann_dim, cell_chann_dim):
         cellpose_channels = {}
         if nucleus_chann_dim in mask_channels:
@@ -3162,6 +3259,7 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
 
         #Concatinate stack with masks
         _load_and_concatenate_arrays(src, settings['channels'], settings['cell_channel'], settings['nucleus_channel'], settings['pathogen_channel'])
+        
         if settings['plot']:
             if not settings['timelapse']:
                 plot_dims = len(settings['channels'])
