@@ -1872,13 +1872,48 @@ def _measure_crop_core(index, time_ls, file, settings):
         new_mask[y_min:y_max+1, x_min:x_max+1] = _id
 
         return new_mask
+        
+    def _relabel_parent_with_unique_labels(parent_array, child_array):
+        
+        def __generate_unique_label(used_labels):
+            new_label = max(used_labels) + 1
+            while new_label in used_labels:
+                new_label += 1
+            return new_label
+
+        # Ensure parent and child arrays have the same shape
+        if parent_array.shape != child_array.shape:
+            raise ValueError("parent_array and child_array must have the same shape.")
+
+        used_labels = set(np.unique(parent_array))
+        unique_child_labels = np.unique(child_array[child_array != 0])
+
+        for child_label in unique_child_labels:
+            overlap_mask = (child_array == child_label)
+            overlapping_parent_labels = np.unique(parent_array[overlap_mask])
+
+            for parent_label in overlapping_parent_labels:
+                if parent_label == 0:
+                    continue
+
+                # Check if child_label already exists in parent_array outside the current parent_label region
+                if child_label in used_labels and np.any(parent_array[(parent_array != parent_label) & (parent_array != 0)] == child_label):
+                    # Generate a unique new label
+                    unique_new_label = __generate_unique_label(used_labels)
+                    parent_array[parent_array == parent_label] = unique_new_label
+                    used_labels.add(unique_new_label)
+                else:
+                    parent_array[parent_array == parent_label] = child_label
+                    used_labels.add(child_label)
+
+        return parent_array
 
     start = time.time() 
     try:
         source_folder = os.path.dirname(settings['input_folder'])
         file_name = os.path.splitext(file)[0]
         data = np.load(os.path.join(settings['input_folder'], file))
-        #print('data shape', data.shape)
+
         data_type = data.dtype
         if settings['save_measurements']:
             os.makedirs(source_folder+'/measurements', exist_ok=True)
@@ -1886,10 +1921,11 @@ def _measure_crop_core(index, time_ls, file, settings):
 
         if settings['plot_filtration']:
             plot_cropped_arrays(data)
-
+        
         channel_arrays = data[:, :, settings['channels']].astype(data_type)        
         if settings['cell_mask_dim'] is not None:
             cell_mask = data[:, :, settings['cell_mask_dim']].astype(data_type)
+            
             if settings['cell_min_size'] is not None and settings['cell_min_size'] != 0:
                 cell_mask = ___filter_object(cell_mask, settings['cell_min_size'])
         else:
@@ -1902,7 +1938,11 @@ def _measure_crop_core(index, time_ls, file, settings):
             if settings['cell_mask_dim'] is not None:
                 nuclei_mask, cell_mask = __merge_overlapping_objects(mask1=nuclei_mask, mask2=cell_mask)
             if settings['nucleus_min_size'] is not None and settings['nucleus_min_size'] != 0:
-                nuclei_mask = ___filter_object(nuclei_mask, settings['nucleus_min_size']) # Filter out small nuclei
+                nuclei_mask = ___filter_object(nuclei_mask, settings['nucleus_min_size'])
+            if settings['timelapse_objects'] == 'nucleus':
+                if settings['cell_mask_dim'] is not None:
+                    cell_mask = _relabel_parent_with_unique_labels(cell_mask, nuclei_mask)
+                
         else:
             nuclei_mask = np.zeros_like(data[:, :, 0])
 
