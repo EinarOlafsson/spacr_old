@@ -1991,7 +1991,8 @@ def _measure_crop_core(index, time_ls, file, settings):
                 if settings['cell_mask_dim'] is not None:
                     cell_mask = _relabel_parent_with_unique_labels(cell_mask, nuclei_mask)
                     data[:, :, settings['cell_mask_dim']] = cell_mask
-                    np.save(os.path.join(settings['input_folder'], file), data)
+                    save_folder = settings['input_folder']
+                    np.save(os.path.join(save_folder, file), data)
                 
         else:
             nuclei_mask = np.zeros_like(data[:, :, 0])
@@ -2290,10 +2291,10 @@ def measure_crop(settings):
         master_folder = os.path.dirname(folder_path)
         gif_folder = os.path.join(master_folder, 'movies', 'gif')
         os.makedirs(gif_folder, exist_ok=True)
-
+        
         paths = glob.glob(os.path.join(folder_path, '*.npy'))
         paths.sort(key=__sort_key)
-
+        
         organized_files = {}
         for file in paths:
             key = tuple(file.split('_')[:3])
@@ -2452,10 +2453,10 @@ def measure_crop(settings):
             
     if settings['timelapse']:
         if settings['timelapse_objects'] == 'nuclei':
-            folder_path = os.path.join(settings['input_folder'], 'merged')
+            folder_path = settings['input_folder']
             mask_channels = [settings['nuclei_mask_dim'], settings['pathogen_mask_dim'],settings['cell_mask_dim']]
-            mask_channels = [item for item in mask_channels if item is not None]
-            _timelapse_masks_to_gif(folder_path, mask_channels)
+            object_types = ['nuclei','pathogen','cell']
+            _timelapse_masks_to_gif(folder_path, mask_channels, object_types)
 
         if settings['save_png']:
             img_fldr = os.path.join(os.path.dirname(settings['input_folder']), 'data')  
@@ -2834,12 +2835,12 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
     def __trackpy_track_cells(src, name, batch_filenames, object_type, masks, timelapse_displacement, timelapse_memory, timelapse_remove_transient, plot, save, mode):
 
         if timelapse_displacement is None:
+            features = __prepare_for_tracking(masks)
             timelapse_displacement = __find_optimal_search_range(features, initial_search_range=500, increment=10, max_attempts=49, memory=3)
+            if timelapse_displacement is None:
+                timelapse_displacement = 50
 
         masks, features, tracks_df = __facilitate_trackin_with_adaptive_removal(masks, search_range=timelapse_displacement, max_attempts=100, memory=timelapse_memory)
-
-        #features = __prepare_for_tracking(masks)
-        #tracks_df = tp.link(features, search_range=timelapse_displacement, memory=memory)
             
         tracks_df['particle'] += 1
 
