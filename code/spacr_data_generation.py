@@ -147,7 +147,7 @@ if not os.path.exists(env_PATH):
 
 ################################################################################################################################################################################
 
-import os, gc, re, cv2, csv, math, time, torch, json, traceback
+import os, gc, re, cv2, csv, math, time, torch, json, traceback, glob
 
 print('Torch available:', torch.cuda.is_available())
 print('CUDA version:',torch.version.cuda)
@@ -1873,7 +1873,7 @@ def _measure_crop_core(index, time_ls, file, settings):
 
         return new_mask
         
-    def _relabel_parent_with_unique_labels(parent_array, child_array):
+    def _relabel_parent_with_unique_labels_v1(parent_array, child_array):
         
         def __generate_unique_label(used_labels):
             new_label = max(used_labels) + 1
@@ -1905,6 +1905,54 @@ def _measure_crop_core(index, time_ls, file, settings):
                 else:
                     parent_array[parent_array == parent_label] = child_label
                     used_labels.add(child_label)
+
+        return parent_array
+        
+    def _relabel_parent_with_unique_labels(parent_array, child_array, background_value=0):
+        def __generate_unique_label(used_labels):
+            new_label = max(used_labels) + 1
+            while new_label in used_labels:
+                new_label += 1
+            return new_label
+
+        # Ensure parent and child arrays have the same shape
+        if parent_array.shape != child_array.shape:
+            raise ValueError("parent_array and child_array must have the same shape.")
+
+        used_labels = set(np.unique(parent_array))
+        unique_child_labels = np.unique(child_array[child_array != 0])
+
+        # Track all parent labels that have been matched to a child label
+        matched_parent_labels = set()
+
+        for child_label in unique_child_labels:
+            overlap_mask = (child_array == child_label)
+            overlapping_parent_labels = np.unique(parent_array[overlap_mask])
+
+            for parent_label in overlapping_parent_labels:
+                if parent_label == 0:
+                    continue
+
+                # Mark this parent label as matched
+                matched_parent_labels.add(parent_label)
+
+                # Check if child_label already exists in parent_array outside the current parent_label region
+                if child_label in used_labels and np.any(parent_array[(parent_array != parent_label) & (parent_array != 0)] == child_label):
+                    # Generate a unique new label
+                    unique_new_label = __generate_unique_label(used_labels)
+                    parent_array[parent_array == parent_label] = unique_new_label
+                    used_labels.add(unique_new_label)
+                else:
+                    parent_array[parent_array == parent_label] = child_label
+                    used_labels.add(child_label)
+
+        # Identify parent labels that have not been matched to any child label
+        all_parent_labels = set(np.unique(parent_array[parent_array != background_value]))
+        unmatched_parent_labels = all_parent_labels - matched_parent_labels
+
+        # Remove (set to background_value) unmatched parent objects
+        for parent_label in unmatched_parent_labels:
+            parent_array[parent_array == parent_label] = background_value
 
         return parent_array
 
@@ -2176,53 +2224,94 @@ def _measure_crop_core(index, time_ls, file, settings):
     
 def measure_crop(settings):
 
-    def timelapse_masks_to_gif(folder_path, mask_channels):
+    def _timelapse_masks_to_gif(folder_path, mask_channels, object_types):
+
+        def __sort_key(file_path):
+            match = re.search(r'(\d+)_([A-Z]\d+)_(\d+)_(\d+).npy', os.path.basename(file_path))
+            if match:
+                plate, well, field, time = match.groups()
+                # Assuming plate, well, and field are to be returned as is and time converted to int for sorting
+                return (plate, well, field, int(time))
+            else:
+                # Return a tuple that sorts this file as "earliest" or "lowest"
+                return ('', '', '', 0)
+
+        def __save_mask_timelapse_as_gif(masks, path, cmap, norm, filenames):
+
+            def ___update(frame):
+                nonlocal filename_text_obj
+                if filename_text_obj is not None:
+                    filename_text_obj.remove()
+                ax.clear()
+                ax.axis('off')
+                current_mask = masks[frame]
+                ax.imshow(current_mask, cmap=cmap, norm=norm)
+                ax.set_title(f'Frame: {frame}', fontsize=24, color='white')
+                filename_text = filenames[frame]
+                filename_text_obj = fig.text(0.5, 0.01, filename_text, ha='center', va='center', fontsize=20, color='white')
+                for label_value in np.unique(current_mask):
+                    if label_value == 0: continue  # Skip background
+                    y, x = np.mean(np.where(current_mask == label_value), axis=1)
+                    ax.text(x, y, str(label_value), color='white', fontsize=24, ha='center', va='center')
+
+            fig, ax = plt.subplots(figsize=(50, 50), facecolor='black')
+            ax.set_facecolor('black')
+            ax.axis('off')
+            plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0)
+
+            filename_text_obj = None
+            anim = FuncAnimation(fig, ___update, frames=len(masks), blit=False)
+            anim.save(path, writer='pillow', fps=2, dpi=80)  # Adjust DPI for size/quality
+            plt.close(fig)
+            print(f'Saved timelapse to {path}')
+
+        def __masks_to_gif(masks, gif_folder, name, filenames, object_type):
+
+            def __display_gif(path):
+                with open(path, 'rb') as file:
+                    display(ipyimage(file.read()))
+
+            highest_label = max(np.max(mask) for mask in masks)
+            random_colors = np.random.rand(highest_label + 1, 4)
+            random_colors[:, 3] = 1  # Full opacity
+            random_colors[0] = [0, 0, 0, 1]  # Background color
+            cmap = plt.cm.colors.ListedColormap(random_colors)
+            norm = plt.cm.colors.Normalize(vmin=0, vmax=highest_label)
+
+            save_path_gif = os.path.join(gif_folder, f'timelapse_masks_{object_type}_{name}.gif')
+            __save_mask_timelapse_as_gif(masks, save_path_gif, cmap, norm, filenames)
+            #__display_gif(save_path_gif)
+            
+        # Filter out None values from mask_channels and their corresponding elements in object_types
+        mask_channels, object_types = zip(*[(channel, obj_type) for channel, obj_type in zip(mask_channels, object_types) if channel is not None])
+        mask_channels = list(mask_channels)
+        object_types = list(object_types)
+
         master_folder = os.path.dirname(folder_path)
         gif_folder = os.path.join(master_folder, 'movies', 'gif')
         os.makedirs(gif_folder, exist_ok=True)
 
-        def _sort_key(file_path):
-            match = re.search(r'plate(\d+)_well(\d+)_field(\d+)_time(\d+).npy', file_path)
-            if match:
-                return tuple(map(int, match.groups()))
-            return (0, 0, 0, 0)
-
-        files = glob(os.path.join(folder_path, '*.npy'))
-        files.sort(key=_sort_key)  # Corrected to _sort_key
+        paths = glob.glob(os.path.join(folder_path, '*.npy'))
+        paths.sort(key=__sort_key)
 
         organized_files = {}
-        for file in files:
+        for file in paths:
             key = tuple(file.split('_')[:3])
             if key not in organized_files:
                 organized_files[key] = []
             organized_files[key].append(file)
-        
+
         for key, file_list in organized_files.items():
-            arrays = [np.load(f) for f in file_list]
-            combined_array = np.stack(arrays, axis=0)
-            selected_channels = combined_array[:, :, :, mask_channels]
-
-            for i, channel_array in enumerate(selected_channels.transpose(3, 0, 1, 2)):
-                def ___view_frame(frame, cmap, norm):
-                    fig, ax = plt.subplots(figsize=(10, 10))
-                    ax.imshow(channel_array[frame], cmap=cmap, norm=norm)
-                    ax.set_title(f'Channel {i} Frame: {frame}')
-                    ax.axis('off')
-                    plt.close(fig)
-                    return fig
-
-                highest_label = np.max(channel_array)
-                random_colors = np.random.rand(highest_label + 1, 4)
-                random_colors[:, 3] = 1  # Full opacity
-                random_colors[0] = [0, 0, 0, 1]  # Background color
-                cmap = plt.cm.colors.ListedColormap(random_colors)
-                norm = plt.cm.colors.Normalize(vmin=0, vmax=highest_label)
-
-                # Create and save animation for each channel
-                ani = FuncAnimation(plt.figure(), lambda frame: ___view_frame(frame, cmap, norm), frames=len(channel_array), interval=500)
-                save_path_gif = os.path.join(gif_folder, f"{key[0]}_{key[1]}_{key[2]}_channel_{i}_animation.gif")
-                ani.save(save_path_gif, writer='imagemagick')
-                print(f"Saved GIF: {save_path_gif}")
+            arrays = np.stack([np.load(f) for f in file_list],axis=0)
+            for i,mask_channel in enumerate(mask_channels):
+                object_type = object_types[i]
+                mask_arrays = arrays[:, :, :, mask_channel]
+                filenames = [os.path.basename(path) for path in file_list]
+                filename = filenames[0]
+                name, ext = os.path.splitext(filename)
+                plate,well,field,time = name.split('_')
+                name = f'{plate}_{well}_{field}'
+                __masks_to_gif(mask_arrays, gif_folder, name, filenames, object_type)
 
     def _list_endpoint_subdirectories(base_dir):
         endpoint_subdirectories = []
@@ -2232,20 +2321,14 @@ def measure_crop(settings):
         return endpoint_subdirectories
 
     def _scmovie(folder_paths):
-
         folder_paths = list(set(folder_paths))
-
         for folder_path in folder_paths:
-
             movie_path = os.path.join(folder_path, 'movies')
             os.makedirs(movie_path, exist_ok=True)
-
             # Regular expression to parse the filename
             filename_regex = re.compile(r'(\w+)_(\w+)_(\w+)_(\d+)_(\d+).png')
-
             # Dictionary to hold lists of images by plate, well, field, and object number
             grouped_images = defaultdict(list)
-
             # Iterate over all PNG files in the folder
             for filename in os.listdir(folder_path):
                 if filename.endswith('.png'):
@@ -2254,26 +2337,22 @@ def measure_crop(settings):
                         plate, well, field, time, object_number = match.groups()
                         key = (plate, well, field, object_number)
                         grouped_images[key].append((int(time), os.path.join(folder_path, filename)))
-
             for key, images in grouped_images.items():
                 # Sort images by time using sorted and lambda function for custom sort key
                 images = sorted(images, key=lambda x: x[0])
                 _, image_paths = zip(*images)
-
                 # Determine the size to which all images should be padded
                 max_height = max_width = 0
                 for image_path in image_paths:
                     image = cv2.imread(image_path)
                     h, w, _ = image.shape
                     max_height, max_width = max(max_height, h), max(max_width, w)
-
                 # Initialize VideoWriter
                 plate, well, field, object_number = key
                 output_filename = f"{plate}_{well}_{field}_{object_number}.mp4"
                 output_path = os.path.join(movie_path, output_filename)
                 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
                 video = cv2.VideoWriter(output_path, fourcc, 10, (max_width, max_height))
-
                 # Process each image
                 for image_path in image_paths:
                     image = cv2.imread(image_path)
@@ -2281,28 +2360,28 @@ def measure_crop(settings):
                     padded_image = np.zeros((max_height, max_width, 3), dtype=np.uint8)
                     padded_image[:h, :w, :] = image
                     video.write(padded_image)
-
                 video.release()
-                #print(f"Movie saved to {output_path}")
 
     def _save_settings_to_db(settings):
         # Convert the settings dictionary into a DataFrame
         settings_df = pd.DataFrame(list(settings.items()), columns=['setting_key', 'setting_value'])
-
         # Convert all values in the 'setting_value' column to strings
         settings_df['setting_value'] = settings_df['setting_value'].apply(str)
         display(settings_df)
         # Determine the directory path
         src = os.path.dirname(settings['input_folder'])
         directory = f'{src}/measurements'
-
         # Create the directory if it doesn't exist
         os.makedirs(directory, exist_ok=True)
-
         # Database connection and saving the settings DataFrame
         conn = sqlite3.connect(f'{directory}/measurements.db', timeout=5)
         settings_df.to_sql('settings', conn, if_exists='replace', index=False)  # Replace the table if it already exists
         conn.close()
+
+    if settings['timelapse_objects'] == 'nuclei':
+        if not settings['cell_mask_dim'] is None:
+            tlo = settings['timelapse_objects']
+            print(f'timelapse object:{tlo}, cells will be relabeled to nucleus labels to track cells.')
 
     #general settings
     settings['merge_edge_pathogen_cells'] = True
@@ -2315,6 +2394,9 @@ def measure_crop(settings):
     
     if settings['cell_mask_dim'] is None:
     	settings['include_uninfected'] = True
+    
+    if settings['pathogen_mask_dim'] is None:
+        settings['include_uninfected'] = True
     
     if settings['cell_mask_dim'] is not None and settings['pathogen_min_size'] is not None:
     	settings['cytoplasm'] = True
@@ -2369,12 +2451,12 @@ def measure_crop(settings):
             result.get()
             
     if settings['timelapse']:
-    	if settings['timelapse_objects'] == 'nuclei':
-    	    folder_path = os.path.join(settings['input_folder'], 'merged')
-    	    mask_channels = [settings['nuclei_mask_dim'], settings['pathogen_mask_dim'],settings['cell_mask_dim']]
-    	    mask_channels = [item for item in mask_channels if item is not None]
-            timelapse_masks_to_gif(folder_path, mask_channels)
-            
+        if settings['timelapse_objects'] == 'nuclei':
+            folder_path = os.path.join(settings['input_folder'], 'merged')
+            mask_channels = [settings['nuclei_mask_dim'], settings['pathogen_mask_dim'],settings['cell_mask_dim']]
+            mask_channels = [item for item in mask_channels if item is not None]
+            _timelapse_masks_to_gif(folder_path, mask_channels)
+
         if settings['save_png']:
             img_fldr = os.path.join(os.path.dirname(settings['input_folder']), 'data')  
             sc_img_fldrs = _list_endpoint_subdirectories(img_fldr)
@@ -2393,7 +2475,7 @@ def _npz_to_movie(arrays, filenames, save_path, fps=10):
     for i, frame in enumerate(arrays):
         # Handle float32 images by scaling or normalizing
         if frame.dtype == np.float32:
-            frame = np.clip(frame, 0, 1)  # Ensure values are within [0, 1]
+            frame = np.clip(frame, 0, 1)
             frame = (frame * 255).astype(np.uint8)
 
         # Convert 16-bit image to 8-bit
