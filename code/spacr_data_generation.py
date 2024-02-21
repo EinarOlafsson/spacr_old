@@ -1872,89 +1872,42 @@ def _measure_crop_core(index, time_ls, file, settings):
         new_mask[y_min:y_max+1, x_min:x_max+1] = _id
 
         return new_mask
-        
-    def _relabel_parent_with_unique_labels_v1(parent_array, child_array):
-        
-        def __generate_unique_label(used_labels):
-            new_label = max(used_labels) + 1
-            while new_label in used_labels:
-                new_label += 1
-            return new_label
 
-        # Ensure parent and child arrays have the same shape
-        if parent_array.shape != child_array.shape:
-            raise ValueError("parent_array and child_array must have the same shape.")
+    def _relabel_parent_with_child_labels(parent_mask, child_mask):
+        # Label parent mask to identify unique objects
+        parent_labels = label(parent_mask, background=0)
+        # Use the original child mask labels directly, without relabeling
+        child_labels = child_mask
 
-        used_labels = set(np.unique(parent_array))
-        unique_child_labels = np.unique(child_array[child_array != 0])
+        # Create a new parent mask for updated labels
+        parent_mask_new = np.zeros_like(parent_mask)
 
+        # Directly relabel parent cells based on overlapping child labels
+        unique_child_labels = np.unique(child_labels)[1:]  # Skip background
         for child_label in unique_child_labels:
-            overlap_mask = (child_array == child_label)
-            overlapping_parent_labels = np.unique(parent_array[overlap_mask])
+            child_area_mask = (child_labels == child_label)
+            overlapping_parent_label = np.unique(parent_labels[child_area_mask])
 
-            for parent_label in overlapping_parent_labels:
-                if parent_label == 0:
-                    continue
+            # Since each parent is assumed to overlap with exactly one nucleus,
+            # directly set the parent label to the child label where overlap occurs
+            for parent_label in overlapping_parent_label:
+                if parent_label != 0:  # Skip background
+                    parent_mask_new[parent_labels == parent_label] = child_label
 
-                # Check if child_label already exists in parent_array outside the current parent_label region
-                if child_label in used_labels and np.any(parent_array[(parent_array != parent_label) & (parent_array != 0)] == child_label):
-                    # Generate a unique new label
-                    unique_new_label = __generate_unique_label(used_labels)
-                    parent_array[parent_array == parent_label] = unique_new_label
-                    used_labels.add(unique_new_label)
-                else:
-                    parent_array[parent_array == parent_label] = child_label
-                    used_labels.add(child_label)
+        # For cells containing multiple nuclei, standardize all nuclei to the first label
+        # This will be done only if needed, as per your condition
+        for parent_label in np.unique(parent_mask_new)[1:]:  # Skip background
+            parent_area_mask = (parent_mask_new == parent_label)
+            child_labels_in_parent = np.unique(child_mask[parent_area_mask])
+            child_labels_in_parent = child_labels_in_parent[child_labels_in_parent != 0]  # Exclude background
 
-        return parent_array
-        
-    def _relabel_parent_with_unique_labels(parent_array, child_array, background_value=0):
-        def __generate_unique_label(used_labels):
-            new_label = max(used_labels) + 1
-            while new_label in used_labels:
-                new_label += 1
-            return new_label
+            if len(child_labels_in_parent) > 1:
+                # Standardize to the first child label within this parent
+                first_child_label = child_labels_in_parent[0]
+                for child_label in child_labels_in_parent:
+                    child_mask[child_mask == child_label] = first_child_label
 
-        # Ensure parent and child arrays have the same shape
-        if parent_array.shape != child_array.shape:
-            raise ValueError("parent_array and child_array must have the same shape.")
-
-        used_labels = set(np.unique(parent_array))
-        unique_child_labels = np.unique(child_array[child_array != 0])
-
-        # Track all parent labels that have been matched to a child label
-        matched_parent_labels = set()
-
-        for child_label in unique_child_labels:
-            overlap_mask = (child_array == child_label)
-            overlapping_parent_labels = np.unique(parent_array[overlap_mask])
-
-            for parent_label in overlapping_parent_labels:
-                if parent_label == 0:
-                    continue
-
-                # Mark this parent label as matched
-                matched_parent_labels.add(parent_label)
-
-                # Check if child_label already exists in parent_array outside the current parent_label region
-                if child_label in used_labels and np.any(parent_array[(parent_array != parent_label) & (parent_array != 0)] == child_label):
-                    # Generate a unique new label
-                    unique_new_label = __generate_unique_label(used_labels)
-                    parent_array[parent_array == parent_label] = unique_new_label
-                    used_labels.add(unique_new_label)
-                else:
-                    parent_array[parent_array == parent_label] = child_label
-                    used_labels.add(child_label)
-
-        # Identify parent labels that have not been matched to any child label
-        all_parent_labels = set(np.unique(parent_array[parent_array != background_value]))
-        unmatched_parent_labels = all_parent_labels - matched_parent_labels
-
-        # Remove (set to background_value) unmatched parent objects
-        for parent_label in unmatched_parent_labels:
-            parent_array[parent_array == parent_label] = background_value
-
-        return parent_array
+        return parent_mask_new, child_mask
 
     start = time.time() 
     try:
@@ -1989,8 +1942,9 @@ def _measure_crop_core(index, time_ls, file, settings):
                 nuclei_mask = ___filter_object(nuclei_mask, settings['nucleus_min_size'])
             if settings['timelapse_objects'] == 'nuclei':
                 if settings['cell_mask_dim'] is not None:
-                    cell_mask = _relabel_parent_with_unique_labels(cell_mask, nuclei_mask)
+                    cell_mask, nucleus_mask = _relabel_parent_with_child_labels(cell_mask, nuclei_mask)
                     data[:, :, settings['cell_mask_dim']] = cell_mask
+                    data[:, :, settings['nuclei_mask_dim']] = nucleus_mask
                     save_folder = settings['input_folder']
                     np.save(os.path.join(save_folder, file), data)
                 
@@ -2003,7 +1957,7 @@ def _measure_crop_core(index, time_ls, file, settings):
                 if settings['cell_mask_dim'] is not None:
                     pathogen_mask, cell_mask = __merge_overlapping_objects(mask1=pathogen_mask, mask2=cell_mask)
             if settings['pathogen_min_size'] is not None and settings['pathogen_min_size'] != 0:
-                pathogen_mask = ___filter_object(pathogen_mask, settings['pathogen_min_size']) # Filter out small pathogens
+                pathogen_mask = ___filter_object(pathogen_mask, settings['pathogen_min_size'])
         else:
             pathogen_mask = np.zeros_like(data[:, :, 0])
 
@@ -2022,13 +1976,13 @@ def _measure_crop_core(index, time_ls, file, settings):
             cytoplasm_mask = np.zeros_like(cell_mask)
 
         if settings['cell_min_size'] is not None and settings['cell_min_size'] != 0:
-            cell_mask = ___filter_object(cell_mask, settings['cell_min_size']) # Filter out small cells
+            cell_mask = ___filter_object(cell_mask, settings['cell_min_size'])
         if settings['nucleus_min_size'] is not None and settings['nucleus_min_size'] != 0:
-            nuclei_mask = ___filter_object(nuclei_mask, settings['nucleus_min_size']) # Filter out small nuclei
+            nuclei_mask = ___filter_object(nuclei_mask, settings['nucleus_min_size'])
         if settings['pathogen_min_size'] is not None and settings['pathogen_min_size'] != 0:
-            pathogen_mask = ___filter_object(pathogen_mask, settings['pathogen_min_size']) # Filter out small pathogens
+            pathogen_mask = ___filter_object(pathogen_mask, settings['pathogen_min_size'])
         if settings['cytoplasm_min_size'] is not None and settings['cytoplasm_min_size'] != 0:
-            cytoplasm_mask = ___filter_object(cytoplasm_mask, settings['cytoplasm_min_size']) # Filter out small cytoplasms
+            cytoplasm_mask = ___filter_object(cytoplasm_mask, settings['cytoplasm_min_size'])
 
         if settings['cell_mask_dim'] is not None and settings['pathogen_mask_dim'] is not None:
             if settings['include_uninfected'] == False:
