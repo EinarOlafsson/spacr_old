@@ -2236,37 +2236,46 @@ def measure_crop(settings):
             save_path_gif = os.path.join(gif_folder, f'timelapse_masks_{object_type}_{name}.gif')
             __save_mask_timelapse_as_gif(masks, save_path_gif, cmap, norm, filenames)
             #__display_gif(save_path_gif)
-            
-        # Filter out None values from mask_channels and their corresponding elements in object_types
-        mask_channels, object_types = zip(*[(channel, obj_type) for channel, obj_type in zip(mask_channels, object_types) if channel is not None])
-        mask_channels = list(mask_channels)
-        object_types = list(object_types)
 
         master_folder = os.path.dirname(folder_path)
         gif_folder = os.path.join(master_folder, 'movies', 'gif')
         os.makedirs(gif_folder, exist_ok=True)
-        
+
         paths = glob.glob(os.path.join(folder_path, '*.npy'))
         paths.sort(key=__sort_key)
-        
+
         organized_files = {}
         for file in paths:
-            key = tuple(file.split('_')[:3])
-            if key not in organized_files:
-                organized_files[key] = []
-            organized_files[key].append(file)
+            match = re.search(r'(\d+)_([A-Z]\d+)_(\d+)_\d+.npy', os.path.basename(file))
+            if match:
+                plate, well, field = match.groups()
+                key = (plate, well, field)
+                if key not in organized_files:
+                    organized_files[key] = []
+                organized_files[key].append(file)
 
         for key, file_list in organized_files.items():
-            arrays = np.stack([np.load(f) for f in file_list],axis=0)
-            for i,mask_channel in enumerate(mask_channels):
+            # Generate the name for the GIF based on plate, well, field
+            name = f'{key[0]}_{key[1]}_{key[2]}'
+            save_path_gif = os.path.join(gif_folder, f'timelapse_masks_{name}.gif')
+
+            for i, mask_channel in enumerate(mask_channels):
                 object_type = object_types[i]
-                mask_arrays = arrays[:, :, :, mask_channel]
-                filenames = [os.path.basename(path) for path in file_list]
-                filename = filenames[0]
-                name, ext = os.path.splitext(filename)
-                plate,well,field,time = name.split('_')
-                name = f'{plate}_{well}_{field}'
-                __masks_to_gif(mask_arrays, gif_folder, name, filenames, object_type)
+                # Initialize an empty list to store masks for the current object type
+                mask_arrays = []
+
+                for file in file_list:
+                    # Load only the current time series array
+                    array = np.load(file)
+                    # Append the specific channel mask to the mask_arrays list
+                    mask_arrays.append(array[:, :, mask_channel])
+
+                # Convert mask_arrays list to a numpy array for processing
+                mask_arrays_np = np.array(mask_arrays)
+                # Generate filenames for each frame in the time series
+                filenames = [os.path.basename(f) for f in file_list]
+                # Create the GIF for the current time series and object type
+                __masks_to_gif(mask_arrays_np, gif_folder, name, filenames, object_type)
 
     def _list_endpoint_subdirectories(base_dir):
         endpoint_subdirectories = []
