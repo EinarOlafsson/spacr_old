@@ -1083,6 +1083,9 @@ def plot_merged(src, settings):
     
     if settings['verbose']:
         display(settings)
+        
+    if settings['pathogen_mask_dim'] is None:
+        settings['include_multiinfected'] = True
 
     for file in os.listdir(src):
         path = os.path.join(src, file)
@@ -2098,9 +2101,10 @@ def _measure_crop_core(index, time_ls, file, settings):
                             if isinstance(settings['normalize'], list):
                                 if settings['normalize_by'] == 'png':
                                     png_channels = normalize_to_dtype(png_channels, q1=settings['normalize'][0],q2=settings['normalize'][1])
+
                                 if settings['normalize_by'] == 'fov':
                                     png_channels = normalize_to_dtype(png_channels, q1=settings['normalize'][0],q2=settings['normalize'][1], percentiles=percentiles_list)
-
+                                    
                             os.makedirs(png_folder, exist_ok=True)
 
                             if png_channels.shape[2] == 2:
@@ -2177,7 +2181,357 @@ def _measure_crop_core(index, time_ls, file, settings):
     average_time = np.mean(time_ls) if len(time_ls) > 0 else 0
     return average_time, cells
     
+def generate_representative_images(db_path, keywords=['uninfected', 'single_infected', 'multi_infected'], nr_imgs=20, column_name='cell_area', agg_type='median', new_column=None, channel_indices=[0,1,2], um_per_pixel=0.1, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, dpi=300, plot=True, measure_pathogen_recruitment=False, channel_of_interest):
+    
+    def _read_and_join_tables(db_path, table_names = ['cell', 'cytoplasm', 'nucleus', 'pathogen', 'parasite', 'png_list']):
+        conn = sqlite3.connect(db_path)
+        dataframes = {}
+        for table_name in table_names:
+            try:
+                dataframes[table_name] = pd.read_sql(f"SELECT * FROM {table_name}", conn)
+            except (sqlite3.OperationalError, pd.io.sql.DatabaseError) as e:
+                print(f"Table {table_name} not found in the database.")
+                print(e)
+        conn.close()
+
+        if 'png_list' in dataframes:
+            png_list_df = dataframes['png_list'][['cell_id', 'png_path', 'plate', 'row', 'col']].copy()
+            png_list_df['cell_id'] = png_list_df['cell_id'].str[1:].astype(int)
+            png_list_df.rename(columns={'cell_id': 'object_label'}, inplace=True)
+            if 'cell' in dataframes:
+                join_cols = ['object_label', 'plate', 'row', 'col']
+                dataframes['cell'] = pd.merge(dataframes['cell'], png_list_df, on=join_cols, how='left')
+            else:
+                print("Cell table not found. Cannot join with png_list.")
+                return None
+
+        for entity in ['nucleus', 'pathogen', 'parasite']:
+            if entity in dataframes:
+                numeric_cols = dataframes[entity].select_dtypes(include=[np.number]).columns.tolist()
+                non_numeric_cols = dataframes[entity].select_dtypes(exclude=[np.number]).columns.tolist()
+                agg_dict = {col: 'mean' for col in numeric_cols}
+                agg_dict.update({col: 'first' for col in non_numeric_cols if col not in ['cell_id', 'prcf']})
+                grouping_cols = ['cell_id', 'prcf']
+                agg_df = dataframes[entity].groupby(grouping_cols).agg(agg_dict)
+                agg_df['count_' + entity] = dataframes[entity].groupby(grouping_cols).size()
+                dataframes[entity] = agg_df
+
+        joined_df = None
+        if 'cell' in dataframes:
+            joined_df = dataframes['cell']
+            if 'cytoplasm' in dataframes:
+                joined_df = pd.merge(joined_df, dataframes['cytoplasm'], on=['object_label', 'prcf'], how='left', suffixes=('', '_cytoplasm'))
+            for entity in ['nucleus', 'pathogen']:
+                if entity in dataframes:
+                    joined_df = pd.merge(joined_df, dataframes[entity], left_on=['object_label', 'prcf'], right_index=True, how='left', suffixes=('', f'_{entity}'))
+        else:
+            print("Cell table not found. Cannot proceed with joining.")
+            return None
+        return joined_df
+    
+    def _generate_filelist_dict(df, keywords=['uninfected', 'single_infected', 'multi_infected'], nr_imgs=20, column_name='cell_area', agg_type='median'):
+        
+        def __split_dataframe(df, keywords):
+            """Splits the dataframe based on the presence of keywords in the png_path column."""
+            split_dfs = {}
+            for keyword in keywords:
+                filtered_df = df[df['png_path'].str.contains(keyword)]
+                split_dfs[keyword] = filtered_df
+            return split_dfs
+        
+        def __select_closest_to_median_or_mean(df, nr_imgs, column_name, agg_type='median'):
+            if agg_type == 'median':
+                _value = df[column_name].median()
+            if agg_type == 'median':
+                _value = df[column_name].mean()
+            df['distance_from'] = (df[column_name] - _value).abs()
+            selected_df = df.nsmallest(nr_imgs, 'distance_from').drop(columns=['distance_from'])
+            return selected_df
+        
+        dfs = __split_dataframe(df, keywords)
+        list_dict = {}
+        for keyword in keywords:
+            if keyword in dfs:
+                key_df = __select_closest_to_median_or_mean(dfs[keyword], nr_imgs, column_name, agg_type)
+                list_dict[keyword] = key_df['png_path'].tolist()
+            else:
+                list_dict[keyword] = []
+        return list_dict
+    
+    def _plot_images_on_grid(image_files, channel_indices, um_per_pixel, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, plot=False):
+
+        #print(f'scale bar represents {scale_bar_length_um} um')
+        nr_of_images = len(image_files)
+        cols = int(np.ceil(np.sqrt(nr_of_images)))
+        rows = np.ceil(nr_of_images / cols)
+
+        fig, axes = plt.subplots(int(rows), int(cols), figsize=(20, 20), facecolor='black')
+        fig.patch.set_facecolor('black')
+        axes = axes.flatten()
+
+        # Calculate the scale bar length in pixels
+        scale_bar_length_px = int(scale_bar_length_um / um_per_pixel)  # Convert to pixels
+
+        channel_colors = ['red','green','blue']
+        for i, image_file in enumerate(image_files):
+            img_array = cv2.imread(image_file, cv2.IMREAD_UNCHANGED)
+
+            if img_array.ndim == 3 and img_array.shape[2] >= 3:
+                img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB)
+
+            # Handle different channel selections
+            if channel_indices is not None:
+                if len(channel_indices) == 1:  # Single channel (grayscale)
+                    img_array = img_array[:, :, channel_indices[0]]
+                    cmap = 'gray'
+                elif len(channel_indices) == 2:  # Dual channels
+                    img_array = np.mean(img_array[:, :, channel_indices], axis=2)
+                    cmap = 'gray'
+                else:  # RGB or more channels
+                    img_array = img_array[:, :, channel_indices]
+                    cmap = None
+            else:
+                cmap = None if img_array.ndim == 3 else 'gray'
+
+            # Normalize based on dtype
+            if img_array.dtype == np.uint16:
+                img_array = img_array.astype(np.float32) / 65535.0
+            elif img_array.dtype == np.uint8:
+                img_array = img_array.astype(np.float32) / 255.0
+
+            ax = axes[i]
+            ax.imshow(img_array, cmap=cmap)
+            ax.axis('off')
+            if show_filename:
+                ax.set_title(os.path.basename(image_file), color='white', fontsize=fontsize, pad=20)
+
+            # Add scale bar
+            ax.plot([10, 10 + scale_bar_length_px], [img_array.shape[0] - 10] * 2, lw=2, color='white')
+
+        # Add channel names at the top if specified
+        initial_offset = 0.02  
+        increment = 0.05  
+        if channel_names:
+            current_offset = initial_offset
+            for i, channel_name in enumerate(channel_names):
+                color = channel_colors[i] if i < len(channel_colors) else 'white'
+                fig.text(current_offset, 0.99, channel_name, color=color, fontsize=fontsize,
+                         verticalalignment='top', horizontalalignment='left',
+                         bbox=dict(facecolor='black', edgecolor='none', pad=3))
+                current_offset += increment
+
+        for j in range(i + 1, len(axes)):
+            axes[j].axis('off')
+
+        plt.tight_layout(pad=3)
+        if plot:
+            plt.show()
+        return fig
+
+    def _save_figure(fig, src, text):
+        save_folder = os.path.dirname(src)
+        obj_type = os.path.basename(src)
+        name = os.path.basename(save_folder)
+        save_folder = os.path.join(save_folder, 'figure')
+        os.makedirs(save_folder, exist_ok=True)
+        fig_name = f'{obj_type}_{name}_{text}.pdf'        
+        save_location = os.path.join(save_folder, fig_name)
+        fig.savefig(save_location, bbox_inches='tight', dpi=dpi)
+        print(f'Saved single cell figure: {save_location}')
+        plt.close()
+    
+    joined_df = _read_and_join_tables(db_path)
+    print(f'Generated DataFrame with {len(joined_df)} rows')
+    
+    if measure_pathogen_recruitment:
+        joined_df[f'pathogen_channel_{channel_of_interest}_mean_intensity']/joined_df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
+    
+    if not new_column is None:
+        if isinstance(new_column,list):
+            joined_df[column_name] = joined_df[0]/joined_df[1]
+    
+    if isinstance(column_name, str):
+        list_dict = _generate_filelist_dict(joined_df, keywords, nr_imgs, column_name, agg_type)
+
+        for key, path_list in list_dict.items():
+            if len(path_list) > 1:
+                print(f'Generating figure with representative images of {key} from {len(path_list)} objects')
+                fig = _plot_images_on_grid(path_list, channel_indices, um_per_pixel, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, plot=False)
+                src_fldr = os.path.dirname(os.path.dirname(os.path.dirname(path_list[0])))
+                _save_figure(fig, src_fldr, text=column_name)
+            else:
+                print(f'{key} has {len(path_list)} rows. Consider modifying keywords {keywords}')
+    
+    if isinstance(column_name, list):
+        for column_nm in column_name:
+            list_dict = _generate_filelist_dict(joined_df, keywords, nr_imgs, column_nm)
+
+            for key, path_list in list_dict.items():
+                if len(path_list) > 1:
+                    print(f'Generating figure with representative images of {key} from {len(path_list)} objects')
+                    fig = _plot_images_on_grid(path_list, channel_indices, um_per_pixel, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, plot=False)
+                    src_fldr = os.path.dirname(os.path.dirname(os.path.dirname(path_list[0])))
+                    _save_figure(fig, src_fldr, text=column_name)
+                else:
+                    print(f'{key} has {len(path_list)} rows. Consider modifying keywords {keywords}')
+    
+    return
+    
 def measure_crop(settings):
+
+    def _save_scimg_plot(src, nr_imgs=16, channel_indices=[0,1,2], um_per_pixel=0.1, scale_bar_length_um=10, standardize=True, fontsize=8, show_filename=True, channel_names=None, dpi=300, plot=False):
+
+        def __visualize_scimgs(src, channel_indices=None, um_per_pixel=0.1, scale_bar_length_um=10, show_filename=True, standardize=True, nr_imgs=None, fontsize=8, channel_names=None, plot=False):
+
+            def ___generate_filelist(src):
+                files = glob.glob(os.path.join(src, '*'))
+                image_files = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff', '.gif'))]
+                return image_files
+
+            def ___find_similar_sized_images(file_list):
+                # Dictionary to hold image sizes and their paths
+                size_to_paths = defaultdict(list)
+
+                # Iterate over image paths to get their dimensions
+                for path in file_list:
+                    img = cv2.imread(path, cv2.IMREAD_UNCHANGED)  # Read with unchanged color space to support different image types
+                    if img is not None:
+                        # Find indices where the image is not padded (non-zero)
+                        if img.ndim == 3:  # Color image
+                            mask = np.any(img != 0, axis=2)
+                        else:  # Grayscale image
+                            mask = img != 0
+
+                        # Find the bounding box of non-zero regions
+                        coords = np.argwhere(mask)
+                        if coords.size == 0:  # Skip images that are completely padded
+                            continue
+                        y0, x0 = coords.min(axis=0)
+                        y1, x1 = coords.max(axis=0) + 1  # Add 1 because slice end index is exclusive
+
+                        # Crop the image to remove padding
+                        cropped_img = img[y0:y1, x0:x1]
+
+                        # Get dimensions of the cropped image
+                        height, width = cropped_img.shape[:2]
+                        aspect_ratio = width / height
+                        size_key = (width, height, round(aspect_ratio, 2))  # Group by width, height, and aspect ratio
+                        size_to_paths[size_key].append(path)
+
+                # Find the largest group of images with the most similar size and shape
+                largest_group = max(size_to_paths.values(), key=len)
+
+                return largest_group
+
+            def ___random_sample(file_list, nr_imgs=None):
+                if nr_imgs is not None and nr_imgs < len(file_list):
+                    random.seed(42)
+                    file_list = random.sample(file_list, nr_imgs)
+                return file_list
+
+            def ___plot_images_on_grid(image_files, channel_indices, um_per_pixel, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, plot=False):
+                print(f'scale bar represents {scale_bar_length_um} um')
+                nr_of_images = len(image_files)
+                cols = int(np.ceil(np.sqrt(nr_of_images)))
+                rows = np.ceil(nr_of_images / cols)
+
+                fig, axes = plt.subplots(int(rows), int(cols), figsize=(20, 20), facecolor='black')
+                fig.patch.set_facecolor('black')
+                axes = axes.flatten()
+
+                # Calculate the scale bar length in pixels
+                scale_bar_length_px = int(scale_bar_length_um / um_per_pixel)  # Convert to pixels
+
+                channel_colors = ['red','green','blue']
+                for i, image_file in enumerate(image_files):
+                    img_array = cv2.imread(image_file, cv2.IMREAD_UNCHANGED)
+
+                    if img_array.ndim == 3 and img_array.shape[2] >= 3:
+                        img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB)
+
+                    # Handle different channel selections
+                    if channel_indices is not None:
+                        if len(channel_indices) == 1:  # Single channel (grayscale)
+                            img_array = img_array[:, :, channel_indices[0]]
+                            cmap = 'gray'
+                        elif len(channel_indices) == 2:  # Dual channels
+                            img_array = np.mean(img_array[:, :, channel_indices], axis=2)
+                            cmap = 'gray'
+                        else:  # RGB or more channels
+                            img_array = img_array[:, :, channel_indices]
+                            cmap = None
+                    else:
+                        cmap = None if img_array.ndim == 3 else 'gray'
+
+                    # Normalize based on dtype
+                    if img_array.dtype == np.uint16:
+                        img_array = img_array.astype(np.float32) / 65535.0
+                    elif img_array.dtype == np.uint8:
+                        img_array = img_array.astype(np.float32) / 255.0
+
+                    ax = axes[i]
+                    ax.imshow(img_array, cmap=cmap)
+                    ax.axis('off')
+                    if show_filename:
+                        ax.set_title(os.path.basename(image_file), color='white', fontsize=fontsize, pad=20)
+
+                    # Add scale bar
+                    ax.plot([10, 10 + scale_bar_length_px], [img_array.shape[0] - 10] * 2, lw=2, color='white')
+
+                # Add channel names at the top if specified
+                initial_offset = 0.02  # Starting offset from the left side of the figure
+                increment = 0.05  # Fixed increment for each subsequent channel name, adjust based on figure width
+                if channel_names:
+                    current_offset = initial_offset
+                    for i, channel_name in enumerate(channel_names):
+                        color = channel_colors[i] if i < len(channel_colors) else 'white'
+                        fig.text(current_offset, 0.99, channel_name, color=color, fontsize=fontsize,
+                                 verticalalignment='top', horizontalalignment='left',
+                                 bbox=dict(facecolor='black', edgecolor='none', pad=3))
+                        current_offset += increment
+
+                for j in range(i + 1, len(axes)):
+                    axes[j].axis('off')
+
+                plt.tight_layout(pad=3)
+                if plot:
+                    plt.show()
+                return fig
+
+
+            image_files = ___generate_filelist(src)
+
+            if standardize:
+                image_files = ___find_similar_sized_images(image_files)
+
+            if nr_imgs is not None:
+                image_files = ___random_sample(image_files, nr_imgs)
+
+            fig = ___plot_images_on_grid(image_files, channel_indices, um_per_pixel, scale_bar_length_um, fontsize, show_filename, channel_names, plot)
+
+            return fig
+
+        def __save_figure(fig, src, text):
+            save_folder = os.path.dirname(src)
+            obj_type = os.path.basename(src)
+            name = os.path.basename(save_folder)
+            save_folder = os.path.join(save_folder, 'figure')
+            os.makedirs(save_folder, exist_ok=True)
+            fig_name = f'{obj_type}_{name}_{text}.pdf'        
+            save_location = os.path.join(save_folder, fig_name)
+            fig.savefig(save_location, bbox_inches='tight', dpi=dpi)
+            print(f'Saved single cell figure: {save_location}')
+            plt.close()
+
+        fig = __visualize_scimgs(src, channel_indices, um_per_pixel, scale_bar_length_um, show_filename, standardize, nr_imgs, fontsize, channel_names, plot)
+        __save_figure(fig, src, text='all_channels')
+
+        for channel in channel_indices:
+            channel_indices=[channel]
+            fig = __visualize_scimgs(src, channel_indices, um_per_pixel, scale_bar_length_um, show_filename, standardize, nr_imgs, fontsize, channel_names=None, plot=plot)
+            __save_figure(fig, src, text=f'channel_{channel}')
+
+        return
 
     def _timelapse_masks_to_gif(folder_path, mask_channels, object_types):
 
@@ -2414,6 +2768,21 @@ def measure_crop(settings):
                 print(f'Progress: {files_processed}/{files_to_process} Time/img {average_time:.3f}sec, Time Remaining {time_left:.3f} min.', end='\r', flush=True)
             result.get()
             
+    if settings['save_png']:
+        img_fldr = os.path.join(os.path.dirname(settings['input_folder']), 'data')
+        sc_img_fldrs = _list_endpoint_subdirectories(img_fldr)
+        for well_src in sc_img_fldrs:
+            if len(os.listdir(well_src)) < 16:
+                nr_imgs = len(os.listdir(well_src))
+                standardize = False
+            else:
+                nr_imgs = 16
+                standardize = True
+            try:
+            	_save_scimg_plot(src=well_src, nr_imgs=nr_imgs, channel_indices=settings['png_dims'], um_per_pixel=0.1, scale_bar_length_um=10, standardize=standardize, fontsize=12, show_filename=True, channel_names=['red','green','blue'], dpi=300, plot=False)    
+            except Exception as e:  # Consider catching a more specific exception if possible
+                print(f"Unable to generate figure for folder {well_src}: {e}", flush=True)
+
     if settings['timelapse']:
         if settings['timelapse_objects'] == 'nuclei':
             folder_path = settings['input_folder']
@@ -3424,7 +3793,7 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                     pathogen_mask_dim = plot_counter
 
                 plot_settings = {'include_noninfected':True, 
-                                 'include_multiinfect':True,
+                                 'include_multiinfected':True,
                                  'include_multinucleated':True,
                                  'remove_background':False,
                                  'filter_min_max':None,
