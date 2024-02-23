@@ -2181,190 +2181,223 @@ def _measure_crop_core(index, time_ls, file, settings):
     average_time = np.mean(time_ls) if len(time_ls) > 0 else 0
     return average_time, cells
     
-def generate_representative_images(db_path, keywords=['uninfected', 'single_infected', 'multi_infected'], nr_imgs=20, column_name='cell_area', agg_type='median', new_column=None, channel_indices=[0,1,2], um_per_pixel=0.1, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, dpi=300, plot=True, measure_pathogen_recruitment=False, channel_of_interest):
-    
-    def _read_and_join_tables(db_path, table_names = ['cell', 'cytoplasm', 'nucleus', 'pathogen', 'parasite', 'png_list']):
-        conn = sqlite3.connect(db_path)
-        dataframes = {}
-        for table_name in table_names:
-            try:
-                dataframes[table_name] = pd.read_sql(f"SELECT * FROM {table_name}", conn)
-            except (sqlite3.OperationalError, pd.io.sql.DatabaseError) as e:
-                print(f"Table {table_name} not found in the database.")
-                print(e)
-        conn.close()
+    def generate_representative_images(db_path, keywords=['uninfected', 'single_infected', 'multi_infected'], nr_imgs=20, column_name='cell_area', agg_type='median', new_column=None, channel_indices=[0,1,2], um_per_pixel=0.1, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, dpi=300, plot=True, measure_pathogen_recruitment=False, channel_of_interest=1):
 
-        if 'png_list' in dataframes:
-            png_list_df = dataframes['png_list'][['cell_id', 'png_path', 'plate', 'row', 'col']].copy()
-            png_list_df['cell_id'] = png_list_df['cell_id'].str[1:].astype(int)
-            png_list_df.rename(columns={'cell_id': 'object_label'}, inplace=True)
+        def _read_and_join_tables(db_path, table_names = ['cell', 'cytoplasm', 'nucleus', 'pathogen', 'parasite', 'png_list']):
+            conn = sqlite3.connect(db_path)
+            dataframes = {}
+            for table_name in table_names:
+                try:
+                    dataframes[table_name] = pd.read_sql(f"SELECT * FROM {table_name}", conn)
+                except (sqlite3.OperationalError, pd.io.sql.DatabaseError) as e:
+                    print(f"Table {table_name} not found in the database.")
+                    print(e)
+            conn.close()
+
+            if 'png_list' in dataframes:
+                png_list_df = dataframes['png_list'][['cell_id', 'png_path', 'plate', 'row', 'col']].copy()
+                png_list_df['cell_id'] = png_list_df['cell_id'].str[1:].astype(int)
+                png_list_df.rename(columns={'cell_id': 'object_label'}, inplace=True)
+                if 'cell' in dataframes:
+                    join_cols = ['object_label', 'plate', 'row', 'col']
+                    dataframes['cell'] = pd.merge(dataframes['cell'], png_list_df, on=join_cols, how='left')
+                else:
+                    print("Cell table not found. Cannot join with png_list.")
+                    return None
+
+            for entity in ['nucleus', 'pathogen', 'parasite']:
+                if entity in dataframes:
+                    numeric_cols = dataframes[entity].select_dtypes(include=[np.number]).columns.tolist()
+                    non_numeric_cols = dataframes[entity].select_dtypes(exclude=[np.number]).columns.tolist()
+                    agg_dict = {col: 'mean' for col in numeric_cols}
+                    agg_dict.update({col: 'first' for col in non_numeric_cols if col not in ['cell_id', 'prcf']})
+                    grouping_cols = ['cell_id', 'prcf']
+                    agg_df = dataframes[entity].groupby(grouping_cols).agg(agg_dict)
+                    agg_df['count_' + entity] = dataframes[entity].groupby(grouping_cols).size()
+                    dataframes[entity] = agg_df
+
+            joined_df = None
             if 'cell' in dataframes:
-                join_cols = ['object_label', 'plate', 'row', 'col']
-                dataframes['cell'] = pd.merge(dataframes['cell'], png_list_df, on=join_cols, how='left')
+                joined_df = dataframes['cell']
+                if 'cytoplasm' in dataframes:
+                    joined_df = pd.merge(joined_df, dataframes['cytoplasm'], on=['object_label', 'prcf'], how='left', suffixes=('', '_cytoplasm'))
+                for entity in ['nucleus', 'pathogen']:
+                    if entity in dataframes:
+                        joined_df = pd.merge(joined_df, dataframes[entity], left_on=['object_label', 'prcf'], right_index=True, how='left', suffixes=('', f'_{entity}'))
             else:
-                print("Cell table not found. Cannot join with png_list.")
+                print("Cell table not found. Cannot proceed with joining.")
+                return None
+            return joined_df
+
+        def _generate_filelist_dict(df, keywords=['uninfected', 'single_infected', 'multi_infected'], nr_imgs=20, column_name='cell_area', agg_type='median', annotate_condition=False):
+
+            def __split_dataframe(df, keywords, column):
+                split_dfs = {}
+                for keyword in keywords:
+                    filtered_df = df[df[column].str.contains(keyword)]
+                    split_dfs[keyword] = filtered_df
+                return split_dfs
+
+            def __select_closest_to_median_or_mean(df, nr_imgs, column_name, agg_type='median'):
+                if agg_type == 'median':
+                    _value = df[column_name].median()
+                if agg_type == 'median':
+                    _value = df[column_name].mean()
+                df['distance_from'] = (df[column_name] - _value).abs()
+                selected_df = df.nsmallest(nr_imgs, 'distance_from').drop(columns=['distance_from'])
+                return selected_df
+
+            if not annotate_conditions:
+                dfs = __split_dataframe(df, keywords, column='png_path')
+            else:
+                dfs = __split_dataframe(df, keywords=, column='condition')
+
+            list_dict = {}
+            for keyword in keywords:
+                if keyword in dfs:
+                    key_df = __select_closest_to_median_or_mean(dfs[keyword], nr_imgs, column_name, agg_type)
+                    list_dict[keyword] = key_df['png_path'].tolist()
+                else:
+                    list_dict[keyword] = []
+            return list_dict
+
+        def _plot_images_on_grid(image_files, channel_indices, um_per_pixel, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, plot=False):
+
+            #print(f'scale bar represents {scale_bar_length_um} um')
+            nr_of_images = len(image_files)
+            cols = int(np.ceil(np.sqrt(nr_of_images)))
+            rows = np.ceil(nr_of_images / cols)
+
+            fig, axes = plt.subplots(int(rows), int(cols), figsize=(20, 20), facecolor='black')
+            fig.patch.set_facecolor('black')
+            axes = axes.flatten()
+
+            # Calculate the scale bar length in pixels
+            scale_bar_length_px = int(scale_bar_length_um / um_per_pixel)  # Convert to pixels
+
+            channel_colors = ['red','green','blue']
+            for i, image_file in enumerate(image_files):
+                img_array = cv2.imread(image_file, cv2.IMREAD_UNCHANGED)
+
+                if img_array.ndim == 3 and img_array.shape[2] >= 3:
+                    img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB)
+
+                # Handle different channel selections
+                if channel_indices is not None:
+                    if len(channel_indices) == 1:  # Single channel (grayscale)
+                        img_array = img_array[:, :, channel_indices[0]]
+                        cmap = 'gray'
+                    elif len(channel_indices) == 2:  # Dual channels
+                        img_array = np.mean(img_array[:, :, channel_indices], axis=2)
+                        cmap = 'gray'
+                    else:  # RGB or more channels
+                        img_array = img_array[:, :, channel_indices]
+                        cmap = None
+                else:
+                    cmap = None if img_array.ndim == 3 else 'gray'
+
+                # Normalize based on dtype
+                if img_array.dtype == np.uint16:
+                    img_array = img_array.astype(np.float32) / 65535.0
+                elif img_array.dtype == np.uint8:
+                    img_array = img_array.astype(np.float32) / 255.0
+
+                ax = axes[i]
+                ax.imshow(img_array, cmap=cmap)
+                ax.axis('off')
+                if show_filename:
+                    ax.set_title(os.path.basename(image_file), color='white', fontsize=fontsize, pad=20)
+
+                # Add scale bar
+                ax.plot([10, 10 + scale_bar_length_px], [img_array.shape[0] - 10] * 2, lw=2, color='white')
+
+            # Add channel names at the top if specified
+            initial_offset = 0.02  
+            increment = 0.05  
+            if channel_names:
+                current_offset = initial_offset
+                for i, channel_name in enumerate(channel_names):
+                    color = channel_colors[i] if i < len(channel_colors) else 'white'
+                    fig.text(current_offset, 0.99, channel_name, color=color, fontsize=fontsize,
+                             verticalalignment='top', horizontalalignment='left',
+                             bbox=dict(facecolor='black', edgecolor='none', pad=3))
+                    current_offset += increment
+
+            for j in range(i + 1, len(axes)):
+                axes[j].axis('off')
+
+            plt.tight_layout(pad=3)
+            if plot:
+                plt.show()
+            return fig
+
+        def _save_figure(fig, src, text):
+            save_folder = os.path.dirname(src)
+            obj_type = os.path.basename(src)
+            name = os.path.basename(save_folder)
+            save_folder = os.path.join(save_folder, 'figure')
+            os.makedirs(save_folder, exist_ok=True)
+            fig_name = f'{obj_type}_{name}_{text}.pdf'        
+            save_location = os.path.join(save_folder, fig_name)
+            fig.savefig(save_location, bbox_inches='tight', dpi=dpi)
+            print(f'Saved single cell figure: {save_location}')
+            plt.close()
+
+        def _annotate_conditions(df, cells=['HeLa'], cell_loc=None, pathogens=['rh'], pathogen_loc=None, treatments=['cm'], treatment_loc=None, types = ['col','col','col']):
+
+            def _map_values(row, dict_, type_='col'):
+                for values, cols in dict_.items():
+                    if row[type_] in cols:
+                        return values
                 return None
 
-        for entity in ['nucleus', 'pathogen', 'parasite']:
-            if entity in dataframes:
-                numeric_cols = dataframes[entity].select_dtypes(include=[np.number]).columns.tolist()
-                non_numeric_cols = dataframes[entity].select_dtypes(exclude=[np.number]).columns.tolist()
-                agg_dict = {col: 'mean' for col in numeric_cols}
-                agg_dict.update({col: 'first' for col in non_numeric_cols if col not in ['cell_id', 'prcf']})
-                grouping_cols = ['cell_id', 'prcf']
-                agg_df = dataframes[entity].groupby(grouping_cols).agg(agg_dict)
-                agg_df['count_' + entity] = dataframes[entity].groupby(grouping_cols).size()
-                dataframes[entity] = agg_df
-
-        joined_df = None
-        if 'cell' in dataframes:
-            joined_df = dataframes['cell']
-            if 'cytoplasm' in dataframes:
-                joined_df = pd.merge(joined_df, dataframes['cytoplasm'], on=['object_label', 'prcf'], how='left', suffixes=('', '_cytoplasm'))
-            for entity in ['nucleus', 'pathogen']:
-                if entity in dataframes:
-                    joined_df = pd.merge(joined_df, dataframes[entity], left_on=['object_label', 'prcf'], right_index=True, how='left', suffixes=('', f'_{entity}'))
-        else:
-            print("Cell table not found. Cannot proceed with joining.")
-            return None
-        return joined_df
-    
-    def _generate_filelist_dict(df, keywords=['uninfected', 'single_infected', 'multi_infected'], nr_imgs=20, column_name='cell_area', agg_type='median'):
-        
-        def __split_dataframe(df, keywords):
-            """Splits the dataframe based on the presence of keywords in the png_path column."""
-            split_dfs = {}
-            for keyword in keywords:
-                filtered_df = df[df['png_path'].str.contains(keyword)]
-                split_dfs[keyword] = filtered_df
-            return split_dfs
-        
-        def __select_closest_to_median_or_mean(df, nr_imgs, column_name, agg_type='median'):
-            if agg_type == 'median':
-                _value = df[column_name].median()
-            if agg_type == 'median':
-                _value = df[column_name].mean()
-            df['distance_from'] = (df[column_name] - _value).abs()
-            selected_df = df.nsmallest(nr_imgs, 'distance_from').drop(columns=['distance_from'])
-            return selected_df
-        
-        dfs = __split_dataframe(df, keywords)
-        list_dict = {}
-        for keyword in keywords:
-            if keyword in dfs:
-                key_df = __select_closest_to_median_or_mean(dfs[keyword], nr_imgs, column_name, agg_type)
-                list_dict[keyword] = key_df['png_path'].tolist()
+            if cell_loc is None:
+                df['host_cells'] = cells[0]
             else:
-                list_dict[keyword] = []
-        return list_dict
-    
-    def _plot_images_on_grid(image_files, channel_indices, um_per_pixel, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, plot=False):
-
-        #print(f'scale bar represents {scale_bar_length_um} um')
-        nr_of_images = len(image_files)
-        cols = int(np.ceil(np.sqrt(nr_of_images)))
-        rows = np.ceil(nr_of_images / cols)
-
-        fig, axes = plt.subplots(int(rows), int(cols), figsize=(20, 20), facecolor='black')
-        fig.patch.set_facecolor('black')
-        axes = axes.flatten()
-
-        # Calculate the scale bar length in pixels
-        scale_bar_length_px = int(scale_bar_length_um / um_per_pixel)  # Convert to pixels
-
-        channel_colors = ['red','green','blue']
-        for i, image_file in enumerate(image_files):
-            img_array = cv2.imread(image_file, cv2.IMREAD_UNCHANGED)
-
-            if img_array.ndim == 3 and img_array.shape[2] >= 3:
-                img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB)
-
-            # Handle different channel selections
-            if channel_indices is not None:
-                if len(channel_indices) == 1:  # Single channel (grayscale)
-                    img_array = img_array[:, :, channel_indices[0]]
-                    cmap = 'gray'
-                elif len(channel_indices) == 2:  # Dual channels
-                    img_array = np.mean(img_array[:, :, channel_indices], axis=2)
-                    cmap = 'gray'
-                else:  # RGB or more channels
-                    img_array = img_array[:, :, channel_indices]
-                    cmap = None
+                cells_dict = dict(zip(cells, cell_loc))
+                df['host_cells'] = df.apply(lambda row: _map_values(row, cells_dict, type_=types[0]), axis=1)
+            if pathogen_loc is None:
+                if pathogens != None:
+                    df['pathogen'] = 'none'
             else:
-                cmap = None if img_array.ndim == 3 else 'gray'
-
-            # Normalize based on dtype
-            if img_array.dtype == np.uint16:
-                img_array = img_array.astype(np.float32) / 65535.0
-            elif img_array.dtype == np.uint8:
-                img_array = img_array.astype(np.float32) / 255.0
-
-            ax = axes[i]
-            ax.imshow(img_array, cmap=cmap)
-            ax.axis('off')
-            if show_filename:
-                ax.set_title(os.path.basename(image_file), color='white', fontsize=fontsize, pad=20)
-
-            # Add scale bar
-            ax.plot([10, 10 + scale_bar_length_px], [img_array.shape[0] - 10] * 2, lw=2, color='white')
-
-        # Add channel names at the top if specified
-        initial_offset = 0.02  
-        increment = 0.05  
-        if channel_names:
-            current_offset = initial_offset
-            for i, channel_name in enumerate(channel_names):
-                color = channel_colors[i] if i < len(channel_colors) else 'white'
-                fig.text(current_offset, 0.99, channel_name, color=color, fontsize=fontsize,
-                         verticalalignment='top', horizontalalignment='left',
-                         bbox=dict(facecolor='black', edgecolor='none', pad=3))
-                current_offset += increment
-
-        for j in range(i + 1, len(axes)):
-            axes[j].axis('off')
-
-        plt.tight_layout(pad=3)
-        if plot:
-            plt.show()
-        return fig
-
-    def _save_figure(fig, src, text):
-        save_folder = os.path.dirname(src)
-        obj_type = os.path.basename(src)
-        name = os.path.basename(save_folder)
-        save_folder = os.path.join(save_folder, 'figure')
-        os.makedirs(save_folder, exist_ok=True)
-        fig_name = f'{obj_type}_{name}_{text}.pdf'        
-        save_location = os.path.join(save_folder, fig_name)
-        fig.savefig(save_location, bbox_inches='tight', dpi=dpi)
-        print(f'Saved single cell figure: {save_location}')
-        plt.close()
-    
-    joined_df = _read_and_join_tables(db_path)
-    print(f'Generated DataFrame with {len(joined_df)} rows')
-    
-    if measure_pathogen_recruitment:
-        joined_df['recruitment'] = joined_df[f'pathogen_channel_{channel_of_interest}_mean_intensity']/joined_df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
-    
-    if not new_column is None:
-        if isinstance(new_column,list):
-            joined_df[column_name] = joined_df[0]/joined_df[1]
-    
-    if isinstance(column_name, str):
-        list_dict = _generate_filelist_dict(joined_df, keywords, nr_imgs, column_name, agg_type)
-
-        for key, path_list in list_dict.items():
-            if len(path_list) > 1:
-                print(f'Generating figure with representative images of {key} from {len(path_list)} objects')
-                fig = _plot_images_on_grid(path_list, channel_indices, um_per_pixel, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, plot=False)
-                src_fldr = os.path.dirname(os.path.dirname(os.path.dirname(path_list[0])))
-                _save_figure(fig, src_fldr, text=column_name)
+                pathogens_dict = dict(zip(pathogens, pathogen_loc))
+                df['pathogen'] = df.apply(lambda row: _map_values(row, pathogens_dict, type_=types[1]), axis=1)
+            if treatment_loc is None:
+                df['treatment'] = 'cm'
             else:
-                print(f'{key} has {len(path_list)} rows. Consider modifying keywords {keywords}')
-    
-    if isinstance(column_name, list):
-        for column_nm in column_name:
-            list_dict = _generate_filelist_dict(joined_df, keywords, nr_imgs, column_nm)
+                treatments_dict = dict(zip(treatments, treatment_loc))
+                df['treatment'] = df.apply(lambda row: _map_values(row, treatments_dict, type_=types[2]), axis=1)
+            if pathogens != None:
+                df['condition'] = df['pathogen']+'_'+df['treatment']
+            else:
+                df['condition'] = df['treatment']
+            return df
+
+        joined_df = _read_and_join_tables(db_path)
+        print(f'Generated DataFrame with {len(joined_df)} rows')
+
+        if annotate_condition:
+            _annotate_conditions(joined_df, 
+                                 cells=['HeLa'],
+                                 cell_loc=None,
+                                 pathogens=['rh'],
+                                 pathogen_loc=None,
+                                 treatments=['cm'],
+                                 treatment_loc=None,
+                                 types = ['col','col','col'])
+
+        if measure_pathogen_recruitment:
+            joined_df[f'pathogen_channel_{channel_of_interest}_mean_intensity']/joined_df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
+
+        if not new_column is None:
+            if isinstance(new_column,list):
+                joined_df[column_name] = joined_df[0]/joined_df[1]
+
+        if isinstance(column_name, str):
+            if annotate_condition:
+                keywords = list(set(joined_df['conditions'].tolist()))
+
+            list_dict = _generate_filelist_dict(joined_df, keywords, nr_imgs, column_name, agg_type, annotate_condition)
 
             for key, path_list in list_dict.items():
                 if len(path_list) > 1:
@@ -2374,9 +2407,21 @@ def generate_representative_images(db_path, keywords=['uninfected', 'single_infe
                     _save_figure(fig, src_fldr, text=column_name)
                 else:
                     print(f'{key} has {len(path_list)} rows. Consider modifying keywords {keywords}')
-    
-    return
-    
+
+        if isinstance(column_name, list):
+            for column_nm in column_name:
+                list_dict = _generate_filelist_dict(joined_df, keywords, nr_imgs, column_nm)
+
+                for key, path_list in list_dict.items():
+                    if len(path_list) > 1:
+                        print(f'Generating figure with representative images of {key} from {len(path_list)} objects')
+                        fig = _plot_images_on_grid(path_list, channel_indices, um_per_pixel, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, plot=False)
+                        src_fldr = os.path.dirname(os.path.dirname(os.path.dirname(path_list[0])))
+                        _save_figure(fig, src_fldr, text=column_name)
+                    else:
+                        print(f'{key} has {len(path_list)} rows. Consider modifying keywords {keywords}')
+        return
+            
 def measure_crop(settings):
 
     def _save_scimg_plot(src, nr_imgs=16, channel_indices=[0,1,2], um_per_pixel=0.1, scale_bar_length_um=10, standardize=True, fontsize=8, show_filename=True, channel_names=None, dpi=300, plot=False):
