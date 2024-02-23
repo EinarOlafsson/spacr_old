@@ -2344,7 +2344,7 @@ def generate_representative_images(db_path, keywords=['uninfected', 'single_infe
     print(f'Generated DataFrame with {len(joined_df)} rows')
     
     if measure_pathogen_recruitment:
-        joined_df[f'pathogen_channel_{channel_of_interest}_mean_intensity']/joined_df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
+        joined_df['recruitment'] = joined_df[f'pathogen_channel_{channel_of_interest}_mean_intensity']/joined_df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
     
     if not new_column is None:
         if isinstance(new_column,list):
