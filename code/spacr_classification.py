@@ -7,6 +7,16 @@ import platform
 import getpass
 
 def get_paths(env_name):
+    """
+    Get the paths for Conda, Python, Pip, and the environment based on the given environment name.
+
+    Args:
+        env_name (str): The name of the Conda environment.
+
+    Returns:
+        tuple: A tuple containing the paths for Conda, Python, Pip, and the environment.
+               If Conda is not found in the system PATH, returns (None, None, None, None).
+    """
     conda_executable = "conda.exe" if sys.platform == "win32" else "conda"
     python_executable = "python.exe" if sys.platform == "win32" else "python"
     pip_executable = "pip.exe" if sys.platform == "win32" else "pip"
@@ -43,6 +53,16 @@ def get_paths(env_name):
 
 # create new kernel
 def add_kernel(env_name, display_name):
+    """
+    Adds a kernel to Jupyter Notebook with the specified environment name and display name.
+
+    Parameters:
+    - env_name (str): The name of the environment.
+    - display_name (str): The display name for the kernel.
+
+    Returns:
+    None
+    """
     _, python_path, _, _ = get_paths(env_name)
     if not python_path:
         print(f"Failed to locate the Python executable for '{env_name}'")
@@ -53,7 +73,7 @@ def add_kernel(env_name, display_name):
         print(f"Kernel for '{env_name}' with display name '{display_name}' added successfully.")
     except subprocess.CalledProcessError as e:
         print(f"Failed to add kernel. Error: {e}")
-        print(f"kernel can be added manualy with: python -m ipykernel install --user --name {env_name} --display-name {display_name}")
+        print(f"kernel can be added manually with: python -m ipykernel install --user --name {env_name} --display-name {display_name}")
 
 def create_environment(conda_PATH, env_name):
     print(f"Creating environment {env_name}...")
@@ -116,8 +136,8 @@ def install_dependencies_in_kernel(dependencies, env_name):
     pip_packages = ["torchsummary", "opencv-python", "numpy==1.24.0", "numba==0.58.0"]
     
     for package in pip_packages:
-    	print(f"Installing {package}")
-    	subprocess.run([pip_PATH, "install", package])
+        print(f"Installing {package}")
+        subprocess.run([pip_PATH, "install", package])
     print("Dependencies installation complete.")
 
 env_name = "spacr_classification"
@@ -183,7 +203,6 @@ from multiprocessing import Pool, cpu_count, Value, Lock
 from torch import nn
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.nn.functional as F
 from torchsummary import summary
 from torch.utils.checkpoint import checkpoint
 from torch.cuda.amp import autocast, GradScaler
@@ -229,8 +248,20 @@ from sklearn.covariance import EllipticEnvelope
 from sklearn.decomposition import PCA
 from sklearn.linear_model import Lasso, Ridge
 from sklearn.preprocessing import OneHotEncoder
+from torchvision.models.resnet import ResNet18_Weights, ResNet34_Weights, ResNet50_Weights, ResNet101_Weights, ResNet152_Weights
+from torchvision.transforms import ToTensor
 
 def imshow(img, labels, nrow=20, color='white', fontsize=12):
+    """
+    Display multiple images in a grid with corresponding labels.
+
+    Args:
+        img (list): List of images to display.
+        labels (list): List of labels corresponding to each image.
+        nrow (int, optional): Number of images per row in the grid. Defaults to 20.
+        color (str, optional): Color of the label text. Defaults to 'white'.
+        fontsize (int, optional): Font size of the label text. Defaults to 12.
+    """
     n_images = len(labels)
     n_col = nrow
     n_row = int(np.ceil(n_images / n_col))
@@ -255,21 +286,78 @@ def imshow(img, labels, nrow=20, color='white', fontsize=12):
 
 #dataloader classes
 class Cache:
+    """
+    A class representing a cache with a maximum size.
+
+    Attributes:
+        max_size (int): The maximum size of the cache.
+        cache (OrderedDict): The cache data structure.
+    """
+
     def __init__(self, max_size):
         self.cache = OrderedDict()
         self.max_size = max_size
+
     def get(self, key):
+        """
+        Retrieves the value associated with the given key from the cache.
+
+        Args:
+            key: The key to retrieve the value for.
+
+        Returns:
+            The value associated with the key, or None if the key is not found in the cache.
+        """
         if key in self.cache:
             value = self.cache.pop(key)
             self.cache[key] = value
             return value
         return None
+
     def put(self, key, value):
+        """
+        Adds a key-value pair to the cache.
+
+        If the cache is already at its maximum size, the least recently used item will be removed.
+
+        Args:
+            key: The key to add to the cache.
+            value: The value associated with the key.
+        """
         if len(self.cache) >= self.max_size:
             self.cache.popitem(last=False)
         self.cache[key] = value
 
 class MyDataset(Dataset):
+    """
+    Custom dataset class for loading and processing image data.
+
+    Args:
+        data_dir (str): The directory path where the data is stored.
+        loader_classes (list): List of class names.
+        transform (callable, optional): A function/transform that takes in an PIL image and returns a transformed version. Default is None.
+        shuffle (bool, optional): Whether to shuffle the dataset. Default is True.
+        load_to_memory (bool, optional): Whether to load images into memory. Default is False.
+
+    Attributes:
+        data_dir (str): The directory path where the data is stored.
+        classes (list): List of class names.
+        transform (callable): A function/transform that takes in an PIL image and returns a transformed version.
+        shuffle (bool): Whether to shuffle the dataset.
+        load_to_memory (bool): Whether to load images into memory.
+        filenames (list): List of file paths.
+        labels (list): List of labels corresponding to each file.
+        images (list): List of loaded images.
+        image_cache (Cache): Cache object for storing loaded images.
+
+    Methods:
+        load_image: Load an image from file.
+        __len__: Get the length of the dataset.
+        shuffle_dataset: Shuffle the dataset.
+        __getitem__: Get an item from the dataset.
+
+    """
+
     def __init__(self, data_dir, loader_classes, transform=None, shuffle=True, load_to_memory=False):
         self.data_dir = data_dir
         self.classes = loader_classes
@@ -289,18 +377,22 @@ class MyDataset(Dataset):
             self.shuffle_dataset()
         if self.load_to_memory:
             self.images = [self.load_image(f) for f in self.filenames]
+
     def load_image(self, img_path):
         img = self.image_cache.get(img_path)
         if img is None:
             img = Image.open(img_path).convert('RGB')
             self.image_cache.put(img_path, img)
         return img
+
     def __len__(self):
         return len(self.filenames)
+
     def shuffle_dataset(self):
         combined = list(zip(self.filenames, self.labels))
         random.shuffle(combined)
         self.filenames, self.labels = zip(*combined)
+
     def __getitem__(self, index):
         label = self.labels[index]
         filename = self.filenames[index]
@@ -315,11 +407,32 @@ class MyDataset(Dataset):
         return img, label, filename
 
 class CombineLoaders:
+    """
+    A class that combines multiple data loaders into a single iterator.
+
+    Args:
+        train_loaders (list): A list of data loaders.
+
+    Attributes:
+        train_loaders (list): A list of data loaders.
+        loader_iters (list): A list of iterator objects for each data loader.
+
+    Methods:
+        __iter__(): Returns the iterator object itself.
+        __next__(): Returns the next batch from one of the data loaders.
+
+    Raises:
+        StopIteration: If all data loaders have been exhausted.
+
+    """
+
     def __init__(self, train_loaders):
         self.train_loaders = train_loaders
         self.loader_iters = [iter(loader) for loader in train_loaders]
+
     def __iter__(self):
         return self
+
     def __next__(self):
         while self.loader_iters:
             random.shuffle(self.loader_iters)  # Shuffle the loader_iters list
@@ -335,6 +448,14 @@ class CombineLoaders:
         raise StopIteration
 
 class CombinedDataset(Dataset):
+    """
+    A dataset that combines multiple datasets into one.
+
+    Args:
+        datasets (list): A list of datasets to be combined.
+        shuffle (bool, optional): Whether to shuffle the combined dataset. Defaults to True.
+    """
+
     def __init__(self, datasets, shuffle=True):
         self.datasets = datasets
         self.lengths = [len(dataset) for dataset in datasets]
@@ -356,6 +477,31 @@ class CombinedDataset(Dataset):
         return self.total_length
     
 class NoClassDataset(Dataset):
+    """
+    A custom dataset class for handling images without class labels.
+
+    Args:
+        data_dir (str): The directory path where the images are stored.
+        transform (callable, optional): A function/transform that takes in an PIL image and returns a transformed version. Default is None.
+        shuffle (bool, optional): Whether to shuffle the dataset. Default is True.
+        load_to_memory (bool, optional): Whether to load all images into memory. Default is False.
+
+    Attributes:
+        data_dir (str): The directory path where the images are stored.
+        transform (callable): A function/transform that takes in an PIL image and returns a transformed version.
+        shuffle (bool): Whether to shuffle the dataset.
+        load_to_memory (bool): Whether to load all images into memory.
+        filenames (list): List of file paths for the images.
+        images (list): List of loaded images (if load_to_memory is True).
+
+    Methods:
+        load_image: Loads an image from the given file path.
+        __len__: Returns the number of images in the dataset.
+        shuffle_dataset: Shuffles the dataset.
+        __getitem__: Retrieves an image and its corresponding file path from the dataset.
+
+    """
+
     def __init__(self, data_dir, transform=None, shuffle=True, load_to_memory=False):
         self.data_dir = data_dir
         self.transform = transform
@@ -388,23 +534,68 @@ class NoClassDataset(Dataset):
         return img, self.filenames[index]
 
 class ScaledDotProductAttention(nn.Module):
+    """
+    Scaled Dot-Product Attention module.
+
+    Args:
+        d_k (int): The dimension of the key and query vectors.
+
+    Attributes:
+        d_k (int): The dimension of the key and query vectors.
+
+    Methods:
+        forward(Q, K, V): Performs the forward pass of the attention mechanism.
+
+    """
+
     def __init__(self, d_k):
         super(ScaledDotProductAttention, self).__init__()
         self.d_k = d_k
+
     def forward(self, Q, K, V):
+        """
+        Performs the forward pass of the attention mechanism.
+
+        Args:
+            Q (torch.Tensor): The query tensor of shape (batch_size, seq_len_q, d_k).
+            K (torch.Tensor): The key tensor of shape (batch_size, seq_len_k, d_k).
+            V (torch.Tensor): The value tensor of shape (batch_size, seq_len_v, d_k).
+
+        Returns:
+            torch.Tensor: The output tensor of shape (batch_size, seq_len_q, d_k).
+
+        """
         scores = torch.matmul(Q, K.transpose(-2, -1)) / torch.sqrt(torch.tensor(self.d_k, dtype=torch.float32))
         attention_probs = F.softmax(scores, dim=-1)
         output = torch.matmul(attention_probs, V)
         return output
 
 class SelfAttention(nn.Module):
+    """
+    Self-Attention module that applies scaled dot-product attention mechanism.
+    
+    Args:
+        in_channels (int): Number of input channels.
+        d_k (int): Dimensionality of the key and query vectors.
+    """
+
     def __init__(self, in_channels, d_k):
         super(SelfAttention, self).__init__()
         self.W_q = nn.Linear(in_channels, d_k)
         self.W_k = nn.Linear(in_channels, d_k)
         self.W_v = nn.Linear(in_channels, d_k)
         self.attention = ScaledDotProductAttention(d_k)
+
     def forward(self, x):
+        """
+        Forward pass of the SelfAttention module.
+        
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch_size, in_channels).
+        
+        Returns:
+            torch.Tensor: Output tensor of shape (batch_size, d_k).
+        """
         Q = self.W_q(x)
         K = self.W_k(x)
         V = self.W_v(x)
@@ -412,6 +603,31 @@ class SelfAttention(nn.Module):
         return output
 
 class NoClassDataset(Dataset):
+    """
+    A custom dataset class for handling images without class labels.
+
+    Args:
+        data_dir (str): The directory path where the images are stored.
+        transform (callable, optional): A function/transform that takes in an PIL image and returns a transformed version. Default is None.
+        shuffle (bool, optional): Whether to shuffle the dataset. Default is True.
+        load_to_memory (bool, optional): Whether to load all images into memory. Default is False.
+
+    Attributes:
+        data_dir (str): The directory path where the images are stored.
+        transform (callable): A function/transform that takes in an PIL image and returns a transformed version.
+        shuffle (bool): Whether to shuffle the dataset.
+        load_to_memory (bool): Whether to load all images into memory.
+        filenames (list): List of file paths of the images.
+        images (list): List of loaded images (if load_to_memory is True).
+
+    Methods:
+        load_image: Load an image from the given file path.
+        __len__: Get the length of the dataset.
+        shuffle_dataset: Shuffle the dataset.
+        __getitem__: Get an item (image and its filename) from the dataset.
+
+    """
+
     def __init__(self, data_dir, transform=None, shuffle=True, load_to_memory=False):
         self.data_dir = data_dir
         self.transform = transform
@@ -445,22 +661,59 @@ class NoClassDataset(Dataset):
 
 class ScaledDotProductAttention(nn.Module):
     def __init__(self, d_k):
+        """
+        Initializes the ScaledDotProductAttention module.
+
+        Args:
+            d_k (int): The dimension of the key and query vectors.
+
+        """
         super(ScaledDotProductAttention, self).__init__()
         self.d_k = d_k
+
     def forward(self, Q, K, V):
+        """
+        Performs the forward pass of the ScaledDotProductAttention module.
+
+        Args:
+            Q (torch.Tensor): The query tensor.
+            K (torch.Tensor): The key tensor.
+            V (torch.Tensor): The value tensor.
+
+        Returns:
+            torch.Tensor: The output tensor.
+
+        """
         scores = torch.matmul(Q, K.transpose(-2, -1)) / torch.sqrt(torch.tensor(self.d_k, dtype=torch.float32))
         attention_probs = F.softmax(scores, dim=-1)
         output = torch.matmul(attention_probs, V)
         return output
 
 class SelfAttention(nn.Module):
+    """
+    Self-Attention module that applies scaled dot-product attention mechanism.
+    
+    Args:
+        in_channels (int): Number of input channels.
+        d_k (int): Dimensionality of the key and query vectors.
+    """
     def __init__(self, in_channels, d_k):
         super(SelfAttention, self).__init__()
         self.W_q = nn.Linear(in_channels, d_k)
         self.W_k = nn.Linear(in_channels, d_k)
         self.W_v = nn.Linear(in_channels, d_k)
         self.attention = ScaledDotProductAttention(d_k)
+    
     def forward(self, x):
+        """
+        Forward pass of the SelfAttention module.
+        
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch_size, in_channels).
+        
+        Returns:
+            torch.Tensor: Output tensor after applying self-attention mechanism.
+        """
         Q = self.W_q(x)
         K = self.W_k(x)
         V = self.W_v(x)
@@ -468,6 +721,19 @@ class SelfAttention(nn.Module):
         return output
 
 class MyDataset(Dataset):
+    """
+    A custom dataset class for loading and processing image data.
+
+    Args:
+        data_dir (str): The directory path where the image data is stored.
+        loader_classes (list): A list of class names for the dataset.
+        transform (callable, optional): A function/transform to apply to the image data. Default is None.
+        shuffle (bool, optional): Whether to shuffle the dataset. Default is True.
+        pin_memory (bool, optional): Whether to pin the loaded images to memory. Default is False.
+        specific_files (list, optional): A list of specific file paths to include in the dataset. Default is None.
+        specific_labels (list, optional): A list of specific labels corresponding to the specific files. Default is None.
+    """
+
     def __init__(self, data_dir, loader_classes, transform=None, shuffle=True, pin_memory=False, specific_files=None, specific_labels=None):
         self.data_dir = data_dir
         self.classes = loader_classes
@@ -517,7 +783,29 @@ class MyDataset(Dataset):
             img = self.transform(img)
         return img, label, filename
 
-def generate_loaders(src, train_mode='erm', mode='train', image_size=228, batch_size=32, classes=['nc','pc'], num_workers=None, validation_split=0.0, max_show=2, pin_memory=False, normalize=False, verbose=False):
+def generate_loaders(src, train_mode='erm', mode='train', image_size=224, batch_size=32, classes=['nc','pc'], num_workers=None, validation_split=0.0, max_show=2, pin_memory=False, normalize=False, verbose=False):
+    """
+    Generate data loaders for training and validation/test datasets.
+
+    Parameters:
+    - src (str): The source directory containing the data.
+    - train_mode (str): The training mode. Options are 'erm' (Empirical Risk Minimization) or 'irm' (Invariant Risk Minimization).
+    - mode (str): The mode of operation. Options are 'train' or 'test'.
+    - image_size (int): The size of the input images.
+    - batch_size (int): The batch size for the data loaders.
+    - classes (list): The list of classes to consider.
+    - num_workers (int): The number of worker threads for data loading.
+    - validation_split (float): The fraction of data to use for validation when train_mode is 'erm'.
+    - max_show (int): The maximum number of images to show when verbose is True.
+    - pin_memory (bool): Whether to pin memory for faster data transfer.
+    - normalize (bool): Whether to normalize the input images.
+    - verbose (bool): Whether to print additional information and show images.
+
+    Returns:
+    - train_loaders (list): List of data loaders for training datasets.
+    - val_loaders (list): List of data loaders for validation datasets.
+    - plate_names (list): List of plate names (only applicable when train_mode is 'irm').
+    """
     plate_to_filenames = defaultdict(list)
     plate_to_labels = defaultdict(list)
     train_loaders = []
@@ -624,22 +912,52 @@ def generate_loaders(src, train_mode='erm', mode='train', image_size=228, batch_
     
 # Early Fusion Block
 class EarlyFusion(nn.Module):
+    """
+    Early Fusion module for image classification.
+    
+    Args:
+        in_channels (int): Number of input channels.
+    """
     def __init__(self, in_channels):
         super(EarlyFusion, self).__init__()
         self.conv1 = nn.Conv2d(in_channels, 64, kernel_size=1, stride=1)
         
     def forward(self, x):
+        """
+        Forward pass of the Early Fusion module.
+        
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch_size, in_channels, height, width).
+        
+        Returns:
+            torch.Tensor: Output tensor of shape (batch_size, 64, height, width).
+        """
         x = self.conv1(x)
         return x
 
 # Spatial Attention Mechanism
 class SpatialAttention(nn.Module):
     def __init__(self, kernel_size=7):
+        """
+        Initializes the SpatialAttention module.
+
+        Args:
+            kernel_size (int): The size of the convolutional kernel. Default is 7.
+        """
         super(SpatialAttention, self).__init__()
         self.conv1 = nn.Conv2d(2, 1, kernel_size, padding=kernel_size//2, bias=False)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
+        """
+        Performs forward pass of the SpatialAttention module.
+
+        Args:
+            x (torch.Tensor): The input tensor.
+
+        Returns:
+            torch.Tensor: The output tensor after applying spatial attention.
+        """
         avg_out = torch.mean(x, dim=1, keepdim=True)
         max_out, _ = torch.max(x, dim=1, keepdim=True)
         x = torch.cat([avg_out, max_out], dim=1)
@@ -648,17 +966,51 @@ class SpatialAttention(nn.Module):
     
 # Multi-Scale Block with Attention
 class MultiScaleBlockWithAttention(nn.Module):
+    """
+    Multi-scale block with attention module.
+
+    Args:
+        in_channels (int): Number of input channels.
+        out_channels (int): Number of output channels.
+
+    Attributes:
+        dilated_conv1 (nn.Conv2d): Dilated convolution layer.
+        spatial_attention (nn.Conv2d): Spatial attention layer.
+
+    Methods:
+        custom_forward: Custom forward method for the module.
+        forward: Forward method for the module.
+    """
+
     def __init__(self, in_channels, out_channels):
         super(MultiScaleBlockWithAttention, self).__init__()
         self.dilated_conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, dilation=1, padding=1)
         self.spatial_attention = nn.Conv2d(out_channels, out_channels, kernel_size=1)
         
     def custom_forward(self, x):
+        """
+        Custom forward method for the module.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Output tensor.
+        """
         x1 = F.relu(self.dilated_conv1(x), inplace=True)
         x = self.spatial_attention(x1)
         return x
 
     def forward(self, x):
+        """
+        Forward method for the module.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Output tensor.
+        """
         return checkpoint(self.custom_forward, x)
 
 # Final Classifier
@@ -828,6 +1180,16 @@ class ResNet(nn.Module):
         return logits
 
 def split_my_dataset(dataset, split_ratio=0.1):
+    """
+    Splits a dataset into training and validation subsets.
+
+    Args:
+        dataset (torch.utils.data.Dataset): The dataset to be split.
+        split_ratio (float, optional): The ratio of validation samples to total samples. Defaults to 0.1.
+
+    Returns:
+        tuple: A tuple containing the training dataset and validation dataset.
+    """
     num_samples = len(dataset)
     indices = list(range(num_samples))
     split_idx = int((1 - split_ratio) * num_samples)
@@ -838,6 +1200,19 @@ def split_my_dataset(dataset, split_ratio=0.1):
     return train_dataset, val_dataset
 
 def classification_metrics(all_labels, prediction_pos_probs, loader_name, loss, epoch):
+    """
+    Calculate classification metrics for binary classification.
+
+    Parameters:
+    - all_labels (list): List of true labels.
+    - prediction_pos_probs (list): List of predicted positive probabilities.
+    - loader_name (str): Name of the data loader.
+    - loss (float): Loss value.
+    - epoch (int): Epoch number.
+
+    Returns:
+    - data_df (DataFrame): DataFrame containing the calculated metrics.
+    """
     
     if len(all_labels) != len(prediction_pos_probs):
         raise ValueError(f"all_labels ({len(all_labels)}) and pred_labels ({len(prediction_pos_probs)}) have different lengths")
@@ -877,6 +1252,21 @@ def classification_metrics(all_labels, prediction_pos_probs, loader_name, loss, 
     return data_df
     
 def evaluate_model_core(model, loader, loader_name, epoch, loss_type):
+    """
+    Evaluates the performance of a model on a given data loader.
+
+    Args:
+        model (torch.nn.Module): The model to evaluate.
+        loader (torch.utils.data.DataLoader): The data loader to evaluate the model on.
+        loader_name (str): The name of the data loader.
+        epoch (int): The current epoch number.
+        loss_type (str): The type of loss function to use.
+
+    Returns:
+        data_df (pandas.DataFrame): The classification metrics data as a DataFrame.
+        prediction_pos_probs (list): The positive class probabilities for each prediction.
+        all_labels (list): The true labels for each prediction.
+    """
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model.eval()
     loss = 0
@@ -912,6 +1302,20 @@ def evaluate_model_core(model, loader, loader_name, epoch, loss_type):
     return data_df, prediction_pos_probs, all_labels
 
 def evaluate_model_performance(loaders, model, loader_name_list, epoch, train_mode, loss_type):
+    """
+    Evaluate the performance of a model on given data loaders.
+
+    Args:
+        loaders (list): List of data loaders.
+        model: The model to evaluate.
+        loader_name_list (list): List of names for the data loaders.
+        epoch (int): The current epoch.
+        train_mode (str): The training mode ('erm' or 'irm').
+        loss_type: The type of loss function.
+
+    Returns:
+        tuple: A tuple containing the evaluation result and the time taken for evaluation.
+    """
     start_time = time.time()
     df_list = []
     if train_mode == 'erm':
@@ -988,6 +1392,20 @@ def test_model_core(model, loader, loader_name, epoch, loss_type):
     return data_df, prediction_pos_probs, all_labels, results_df
 
 def test_model_performance(loaders, model, loader_name_list, epoch, train_mode, loss_type):
+    """
+    Test the performance of a model on given data loaders.
+
+    Args:
+        loaders (list): List of data loaders.
+        model: The model to be tested.
+        loader_name_list (list): List of names for the data loaders.
+        epoch (int): The current epoch.
+        train_mode (str): The training mode ('erm' or 'irm').
+        loss_type: The type of loss function.
+
+    Returns:
+        tuple: A tuple containing the test results and the results dataframe.
+    """
     start_time = time.time()
     df_list = []
     if train_mode == 'erm':
@@ -1013,21 +1431,30 @@ def test_model_performance(loaders, model, loader_name_list, epoch, train_mode, 
 
 
 def save_model(model, model_type, results_df, dst, epoch, epochs, intermedeate_save=[0.99,0.98,0.95,0.94]):
+    """
+    Save the model based on certain conditions during training.
+
+    Args:
+        model (torch.nn.Module): The trained model to be saved.
+        model_type (str): The type of the model.
+        results_df (pandas.DataFrame): The dataframe containing the training results.
+        dst (str): The destination directory to save the model.
+        epoch (int): The current epoch number.
+        epochs (int): The total number of epochs.
+        intermedeate_save (list, optional): List of accuracy thresholds to trigger intermediate model saves. 
+                                            Defaults to [0.99, 0.98, 0.95, 0.94].
+    """
     
     if epoch % 100 == 0:
-        #torch.save(model, dst+'/'+str(epoch)+f'epoch{epoch}_model.pth')
         torch.save(model, f'{dst}/{model_type}_epoch_{str(epoch)}.pth')
         
     if epoch == epochs:
-        #torch.save(model, dst+'/'+str(epoch)+f'epoch{epoch}_model.pth')
         torch.save(model, f'{dst}/{model_type}_epoch_{str(epoch)}.pth')
     
     if results_df['neg_accuracy'].dropna().mean() >= intermedeate_save[0] and results_df['pos_accuracy'].dropna().mean() >= intermedeate_save[0]:
         percentile = str(intermedeate_save[0]*100)
         print(f'\rfound: {percentile}% accurate model', end='\r', flush=True)
-        #torch.save(model.state_dict(), dst+'/'+str(epoch)+'_model'+str(percentile)+'.pth')
         torch.save(model, f'{dst}/{model_type}_epoch_{str(epoch)}_acc_{str(percentile)}.pth')
-        #torch.save(model.state_dict(), 'path/to/save/model.pth')
 
     elif results_df['neg_accuracy'].dropna().mean() >= intermedeate_save[1] and results_df['pos_accuracy'].dropna().mean() >= intermedeate_save[1]:
         percentile = str(intermedeate_save[1]*100)
@@ -1045,7 +1472,18 @@ def save_model(model, model_type, results_df, dst, epoch, epochs, intermedeate_s
         torch.save(model, f'{dst}/{model_type}_epoch_{str(epoch)}_acc_{str(percentile)}.pth')
 
 def save_progress(dst, results_df, train_metrics_df):
-    #Save accuracy, loss, PRAUC
+    """
+    Save the progress of the classification model.
+
+    Parameters:
+    dst (str): The destination directory to save the progress.
+    results_df (pandas.DataFrame): The DataFrame containing accuracy, loss, and PRAUC.
+    train_metrics_df (pandas.DataFrame): The DataFrame containing training metrics.
+
+    Returns:
+    None
+    """
+    # Save accuracy, loss, PRAUC
     os.makedirs(dst, exist_ok=True)
     results_path = os.path.join(dst, 'acc_loss_prauc.csv')
     if not os.path.exists(results_path):
@@ -1060,6 +1498,16 @@ def save_progress(dst, results_df, train_metrics_df):
     return
 
 def save_settings(settings, src):
+    """
+    Save the settings dictionary to a CSV file.
+
+    Parameters:
+    - settings (dict): A dictionary containing the settings.
+    - src (str): The source directory where the settings file will be saved.
+
+    Returns:
+    None
+    """
     dst = os.path.join(src,'model')
     settings_loc =  os.path.join(dst,'settings.csv')
     os.makedirs(dst, exist_ok=True)
@@ -1069,6 +1517,17 @@ def save_settings(settings, src):
     return
 
 def compute_irm_penalty(losses, dummy_w, device):
+    """
+    Computes the Invariant Risk Minimization (IRM) penalty.
+
+    Args:
+        losses (list): A list of losses.
+        dummy_w (torch.Tensor): A dummy weight tensor.
+        device (torch.device): The device to perform computations on.
+
+    Returns:
+        float: The computed IRM penalty.
+    """
     weighted_losses = [loss.clone().detach().requires_grad_(True).to(device) * dummy_w for loss in losses]
     gradients = [grad(w_loss, dummy_w, create_graph=True)[0] for w_loss in weighted_losses]
     irm_penalty = 0.0
@@ -1077,13 +1536,43 @@ def compute_irm_penalty(losses, dummy_w, device):
     return irm_penalty
 
 def print_model_summary(base_model, channels, height, width):
+    """
+    Prints the summary of a given base model.
+
+    Args:
+        base_model (torch.nn.Module): The base model to print the summary of.
+        channels (int): The number of input channels.
+        height (int): The height of the input.
+        width (int): The width of the input.
+
+    Returns:
+        None
+    """
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     base_model.to(device)
-    summary(base_model, (channels, height,width))
+    summary(base_model, (channels, height, width))
     return
 
-def choose_model(model_type, device, init_weights=True, dropout_rate=0, use_checkpoint=False, channels=3, height=224, width=224, chan_dict=None):
-    
+def choose_model(model_type, device, init_weights=True, dropout_rate=0, use_checkpoint=False, channels=3, height=224, width=224, chan_dict=None, num_classes=2):
+    """
+    Choose a model for classification.
+
+    Args:
+        model_type (str): The type of model to choose. Can be one of the pre-defined TorchVision models or 'custom' for a custom model.
+        device (str): The device to use for model inference.
+        init_weights (bool, optional): Whether to initialize the model with pre-trained weights. Defaults to True.
+        dropout_rate (float, optional): The dropout rate to use in the model. Defaults to 0.
+        use_checkpoint (bool, optional): Whether to use checkpointing during model training. Defaults to False.
+        channels (int, optional): The number of input channels for the model. Defaults to 3.
+        height (int, optional): The height of the input images for the model. Defaults to 224.
+        width (int, optional): The width of the input images for the model. Defaults to 224.
+        chan_dict (dict, optional): A dictionary containing channel information for custom models. Defaults to None.
+        num_classes (int, optional): The number of output classes for the model. Defaults to 2.
+
+    Returns:
+        torch.nn.Module: The chosen model.
+    """
+
     torch_model_types = torchvision.models.list_models(module=torchvision.models)
     model_types = torch_model_types + ['custom']
     
@@ -1121,7 +1610,36 @@ def calculate_loss(output, target, loss_type='binary_cross_entropy_with_logits')
     return loss
 
 def train_model(dst, model_type, train_loaders, train_loader_names, train_mode='erm', epochs=100, learning_rate=0.0001, weight_decay=0.05, amsgrad=False, optimizer_type='adamw', use_checkpoint=False, dropout_rate=0, num_workers=20, val_loaders=None, test_loaders=None, init_weights='imagenet', intermedeate_save=None, chan_dict=None, schedule = None, loss_type='binary_cross_entropy_with_logits', gradient_accumulation=False, gradient_accumulation_steps=4):
-    
+    """
+    Trains a model using the specified parameters.
+
+    Args:
+        dst (str): The destination path to save the model and results.
+        model_type (str): The type of model to train.
+        train_loaders (list): A list of training data loaders.
+        train_loader_names (list): A list of names for the training data loaders.
+        train_mode (str, optional): The training mode. Defaults to 'erm'.
+        epochs (int, optional): The number of training epochs. Defaults to 100.
+        learning_rate (float, optional): The learning rate for the optimizer. Defaults to 0.0001.
+        weight_decay (float, optional): The weight decay for the optimizer. Defaults to 0.05.
+        amsgrad (bool, optional): Whether to use AMSGrad for the optimizer. Defaults to False.
+        optimizer_type (str, optional): The type of optimizer to use. Defaults to 'adamw'.
+        use_checkpoint (bool, optional): Whether to use checkpointing during training. Defaults to False.
+        dropout_rate (float, optional): The dropout rate for the model. Defaults to 0.
+        num_workers (int, optional): The number of workers for data loading. Defaults to 20.
+        val_loaders (list, optional): A list of validation data loaders. Defaults to None.
+        test_loaders (list, optional): A list of test data loaders. Defaults to None.
+        init_weights (str, optional): The initialization weights for the model. Defaults to 'imagenet'.
+        intermedeate_save (list, optional): The intermediate save thresholds. Defaults to None.
+        chan_dict (dict, optional): The channel dictionary. Defaults to None.
+        schedule (str, optional): The learning rate schedule. Defaults to None.
+        loss_type (str, optional): The loss function type. Defaults to 'binary_cross_entropy_with_logits'.
+        gradient_accumulation (bool, optional): Whether to use gradient accumulation. Defaults to False.
+        gradient_accumulation_steps (int, optional): The number of steps for gradient accumulation. Defaults to 4.
+
+    Returns:
+        None
+    """    
     print(f'Train batches:{len(train_loaders)}, Validation batches:{len(val_loaders)}')
     
     if test_loaders != None:
@@ -1270,7 +1788,7 @@ def train_model(dst, model_type, train_loaders, train_loader_names, train_mode='
                 train_metrics_df['val_time'] = val_time
             
             if test_loaders != None:
-                test_names = [item + '_test' for item in test_loader_names]
+                test_names = [item + '_test' for item in train_loader_names] #test_loader_names?
                 result, test_test_time = evaluate_model_performance(test_loaders, model, test_names, epoch, train_mode='irm', loss_type=loss_type)
                 results_df = pd.concat([results_df, result])
                 train_metrics_df['test_test_time'] = test_test_time
@@ -1563,9 +2081,9 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
         if isinstance(include_multiinfected, float):
             pathogens = pathogens[pathogens['pathogen_prcfo_count']<=include_multiinfected]
         if not 'cell' in tables:
-        	pathogens_g_df, metadata = split_data(pathogens, 'prcfo', 'cell_id')
+            pathogens_g_df, metadata = split_data(pathogens, 'prcfo', 'cell_id')
         else:
-        	pathogens_g_df, _ = split_data(pathogens, 'prcfo', 'cell_id')
+            pathogens_g_df, _ = split_data(pathogens, 'prcfo', 'cell_id')
         if verbose:
             print(f'pathogens: {len(pathogens)}')
             print(f'pathogens grouped: {len(pathogens_g_df)}')
@@ -3300,7 +3818,7 @@ def reg_v_plot(df):
     plt.axhline(y=-np.log10(0.05), color='gray', linestyle='--')  # line for p=0.05
     plt.show()
 
-def analyze_data_reg(sequencing_loc, dv_loc, agg_type = 'mean', min_cell_count=50, min_reads=100, min_wells=2, max_wells=1000, remove_outlier_genes=False, refine_model=False,by_plate=False, threshold=0.5):
+def analyze_data_reg(sequencing_loc, dv_loc, agg_type = 'mean', min_cell_count=50, min_reads=100, min_wells=2, max_wells=1000, remove_outlier_genes=False, refine_model=False, by_plate=False, threshold=0.5, fishers=False):
     
     def qstring_to_float(qstr):
         number = int(qstr[1:])  # Remove the "q" and convert the rest to an integer
