@@ -7,6 +7,16 @@ import platform
 import getpass
 
 def get_paths(env_name):
+    """
+    Get the paths for Conda, Python, Pip, and the environment based on the given environment name.
+
+    Args:
+        env_name (str): The name of the Conda environment.
+
+    Returns:
+        tuple: A tuple containing the paths for Conda, Python, Pip, and the environment.
+               If Conda is not found in the system PATH, returns None for all paths.
+    """
     conda_executable = "conda.exe" if sys.platform == "win32" else "conda"
     python_executable = "python.exe" if sys.platform == "win32" else "python"
     pip_executable = "pip.exe" if sys.platform == "win32" else "pip"
@@ -43,6 +53,16 @@ def get_paths(env_name):
 
 # create new kernel
 def add_kernel(env_name, display_name):
+    """
+    Adds a kernel to Jupyter Notebook with the specified environment name and display name.
+
+    Parameters:
+    - env_name (str): The name of the environment.
+    - display_name (str): The display name of the kernel.
+
+    Returns:
+    None
+    """
     _, python_path, _, _ = get_paths(env_name)
     if not python_path:
         print(f"Failed to locate the Python executable for '{env_name}'")
@@ -56,10 +76,26 @@ def add_kernel(env_name, display_name):
         print(f"kernel can be added manualy with: python -m ipykernel install --user --name {env_name} --display-name {display_name}")
 
 def create_environment(conda_PATH, env_name):
+    """
+    Creates a new conda environment with the specified name.
+
+    Args:
+        conda_PATH (str): The path to the conda executable.
+        env_name (str): The name of the environment to create.
+
+    Returns:
+        None
+    """
     print(f"Creating environment {env_name}...")
     subprocess.run([conda_PATH, "create", "-n", env_name, "python=3.9", "-y"])
 
 def has_nvidia_gpu():
+    """
+    Check if the system has an NVIDIA GPU.
+
+    Returns:
+        bool: True if an NVIDIA GPU is present, False otherwise.
+    """
     try:
         if sys.platform == "win32":
             # For Windows, use systeminfo
@@ -75,7 +111,17 @@ def has_nvidia_gpu():
 
 # Install dependencies in a specified kernel environment.
 def install_dependencies_in_kernel(dependencies, env_name):
-    
+    """
+    Installs the required dependencies in the specified kernel environment.
+
+    Args:
+        dependencies (list): A list of package names to be installed with conda.
+        env_name (str): The name of the kernel environment.
+
+    Raises:
+        EnvironmentError: If the Conda executable is not found.
+
+    """
     conda_PATH, _, pip_PATH, _ = get_paths(env_name)
 
     # Check if conda is available
@@ -103,10 +149,6 @@ def install_dependencies_in_kernel(dependencies, env_name):
     else:
         print("No NVIDIA GPU found. Installing PyTorch for CPU.")
         subprocess.run([pip_PATH, "install", "torch", "torchvision", "torchaudio"])
-
-    # Install torch, torchvision, torchaudio with pip
-    #print("Installing torch")
-    #subprocess.run([pip_PATH, "install", "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/cu118"])
                     
     # Install cellpose
     print("Installing cellpose")
@@ -120,8 +162,8 @@ def install_dependencies_in_kernel(dependencies, env_name):
     pip_packages = ["numpy==1.24.0", "numba==0.58.0"]
     
     for package in pip_packages:
-    	print(f"Installing {package}")
-    	subprocess.run([pip_PATH, "install", package])
+        print(f"Installing {package}")
+        subprocess.run([pip_PATH, "install", package])
 
     print("Dependencies installation complete.")
 
@@ -243,9 +285,106 @@ import logging
 # Set the logging level to ERROR to suppress informational and warning messages
 logging.getLogger('btrack').setLevel(logging.ERROR)
 
+def _npz_to_movie(arrays, filenames, save_path, fps=10):
+    """
+    Convert a list of numpy arrays to a movie file.
+
+    Args:
+        arrays (List[np.ndarray]): List of numpy arrays representing frames of the movie.
+        filenames (List[str]): List of filenames corresponding to each frame.
+        save_path (str): Path to save the movie file.
+        fps (int, optional): Frames per second of the movie. Defaults to 10.
+
+    Returns:
+        None
+    """
+    # Define the codec and create VideoWriter object
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    if save_path.endswith('.mp4'):
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
+    # Initialize VideoWriter with the size of the first image
+    height, width = arrays[0].shape[:2]
+    out = cv2.VideoWriter(save_path, fourcc, fps, (width, height))
+
+    for i, frame in enumerate(arrays):
+        # Handle float32 images by scaling or normalizing
+        if frame.dtype == np.float32:
+            frame = np.clip(frame, 0, 1)
+            frame = (frame * 255).astype(np.uint8)
+
+        # Convert 16-bit image to 8-bit
+        elif frame.dtype == np.uint16:
+            frame = cv2.convertScaleAbs(frame, alpha=(255.0/65535.0))
+
+        # Handling 1-channel (grayscale) or 2-channel images
+        if frame.ndim == 2 or (frame.ndim == 3 and frame.shape[2] in [1, 2]):
+            if frame.ndim == 2 or frame.shape[2] == 1:
+                # Convert grayscale to RGB
+                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+            elif frame.shape[2] == 2:
+                # Create an RGB image with the first channel as red, second as green, blue set to zero
+                rgb_frame = np.zeros((height, width, 3), dtype=np.uint8)
+                rgb_frame[..., 0] = frame[..., 0]  # Red channel
+                rgb_frame[..., 1] = frame[..., 1]  # Green channel
+                frame = rgb_frame
+
+        # For 3-channel images, ensure it's in BGR format for OpenCV
+        elif frame.shape[2] == 3:
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+        # Add filenames as text on frames
+        cv2.putText(frame, filenames[i], (10, height - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+
+        out.write(frame)
+
+    out.release()
+    print(f"Movie saved to {save_path}")
+
 def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img_format='.tif', bitdepth='uint16', cmap='inferno', figuresize=15, normalize=False, nr=1, plot=False, mask_channels=[0,1,2], batch_size=[100,100,100], timelapse=False, remove_background=False, backgrounds=100, lower_quantile=0.01, save_dtype=np.float32, correct_illumination=False, randomize=True, all_to_mip=False, pick_slice=False, skip_mode='01',settings={}):
+    """
+    Preprocesses image data by converting z-stack images to maximum intensity projection (MIP) images.
+
+    Args:
+        src (str): The source directory containing the z-stack images.
+        metadata_type (str, optional): The type of metadata associated with the images. Defaults to 'cellvoyager'.
+        custom_regex (str, optional): The custom regular expression pattern used to match the filenames of the z-stack images. Defaults to None.
+        img_format (str, optional): The image format of the z-stack images. Defaults to '.tif'.
+        bitdepth (str, optional): The bit depth of the z-stack images. Defaults to 'uint16'.
+        cmap (str, optional): The colormap used for plotting. Defaults to 'inferno'.
+        figuresize (int, optional): The size of the figure for plotting. Defaults to 15.
+        normalize (bool, optional): Whether to normalize the images. Defaults to False.
+        nr (int, optional): The number of images to preprocess. Defaults to 1.
+        plot (bool, optional): Whether to plot the images. Defaults to False.
+        mask_channels (list, optional): The channels to use for masking. Defaults to [0, 1, 2].
+        batch_size (list, optional): The number of images to process in each batch. Defaults to [100, 100, 100].
+        timelapse (bool, optional): Whether the images are from a timelapse experiment. Defaults to False.
+        remove_background (bool, optional): Whether to remove the background from the images. Defaults to False.
+        backgrounds (int, optional): The number of background images to use for background removal. Defaults to 100.
+        lower_quantile (float, optional): The lower quantile used for background removal. Defaults to 0.01.
+        save_dtype (type, optional): The data type used for saving the preprocessed images. Defaults to np.float32.
+        correct_illumination (bool, optional): Whether to correct the illumination of the images. Defaults to False.
+        randomize (bool, optional): Whether to randomize the order of the images. Defaults to True.
+        all_to_mip (bool, optional): Whether to convert all images to MIP. Defaults to False.
+        pick_slice (bool, optional): Whether to pick a specific slice based on the provided skip mode. Defaults to False.
+        skip_mode (str, optional): The skip mode used to filter out specific slices. Defaults to '01'.
+        settings (dict, optional): Additional settings for preprocessing. Defaults to {}.
+
+    Returns:
+        None
+    """
     
     def __convert_cq1_well_id(well_id):
+        """
+        Converts a well ID to the CQ1 well format.
+
+        Args:
+            well_id (int): The well ID to be converted.
+
+        Returns:
+            str: The well ID in CQ1 well format.
+
+        """
         well_id = int(well_id)
         # ASCII code for 'A'
         ascii_A = ord('A')
@@ -258,6 +397,16 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
         return well_format
         
     def ___safe_int_convert(value, default=0):
+        """
+        Converts the given value to an integer if possible, otherwise returns the default value.
+
+        Args:
+            value: The value to be converted to an integer.
+            default: The default value to be returned if the conversion fails. Default is 0.
+
+        Returns:
+            The converted integer value if successful, otherwise the default value.
+        """
         try:
             return int(value)
         except ValueError:
@@ -265,6 +414,20 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
             return default
 
     def _z_to_mip(src, regex, batch_size=100, pick_slice=False, skip_mode='01', metadata_type=''):
+        """
+        Convert z-stack images to maximum intensity projection (MIP) images.
+
+        Args:
+            src (str): The source directory containing the z-stack images.
+            regex (str): The regular expression pattern used to match the filenames of the z-stack images.
+            batch_size (int, optional): The number of images to process in each batch. Defaults to 100.
+            pick_slice (bool, optional): Whether to pick a specific slice based on the provided skip mode. Defaults to False.
+            skip_mode (str, optional): The skip mode used to filter out specific slices. Defaults to '01'.
+            metadata_type (str, optional): The type of metadata associated with the images. Defaults to ''.
+
+        Returns:
+            None
+        """
         regular_expression = re.compile(regex)
         images_by_key = defaultdict(list)
         stack_path = os.path.join(src, 'stack')
@@ -423,6 +586,16 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
         return
 
     def _merge_channels(src, plot=False):
+        """
+        Merge the channels in the given source directory and save the merged files in a 'stack' directory.
+
+        Args:
+            src (str): The path to the source directory containing the channel folders.
+            plot (bool, optional): Whether to plot the merged arrays. Defaults to False.
+
+        Returns:
+            None
+        """
         src = Path(src)
         stack_dir = src / 'stack'
         chan_dirs = [d for d in src.iterdir() if d.is_dir() and d.name in ['01', '02', '03', '04', '00', '1', '2', '3', '4','0']]
@@ -451,9 +624,18 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
         return
 
     def _mip_all(src, include_first_chan=True):
-        # Print a starting message to indicate the beginning of the MIP generation process.
-        print('========== generating MIPs ==========')
+        """
+        Generate maximum intensity projections (MIPs) for each NumPy array file in the specified directory.
 
+        Args:
+            src (str): The directory path containing the NumPy array files.
+            include_first_chan (bool, optional): Whether to include the first channel of the array in the MIP computation. 
+                                                    Defaults to True.
+
+        Returns:
+            None
+        """
+        print('========== generating MIPs ==========')
         # Iterate over each file in the specified directory (src).
         for filename in os.listdir(src):
             # Check if the current file is a NumPy array file (with .npy extension).
@@ -486,6 +668,19 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
         return
 
     def _concatenate_channel(src, channels, randomize=True, timelapse=False, batch_size=100):
+        """
+        Concatenates channel data from multiple files and saves the concatenated data as numpy arrays.
+
+        Args:
+            src (str): The source directory containing the channel data files.
+            channels (list): The list of channel indices to be concatenated.
+            randomize (bool, optional): Whether to randomize the order of the files. Defaults to True.
+            timelapse (bool, optional): Whether the channel data is from a timelapse experiment. Defaults to False.
+            batch_size (int, optional): The number of files to be processed in each batch. Defaults to 100.
+
+        Returns:
+            str: The directory path where the concatenated channel data is saved.
+        """
         channels = [item for item in channels if item is not None]
         paths = []
         index = 0
@@ -558,6 +753,15 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
         return channel_stack_loc
 
     def _get_lists_for_normalization(settings):
+        """
+        Get lists for normalization based on the provided settings.
+
+        Args:
+            settings (dict): A dictionary containing the settings for normalization.
+
+        Returns:
+            tuple: A tuple containing three lists - backgrounds, signal_to_noise, and signal_thresholds.
+        """
 
         # Initialize the lists
         backgrounds = []
@@ -581,7 +785,22 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
         return backgrounds, signal_to_noise, signal_thresholds
 
     def _normalize_stack(src, backgrounds=[100,100,100], remove_background=False, lower_quantile=0.01, save_dtype=np.float32, signal_to_noise=[5,5,5], signal_thresholds=[1000,1000,1000], correct_illumination=False):
+        """
+        Normalize the stack of images.
 
+        Args:
+            src (str): The source directory containing the stack of images.
+            backgrounds (list, optional): Background values for each channel. Defaults to [100,100,100].
+            remove_background (bool, optional): Whether to remove background values. Defaults to False.
+            lower_quantile (float, optional): Lower quantile value for normalization. Defaults to 0.01.
+            save_dtype (numpy.dtype, optional): Data type for saving the normalized stack. Defaults to np.float32.
+            signal_to_noise (list, optional): Signal-to-noise ratio thresholds for each channel. Defaults to [5,5,5].
+            signal_thresholds (list, optional): Signal thresholds for each channel. Defaults to [1000,1000,1000].
+            correct_illumination (bool, optional): Whether to correct illumination. Defaults to False.
+
+        Returns:
+            None
+        """
         paths = [os.path.join(src, file) for file in os.listdir(src) if file.endswith('.npz')]
         output_fldr = os.path.join(os.path.dirname(src), 'norm_channel_stack')
         os.makedirs(output_fldr, exist_ok=True)
@@ -653,6 +872,14 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
         return print(f'Saved stacks:{output_fldr}')
 
     def _normalize_timelapse(src, lower_quantile=0.01, save_dtype=np.float32):
+        """
+        Normalize the timelapse data by rescaling the intensity values based on percentiles.
+
+        Args:
+            src (str): The source directory containing the timelapse data files.
+            lower_quantile (float, optional): The lower quantile used to calculate the intensity range. Defaults to 0.01.
+            save_dtype (numpy.dtype, optional): The data type to save the normalized stack. Defaults to np.float32.
+        """
         paths = [os.path.join(src, file) for file in os.listdir(src) if file.endswith('.npz')]
         output_fldr = os.path.join(os.path.dirname(src), 'norm_channel_stack')
         os.makedirs(output_fldr, exist_ok=True)
@@ -690,6 +917,16 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
         print(f'\nSaved normalized stacks: {output_fldr}')
 
     def _plot_4D_arrays(src, figuresize=10, cmap='inferno', nr_npz=1, nr=1):
+        """
+        Plot 4D arrays from .npz files.
+
+        Args:
+            src (str): The directory path where the .npz files are located.
+            figuresize (int, optional): The size of the figure. Defaults to 10.
+            cmap (str, optional): The colormap to use for image visualization. Defaults to 'inferno'.
+            nr_npz (int, optional): The number of .npz files to plot. Defaults to 1.
+            nr (int, optional): The number of images to plot from each .npz file. Defaults to 1.
+        """
         paths = [os.path.join(src, file) for file in os.listdir(src) if file.endswith('.npz')]
         paths = random.sample(paths, min(nr_npz, len(paths)))
 
@@ -717,6 +954,54 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
                 fig.tight_layout()
                 plt.show()
         return
+    
+    def _create_movies_from_npy_per_channel(src, fps=10):
+        """
+        Create movies from numpy files per channel.
+
+        Args:
+            src (str): The source directory containing the numpy files.
+            fps (int, optional): Frames per second for the output movies. Defaults to 10.
+        """
+        master_path = os.path.dirname(src)
+        save_path = os.path.join(master_path,'movies')
+        os.makedirs(save_path, exist_ok=True)
+        # Organize files by plate, well, field
+        files = [f for f in os.listdir(src) if f.endswith('.npy')]
+        organized_files = {}
+        for f in files:
+            match = re.match(r'(\w+)_(\w+)_(\w+)_(\d+)\.npy', f)
+            if match:
+                plate, well, field, time = match.groups()
+                key = (plate, well, field)
+                if key not in organized_files:
+                    organized_files[key] = []
+                organized_files[key].append((int(time), os.path.join(src, f)))
+        for key, file_list in organized_files.items():
+            plate, well, field = key
+            file_list.sort(key=lambda x: x[0])
+            arrays = []
+            filenames = []
+            for f in file_list:
+                array = np.load(f[1])
+                #if array.dtype != np.uint8:
+                #    array = ((array - array.min()) / (array.max() - array.min()) * 255).astype(np.uint8)
+                arrays.append(array)
+                filenames.append(os.path.basename(f[1]))
+            arrays = np.stack(arrays, axis=0)
+        for channel in range(arrays.shape[-1]):
+            # Extract the current channel for all time points
+            channel_arrays = arrays[..., channel]
+            # Flatten the channel data to compute global percentiles
+            channel_data_flat = channel_arrays.reshape(-1)
+            p1, p99 = np.percentile(channel_data_flat, [1, 99])
+            # Normalize and rescale each array in the channel
+            normalized_channel_arrays = [(np.clip((arr - p1) / (p99 - p1), 0, 1) * 255).astype(np.uint8) for arr in channel_arrays]
+            # Convert the list of 2D arrays into a list of 3D arrays with a single channel
+            normalized_channel_arrays_3d = [arr[..., np.newaxis] for arr in normalized_channel_arrays]
+            # Save as movie for the current channel
+            channel_save_path = os.path.join(save_path, f'{plate}_{well}_{field}_channel_{channel}.mp4')
+            _npz_to_movie(normalized_channel_arrays_3d, filenames, channel_save_path, fps)
     
     print(f'========== settings ==========')
     print(f'source == {src}')
@@ -767,7 +1052,7 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
             print(f'plotting {nr} images from {src}/stack')
             plot_arrays(src+'/stack', figuresize, cmap, nr=nr, normalize=normalize)
         if all_to_mip:
-            mip_all(src+'/stack')
+            _mip_all(src+'/stack')
             if plot:
                 print(f'plotting {nr} images from {src}/stack')
                 plot_arrays(src+'/stack', figuresize, cmap, nr=nr, normalize=normalize)
@@ -807,7 +1092,16 @@ def preprocess_img_data(src, metadata_type='cellvoyager', custom_regex=None, img
     return print(f'========== complete ==========')
 
 
-def generate_mask_random_cmap(mask):  
+def generate_mask_random_cmap(mask):
+    """
+    Generate a random colormap based on the unique labels in the given mask.
+
+    Parameters:
+    mask (numpy.ndarray): The input mask array.
+
+    Returns:
+    matplotlib.colors.ListedColormap: The random colormap.
+    """
     unique_labels = np.unique(mask)
     num_objects = len(unique_labels[unique_labels != 0])
     random_colors = np.random.rand(num_objects+1, 4)
@@ -817,6 +1111,15 @@ def generate_mask_random_cmap(mask):
     return random_cmap
     
 def random_cmap(num_objects=100):
+    """
+    Generate a random colormap.
+
+    Parameters:
+    num_objects (int): The number of objects to generate colors for. Default is 100.
+
+    Returns:
+    random_cmap (matplotlib.colors.ListedColormap): A random colormap.
+    """
     random_colors = np.random.rand(num_objects+1, 4)
     random_colors[:, 3] = 1
     random_colors[0, :] = [0, 0, 0, 1]
@@ -824,6 +1127,21 @@ def random_cmap(num_objects=100):
     return random_cmap
 
 def plot_arrays(src, figuresize=50, cmap='inferno', nr=1, normalize=True, q1=1, q2=99):
+    """
+    Plot randomly selected arrays from a given directory.
+
+    Parameters:
+    - src (str): The directory path containing the arrays.
+    - figuresize (int): The size of the figure (default: 50).
+    - cmap (str): The colormap to use for displaying the arrays (default: 'inferno').
+    - nr (int): The number of arrays to plot (default: 1).
+    - normalize (bool): Whether to normalize the arrays (default: True).
+    - q1 (int): The lower percentile for normalization (default: 1).
+    - q2 (int): The upper percentile for normalization (default: 99).
+
+    Returns:
+    None
+    """
     mask_cmap = random_cmap()
     paths = []
     for file in os.listdir(src):
@@ -855,8 +1173,29 @@ def plot_arrays(src, figuresize=50, cmap='inferno', nr=1, normalize=True, q1=1, 
     return
 
 def plot_merged(src, settings):
+    """
+    Plot the merged images after applying various filters and modifications.
 
+    Args:
+        src (ndarray): The source images.
+        settings (dict): The settings for the plot.
+
+    Returns:
+        None
+    """
     def __remove_noninfected(stack, cell_dim, nucleus_dim, pathogen_dim):
+        """
+        Remove non-infected cells from the stack based on the provided dimensions.
+
+        Args:
+            stack (ndarray): The stack of images.
+            cell_dim (int or None): The dimension index for the cell mask. If None, a zero-filled mask will be used.
+            nucleus_dim (int or None): The dimension index for the nucleus mask. If None, a zero-filled mask will be used.
+            pathogen_dim (int or None): The dimension index for the pathogen mask. If None, a zero-filled mask will be used.
+
+        Returns:
+            ndarray: The updated stack with non-infected cells removed.
+        """
         if not cell_dim is None:
             cell_mask = stack[:, :, cell_dim]
         else:
@@ -884,6 +1223,18 @@ def plot_merged(src, settings):
         return stack
 
     def __remove_outside_objects(stack, cell_dim, nucleus_dim, pathogen_dim):
+        """
+        Remove outside objects from the stack based on the provided dimensions.
+
+        Args:
+            stack (ndarray): The stack of images.
+            cell_dim (int): The dimension index of the cell mask in the stack.
+            nucleus_dim (int): The dimension index of the nucleus mask in the stack.
+            pathogen_dim (int): The dimension index of the pathogen mask in the stack.
+
+        Returns:
+            ndarray: The updated stack with outside objects removed.
+        """
         if not cell_dim is None:
             cell_mask = stack[:, :, cell_dim]
         else:
@@ -905,6 +1256,20 @@ def plot_merged(src, settings):
         return stack
 
     def __remove_multiobject_cells(stack, mask_dim, cell_dim, nucleus_dim, pathogen_dim, object_dim):
+        """
+        Remove multi-object cells from the stack.
+
+        Args:
+            stack (ndarray): The stack of images.
+            mask_dim (int): The dimension of the mask in the stack.
+            cell_dim (int): The dimension of the cell in the stack.
+            nucleus_dim (int): The dimension of the nucleus in the stack.
+            pathogen_dim (int): The dimension of the pathogen in the stack.
+            object_dim (int): The dimension of the object in the stack.
+
+        Returns:
+            ndarray: The updated stack with multi-object cells removed.
+        """
         cell_mask = stack[:, :, mask_dim]
         nucleus_mask = stack[:, :, nucleus_dim]
         pathogen_mask = stack[:, :, pathogen_dim]
@@ -924,7 +1289,16 @@ def plot_merged(src, settings):
         stack[:, :, pathogen_dim] = pathogen_mask
         return stack
     
-    def __generate_mask_random_cmap(mask):  
+    def __generate_mask_random_cmap(mask):
+        """
+        Generate a random colormap based on the unique labels in the given mask.
+
+        Parameters:
+        mask (ndarray): The mask array containing unique labels.
+
+        Returns:
+        ListedColormap: A random colormap generated based on the unique labels in the mask.
+        """
         unique_labels = np.unique(mask)
         num_objects = len(unique_labels[unique_labels != 0])
         random_colors = np.random.rand(num_objects+1, 4)
@@ -934,6 +1308,15 @@ def plot_merged(src, settings):
         return random_cmap
     
     def __get_colours_merged(outline_color):
+        """
+        Get the merged outline colors based on the specified outline color format.
+
+        Parameters:
+        outline_color (str): The outline color format. Can be one of 'rgb', 'bgr', 'gbr', or 'rbg'.
+
+        Returns:
+        list: A list of merged outline colors based on the specified format.
+        """
         if outline_color == 'rgb':
             outline_colors = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]  # rgb
         elif outline_color == 'bgr':
@@ -947,7 +1330,22 @@ def plot_merged(src, settings):
         return outline_colors
     
     def __filter_objects_in_plot(stack, cell_mask_dim, nucleus_mask_dim, pathogen_mask_dim, mask_dims, filter_min_max, include_multinucleated, include_multiinfected):
+        """
+        Filters objects in a plot based on various criteria.
 
+        Args:
+            stack (numpy.ndarray): The input stack of masks.
+            cell_mask_dim (int): The dimension index of the cell mask.
+            nucleus_mask_dim (int): The dimension index of the nucleus mask.
+            pathogen_mask_dim (int): The dimension index of the pathogen mask.
+            mask_dims (list): A list of dimension indices for additional masks.
+            filter_min_max (list): A list of minimum and maximum area values for each mask.
+            include_multinucleated (bool): Whether to include multinucleated cells.
+            include_multiinfected (bool): Whether to include multiinfected cells.
+
+        Returns:
+            numpy.ndarray: The filtered stack of masks.
+        """
         stack = __remove_outside_objects(stack, cell_mask_dim, nucleus_mask_dim, pathogen_mask_dim)
         
         for i, mask_dim in enumerate(mask_dims):
@@ -999,6 +1397,24 @@ def plot_merged(src, settings):
         return stack
         
     def __normalize_and_outline(image, remove_background, backgrounds, normalize, normalization_percentiles, overlay, overlay_chans, mask_dims, outline_colors, outline_thickness):
+        """
+        Normalize and outline an image.
+
+        Args:
+            image (ndarray): The input image.
+            remove_background (bool): Flag indicating whether to remove the background.
+            backgrounds (list): List of background values for each channel.
+            normalize (bool): Flag indicating whether to normalize the image.
+            normalization_percentiles (list): List of percentiles for normalization.
+            overlay (bool): Flag indicating whether to overlay outlines onto the image.
+            overlay_chans (list): List of channel indices to overlay.
+            mask_dims (list): List of dimensions to use for masking.
+            outline_colors (list): List of colors for the outlines.
+            outline_thickness (int): Thickness of the outlines.
+
+        Returns:
+            tuple: A tuple containing the overlayed image, the original image, and a list of outlines.
+        """
         outlines = []
         if remove_background:
             for chan_index, channel in enumerate(range(image.shape[-1])):
@@ -1034,6 +1450,24 @@ def plot_merged(src, settings):
             return [], image, []
         
     def __plot_merged_plot(overlay, image, stack, mask_dims, figuresize, overlayed_image, outlines, cmap, outline_colors, print_object_number):
+        """
+        Plot the merged plot with overlay, image channels, and masks.
+
+        Args:
+            overlay (bool): Flag indicating whether to overlay the image with outlines.
+            image (ndarray): Input image array.
+            stack (ndarray): Stack of masks.
+            mask_dims (list): List of mask dimensions.
+            figuresize (float): Size of the figure.
+            overlayed_image (ndarray): Overlayed image array.
+            outlines (list): List of outlines.
+            cmap (str): Colormap for the masks.
+            outline_colors (list): List of outline colors.
+            print_object_number (bool): Flag indicating whether to print object numbers on the masks.
+
+        Returns:
+            fig (Figure): The generated matplotlib figure.
+        """
         if overlay:
             fig, ax = plt.subplots(1, image.shape[-1] + len(mask_dims) + 1, figsize=(4 * figuresize, figuresize))
             ax[0].imshow(overlayed_image)
@@ -1109,6 +1543,17 @@ def plot_merged(src, settings):
             return
 
 def merge_file(chan_dirs, stack_dir, file):
+    """
+    Merge multiple channels into a single stack and save it as a numpy array.
+
+    Args:
+        chan_dirs (list): List of directories containing channel images.
+        stack_dir (str): Directory to save the merged stack.
+        file (str): File name of the channel image.
+
+    Returns:
+        None
+    """
     chan1 = cv2.imread(str(file), -1)
     chan1 = np.expand_dims(chan1, axis=2)
     new_file = stack_dir / (file.stem + '.npy')
@@ -1123,9 +1568,28 @@ def merge_file(chan_dirs, stack_dir, file):
         np.save(new_file, stack)
 
 def is_dir_empty(dir_path):
+    """
+    Check if a directory is empty.
+
+    Args:
+        dir_path (str): The path to the directory.
+
+    Returns:
+        bool: True if the directory is empty, False otherwise.
+    """
     return len(os.listdir(dir_path)) == 0
 
 def generate_time_lists(file_list):
+    """
+    Generate sorted lists of filenames grouped by plate, well, and field.
+
+    Args:
+        file_list (list): A list of filenames.
+
+    Returns:
+        list: A list of sorted file lists, where each file list contains filenames
+              belonging to the same plate, well, and field, sorted by timepoint.
+    """
     file_dict = defaultdict(list)
     for filename in file_list:
         if filename.endswith('.npy'):
@@ -1149,6 +1613,17 @@ def generate_time_lists(file_list):
     return sorted_file_lists
 
 def merge_touching_objects(mask, threshold=0.25):
+    """
+    Merges touching objects in a binary mask based on the percentage of their shared boundary.
+
+    Args:
+        mask (ndarray): Binary mask representing objects.
+        threshold (float, optional): Threshold value for merging objects. Defaults to 0.25.
+
+    Returns:
+        ndarray: Merged mask.
+
+    """
     perimeters = {}
     labels = np.unique(mask)
     # Calculating perimeter of each object
@@ -1175,6 +1650,17 @@ def merge_touching_objects(mask, threshold=0.25):
     return mask
 
 def check_masks(batch, batch_filenames, output_folder):
+    """
+    Check the masks in a batch and filter out the ones that already exist in the output folder.
+
+    Args:
+        batch (list): List of masks.
+        batch_filenames (list): List of filenames corresponding to the masks.
+        output_folder (str): Path to the output folder.
+
+    Returns:
+        tuple: A tuple containing the filtered batch (numpy array) and the filtered filenames (list).
+    """
     # Create a mask for filenames that are already present in the output folder
     existing_files_mask = [not os.path.isfile(os.path.join(output_folder, filename)) for filename in batch_filenames]
 
@@ -1185,6 +1671,19 @@ def check_masks(batch, batch_filenames, output_folder):
     return np.array(filtered_batch), filtered_filenames
 
 def remove_intensity_objects(image, mask, intensity_threshold, mode):
+    """
+    Removes objects from the mask based on their mean intensity in the original image.
+
+    Args:
+        image (ndarray): The original image.
+        mask (ndarray): The mask containing labeled objects.
+        intensity_threshold (float): The threshold value for mean intensity.
+        mode (str): The mode for intensity comparison. Can be 'low' or 'high'.
+
+    Returns:
+        ndarray: The updated mask with objects removed.
+
+    """
     # Calculate the mean intensity of each object in the original image
     props = regionprops_table(mask, image, properties=('label', 'mean_intensity'))
     # Find the labels of the objects with mean intensity below the threshold
@@ -1197,6 +1696,15 @@ def remove_intensity_objects(image, mask, intensity_threshold, mode):
     return mask
 
 def get_avg_object_size(masks):
+    """
+    Calculate the average size of objects in a list of masks.
+
+    Parameters:
+    masks (list): A list of masks representing objects.
+
+    Returns:
+    float: The average size of objects in the masks. Returns 0 if no objects are found.
+    """
     object_areas = []
     for mask in masks:
         # Check if the mask is a 2D or 3D array and is not empty
@@ -1216,12 +1724,39 @@ def get_avg_object_size(masks):
         return 0  # Return 0 if no objects are found
 
 def mask_object_count(mask):
+    """
+    Counts the number of objects in a given mask.
+
+    Parameters:
+    - mask: numpy.ndarray
+        The mask containing object labels.
+
+    Returns:
+    - int
+        The number of objects in the mask.
+    """
     unique_labels = np.unique(mask)
     num_objects = len(unique_labels[unique_labels!=0])
     return num_objects
 
 
 def plot_masks(batch, masks, flows, cmap='inferno', figuresize=20, nr=1, file_type='.npz', print_object_number=True):
+    """
+    Plot the masks and flows for a given batch of images.
+
+    Args:
+        batch (numpy.ndarray): The batch of images.
+        masks (list or numpy.ndarray): The masks corresponding to the images.
+        flows (list or numpy.ndarray): The flows corresponding to the images.
+        cmap (str, optional): The colormap to use for displaying the images. Defaults to 'inferno'.
+        figuresize (int, optional): The size of the figure. Defaults to 20.
+        nr (int, optional): The maximum number of images to plot. Defaults to 1.
+        file_type (str, optional): The file type of the flows. Defaults to '.npz'.
+        print_object_number (bool, optional): Whether to print the object number on the mask. Defaults to True.
+
+    Returns:
+        None
+    """
     if len(batch.shape) == 3:
         batch = np.expand_dims(batch, axis=0)
     if not isinstance(masks, list):
@@ -1265,6 +1800,24 @@ def plot_masks(batch, masks, flows, cmap='inferno', figuresize=20, nr=1, file_ty
 
             
 def normalize_to_dtype(array, q1=2,q2=98, percentiles=None):
+    """
+    Normalize the input array to a specified data type.
+
+    Parameters:
+    - array: numpy array
+        The input array to be normalized.
+    - q1: int, optional
+        The lower percentile value for normalization. Default is 2.
+    - q2: int, optional
+        The upper percentile value for normalization. Default is 98.
+    - percentiles: list of tuples, optional
+        A list of tuples containing the percentile values for each image in the array.
+        If provided, the percentiles for each image will be used instead of q1 and q2.
+
+    Returns:
+    - new_stack: numpy array
+        The normalized array with the same shape as the input array.
+    """
     nimg = array.shape[2]
     new_stack = np.empty_like(array)
     for i,v in enumerate(range(nimg)):
@@ -1284,21 +1837,61 @@ def normalize_to_dtype(array, q1=2,q2=98, percentiles=None):
         new_stack[:, :, v] = img[:, :, 0]
     return new_stack
 
-
-
 def create_database(db_path):
+    """
+    Creates a SQLite database at the specified path.
+
+    Args:
+        db_path (str): The path where the database should be created.
+
+    Returns:
+        None
+    """
     conn = None
     try:
         conn = sqlite3.connect(db_path)
-    except Error as e:
+    except Exception as e:
         print(e)
     finally:
         if conn:
             conn.close()
 
 def __morphological_measurements(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_mask, settings, zernike=True, degree=8):
+    """
+    Calculate morphological measurements for cells, nuclei, pathogens, and cytoplasms based on the given masks.
 
+    Args:
+        cell_mask (ndarray): Binary mask of cell labels.
+        nuclei_mask (ndarray): Binary mask of nuclei labels.
+        pathogen_mask (ndarray): Binary mask of pathogen labels.
+        cytoplasm_mask (ndarray): Binary mask of cytoplasm labels.
+        settings (dict): Dictionary containing settings for the measurements.
+        zernike (bool, optional): Flag indicating whether to calculate Zernike moments. Defaults to True.
+        degree (int, optional): Degree of Zernike moments. Defaults to 8.
+
+    Returns:
+        tuple: A tuple containing four dataframes - cell_df, nucleus_df, pathogen_df, and cytoplasm_df.
+            cell_df (DataFrame): Dataframe with morphological measurements for cells.
+            nucleus_df (DataFrame): Dataframe with morphological measurements for nuclei.
+            pathogen_df (DataFrame): Dataframe with morphological measurements for pathogens.
+            cytoplasm_df (DataFrame): Dataframe with morphological measurements for cytoplasms.
+    """
     def get_components(cell_mask, nuclei_mask, pathogen_mask):
+        """
+        Get the components (nuclei and pathogens) for each cell in the given masks.
+
+        Args:
+            cell_mask (ndarray): Binary mask of cell labels.
+            nuclei_mask (ndarray): Binary mask of nuclei labels.
+            pathogen_mask (ndarray): Binary mask of pathogen labels.
+
+        Returns:
+            tuple: A tuple containing two dataframes - nucleus_df and pathogen_df.
+                nucleus_df (DataFrame): Dataframe with columns 'cell_id' and 'nucleus',
+                    representing the mapping of each cell to its nuclei.
+                pathogen_df (DataFrame): Dataframe with columns 'cell_id' and 'pathogen',
+                    representing the mapping of each cell to its pathogens.
+        """
         # Create mappings from each cell to its nuclei, pathogens, and cytoplasms
         cell_to_nucleus = defaultdict(list)
         cell_to_pathogen = defaultdict(list)
@@ -1323,6 +1916,21 @@ def __morphological_measurements(cell_mask, nuclei_mask, pathogen_mask, cytoplas
         return nucleus_df, pathogen_df
 
     def _calculate_zernike(mask, df, degree=8):
+        """
+        Calculate Zernike moments for each region in the given mask image.
+
+        Args:
+            mask (ndarray): Binary mask image.
+            df (DataFrame): Input DataFrame.
+            degree (int, optional): Degree of Zernike moments. Defaults to 8.
+
+        Returns:
+            DataFrame: Updated DataFrame with Zernike features appended, if any regions are found in the mask.
+                       Otherwise, returns the original DataFrame.
+        Raises:
+            ValueError: If the lengths of Zernike moments are not consistent.
+
+        """
         zernike_features = []
         for region in regionprops(mask):
             zernike_moment = zernike_moments(region.image, degree)
@@ -1395,20 +2003,59 @@ def __morphological_measurements(cell_mask, nuclei_mask, pathogen_mask, cytoplas
     return df_ls[0], df_ls[1], df_ls[2], df_ls[3]
 
 def __intensity_measurements(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_mask, channel_arrays, settings, sizes=[3, 6, 12, 24], periphery=True, outside=True):
-    
+    """
+    Calculate various intensity measurements for different regions in the image.
+
+    Args:
+        cell_mask (ndarray): Binary mask indicating the cell regions.
+        nuclei_mask (ndarray): Binary mask indicating the nuclei regions.
+        pathogen_mask (ndarray): Binary mask indicating the pathogen regions.
+        cytoplasm_mask (ndarray): Binary mask indicating the cytoplasm regions.
+        channel_arrays (ndarray): Array of channel images.
+        settings (dict): Additional settings for the intensity measurements.
+        sizes (list, optional): List of sizes for the measurements. Defaults to [3, 6, 12, 24].
+        periphery (bool, optional): Flag indicating whether to calculate periphery intensity measurements. Defaults to True.
+        outside (bool, optional): Flag indicating whether to calculate outside intensity measurements. Defaults to True.
+
+    Returns:
+        dict: A dictionary containing the calculated intensity measurements.
+
+    """
     def _create_dataframe(radial_distributions, object_type):
-        df = pd.DataFrame()
-        for key, value in radial_distributions.items():
-            cell_label, object_label, channel_index = key
-            for i in range(len(value)):
-                col_name = f'{object_type}_rad_dist_channel_{channel_index}_bin_{i}'
-                df.loc[object_label, col_name] = value[i]
-            df.loc[object_label, 'cell_id'] = cell_label
-        # Reset the index and rename the column that was previously the index
-        df = df.reset_index().rename(columns={'index': 'label'})
-        return df
+            """
+            Create a pandas DataFrame from the given radial distributions.
+
+            Parameters:
+            - radial_distributions (dict): A dictionary containing the radial distributions.
+            - object_type (str): The type of object.
+
+            Returns:
+            - df (pandas.DataFrame): The created DataFrame.
+            """
+            df = pd.DataFrame()
+            for key, value in radial_distributions.items():
+                cell_label, object_label, channel_index = key
+                for i in range(len(value)):
+                    col_name = f'{object_type}_rad_dist_channel_{channel_index}_bin_{i}'
+                    df.loc[object_label, col_name] = value[i]
+                df.loc[object_label, 'cell_id'] = cell_label
+            # Reset the index and rename the column that was previously the index
+            df = df.reset_index().rename(columns={'index': 'label'})
+            return df
     
     def _extended_regionprops_table(labels, image, intensity_props):
+        """
+        Calculate extended region properties table.
+
+        Args:
+            labels (ndarray): Labeled image.
+            image (ndarray): Input image.
+            intensity_props (list): List of intensity properties to calculate.
+
+        Returns:
+            DataFrame: Extended region properties table.
+
+        """
         regions = regionprops(labels, image)
         props = regionprops_table(labels, image, properties=intensity_props)
         percentiles = [5, 10, 25, 50, 75, 85, 95]
@@ -1419,22 +2066,52 @@ def __intensity_measurements(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_ma
         return pd.DataFrame(props)
 
     def _calculate_homogeneity(label, channel, distances=[2,4,8,16,32,64]):
-        homogeneity_values = []
-        # Iterate through the regions in label_mask
-        for region in regionprops(label):
-            region_image = (region.image * channel[region.slice]).astype(int)
-            homogeneity_per_distance = []
-            for d in distances:
-                rescaled_image = rescale_intensity(region_image, out_range=(0, 255)).astype('uint8')
-                glcm = graycomatrix(rescaled_image, [d], [0], symmetric=True, normed=True)
-                homogeneity_per_distance.append(graycoprops(glcm, 'homogeneity')[0, 0])
-            homogeneity_values.append(homogeneity_per_distance)
-        columns = [f'homogeneity_distance_{d}' for d in distances]
-        homogeneity_df = pd.DataFrame(homogeneity_values, columns=columns)
+            """
+            Calculate the homogeneity values for each region in the label mask.
 
-        return homogeneity_df
+            Parameters:
+            - label (ndarray): The label mask containing the regions.
+            - channel (ndarray): The image channel corresponding to the label mask.
+            - distances (list): The distances to calculate the homogeneity for.
+
+            Returns:
+            - homogeneity_df (DataFrame): A DataFrame containing the homogeneity values for each region and distance.
+            """
+            homogeneity_values = []
+            # Iterate through the regions in label_mask
+            for region in regionprops(label):
+                region_image = (region.image * channel[region.slice]).astype(int)
+                homogeneity_per_distance = []
+                for d in distances:
+                    rescaled_image = rescale_intensity(region_image, out_range=(0, 255)).astype('uint8')
+                    glcm = graycomatrix(rescaled_image, [d], [0], symmetric=True, normed=True)
+                    homogeneity_per_distance.append(graycoprops(glcm, 'homogeneity')[0, 0])
+                homogeneity_values.append(homogeneity_per_distance)
+            columns = [f'homogeneity_distance_{d}' for d in distances]
+            homogeneity_df = pd.DataFrame(homogeneity_values, columns=columns)
+
+            return homogeneity_df
 
     def _periphery_intensity(label_mask, image):
+        """
+        Calculate intensity statistics for the periphery regions in the label mask.
+
+        Args:
+            label_mask (ndarray): Binary mask indicating the regions of interest.
+            image (ndarray): Input image.
+
+        Returns:
+            list: List of tuples containing periphery intensity statistics for each region.
+                  Each tuple contains the region label and the following statistics:
+                  - Mean intensity
+                  - 5th percentile intensity
+                  - 10th percentile intensity
+                  - 25th percentile intensity
+                  - 50th percentile intensity (median)
+                  - 75th percentile intensity
+                  - 85th percentile intensity
+                  - 95th percentile intensity
+        """
         periphery_intensity_stats = []
         boundary = find_boundaries(label_mask)
         for region in np.unique(label_mask)[1:]:  # skip the background label
@@ -1450,6 +2127,26 @@ def __intensity_measurements(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_ma
         return periphery_intensity_stats
 
     def _outside_intensity(label_mask, image, distance=5):
+        """
+        Calculate the statistics of intensities outside each labeled region in the image.
+
+        Args:
+            label_mask (ndarray): Binary mask indicating the labeled regions.
+            image (ndarray): Input image.
+            distance (int): Distance for dilation operation (default: 5).
+
+        Returns:
+            list: List of tuples containing the statistics for each labeled region.
+                  Each tuple contains the region label and the following statistics:
+                  - Mean intensity
+                  - 5th percentile intensity
+                  - 10th percentile intensity
+                  - 25th percentile intensity
+                  - 50th percentile intensity (median)
+                  - 75th percentile intensity
+                  - 85th percentile intensity
+                  - 95th percentile intensity
+        """
         outside_intensity_stats = []
         for region in np.unique(label_mask)[1:]:  # skip the background label
             region_mask = label_mask == region
@@ -1466,8 +2163,34 @@ def __intensity_measurements(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_ma
         return outside_intensity_stats
     
     def _calculate_radial_distribution(cell_mask, object_mask, channel_arrays, num_bins=6):
-        
+        """
+        Calculate the radial distribution of average intensities for each object in each cell.
+
+        Args:
+            cell_mask (numpy.ndarray): The mask representing the cells.
+            object_mask (numpy.ndarray): The mask representing the objects.
+            channel_arrays (numpy.ndarray): The array of channel images.
+            num_bins (int, optional): The number of bins for the radial distribution. Defaults to 6.
+
+        Returns:
+            dict: A dictionary containing the radial distributions of average intensities for each object in each cell.
+                The keys are tuples of (cell_label, object_label, channel_index), and the values are numpy arrays
+                representing the radial distributions.
+
+        """
         def __calculate_average_intensity(distance_map, single_channel_image, num_bins):
+            """
+            Calculate the average intensity of a single-channel image based on the distance map.
+
+            Args:
+                distance_map (numpy.ndarray): The distance map.
+                single_channel_image (numpy.ndarray): The single-channel image.
+                num_bins (int): The number of bins for the radial distribution.
+
+            Returns:
+                numpy.ndarray: The radial distribution of average intensities.
+
+            """
             radial_distribution = np.zeros(num_bins)
             for i in range(num_bins):
                 min_distance = i * (distance_map.max() / num_bins)
@@ -1500,41 +2223,69 @@ def __intensity_measurements(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_ma
         return object_radial_distributions
     
     def _calculate_correlation_object_level(channel_image1, channel_image2, mask, settings):
-        thresholds = settings['manders_thresholds']
+            """
+            Calculate correlation at the object level between two channel images based on a mask.
 
-        corr_data = {}
-        for i in np.unique(mask)[1:]:
-            object_mask = (mask == i)
-            object_channel_image1 = channel_image1[object_mask]
-            object_channel_image2 = channel_image2[object_mask]
-            total_intensity1 = np.sum(object_channel_image1)
-            total_intensity2 = np.sum(object_channel_image2)
+            Args:
+                channel_image1 (numpy.ndarray): The first channel image.
+                channel_image2 (numpy.ndarray): The second channel image.
+                mask (numpy.ndarray): The mask indicating the objects.
+                settings (dict): Additional settings for correlation calculation.
 
-            if len(object_channel_image1) < 2 or len(object_channel_image2) < 2:
-                pearson_corr = np.nan
-            else:
-                pearson_corr, _ = pearsonr(object_channel_image1, object_channel_image2)
+            Returns:
+                pandas.DataFrame: A DataFrame containing the correlation data at the object level.
+            """
+            thresholds = settings['manders_thresholds']
 
-            corr_data[i] = {f'label_correlation': i,
-                            f'Pearson_correlation': pearson_corr}
+            corr_data = {}
+            for i in np.unique(mask)[1:]:
+                object_mask = (mask == i)
+                object_channel_image1 = channel_image1[object_mask]
+                object_channel_image2 = channel_image2[object_mask]
+                total_intensity1 = np.sum(object_channel_image1)
+                total_intensity2 = np.sum(object_channel_image2)
 
-            for thresh in thresholds:
-                chan1_thresh = np.percentile(object_channel_image1, thresh)
-                chan2_thresh = np.percentile(object_channel_image2, thresh)
+                if len(object_channel_image1) < 2 or len(object_channel_image2) < 2:
+                    pearson_corr = np.nan
+                else:
+                    pearson_corr, _ = pearsonr(object_channel_image1, object_channel_image2)
 
-                # boolean mask where both signals are present
-                overlap_mask = (object_channel_image1 > chan1_thresh) & (object_channel_image2 > chan2_thresh)
-                M1 = np.sum(object_channel_image1[overlap_mask]) / total_intensity1 if total_intensity1 > 0 else 0
-                M2 = np.sum(object_channel_image2[overlap_mask]) / total_intensity2 if total_intensity2 > 0 else 0
+                corr_data[i] = {f'label_correlation': i,
+                                f'Pearson_correlation': pearson_corr}
 
-                corr_data[i].update({f'M1_correlation_{thresh}': M1,
-                                     f'M2_correlation_{thresh}': M2})
+                for thresh in thresholds:
+                    chan1_thresh = np.percentile(object_channel_image1, thresh)
+                    chan2_thresh = np.percentile(object_channel_image2, thresh)
 
-        return pd.DataFrame(corr_data.values())
+                    # boolean mask where both signals are present
+                    overlap_mask = (object_channel_image1 > chan1_thresh) & (object_channel_image2 > chan2_thresh)
+                    M1 = np.sum(object_channel_image1[overlap_mask]) / total_intensity1 if total_intensity1 > 0 else 0
+                    M2 = np.sum(object_channel_image2[overlap_mask]) / total_intensity2 if total_intensity2 > 0 else 0
+
+                    corr_data[i].update({f'M1_correlation_{thresh}': M1,
+                                         f'M2_correlation_{thresh}': M2})
+
+            return pd.DataFrame(corr_data.values())
     
     def _estimate_blur(image):
+        """
+        Estimates the blur of an image by computing the variance of its Laplacian.
+
+        Parameters:
+        image (numpy.ndarray): The input image.
+
+        Returns:
+        float: The variance of the Laplacian of the image.
+        """
+        # Check if the image is not already in a floating-point format
+        if image.dtype != np.float32 and image.dtype != np.float64:
+            # Convert the image to float64 for processing
+            image_float = image.astype(np.float64)
+        else:
+            # If it's already a floating-point image, use it as is
+            image_float = image
         # Compute the Laplacian of the image
-        lap = cv2.Laplacian(image, cv2.CV_64F)
+        lap = cv2.Laplacian(image_float, cv2.CV_64F)
         # Compute and return the variance of the Laplacian
         return lap.var()
 
@@ -1607,8 +2358,40 @@ def __intensity_measurements(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_ma
     return pd.concat(cell_dfs, axis=1), pd.concat(nucleus_dfs, axis=1), pd.concat(pathogen_dfs, axis=1), pd.concat(cytoplasm_dfs, axis=1)
 
 def _measure_crop_core(index, time_ls, file, settings):
+    """
+    Measure and crop the images based on specified settings.
 
+    Parameters:
+    - index: int
+        The index of the image.
+    - time_ls: list
+        The list of time points.
+    - file: str
+        The file path of the image.
+    - settings: dict
+        The dictionary containing the settings for measurement and cropping.
+
+    Returns:
+    - cropped_images: list
+        A list of cropped images.
+    """
     def ___get_percentiles(array, q1=2, q2=98):
+        """
+        Calculate the percentiles of each image in the given array.
+
+        Parameters:
+        - array: numpy.ndarray
+            The input array containing the images.
+        - q1: float, optional
+            The lower percentile value to calculate. Default is 2.
+        - q2: float, optional
+            The upper percentile value to calculate. Default is 98.
+
+        Returns:
+        - percentiles: list
+            A list of tuples, where each tuple contains the minimum and maximum
+            values of the corresponding image in the array.
+        """
         nimg = array.shape[2]
         percentiles = []
         for v in range(nimg):
@@ -1624,6 +2407,25 @@ def _measure_crop_core(index, time_ls, file, settings):
         return percentiles
 
     def ___crop_center(img, cell_mask, new_width, new_height, normalize=(2,98)):
+        """
+        Crop the image around the center of the cell mask.
+
+        Parameters:
+        - img: numpy.ndarray
+            The input image.
+        - cell_mask: numpy.ndarray
+            The binary mask of the cell.
+        - new_width: int
+            The desired width of the cropped image.
+        - new_height: int
+            The desired height of the cropped image.
+        - normalize: tuple, optional
+            The normalization range for the image pixel values. Default is (2, 98).
+
+        Returns:
+        - img: numpy.ndarray
+            The cropped image.
+        """
         # Convert all non-zero values in mask to 1
         cell_mask[cell_mask != 0] = 1
         mask_3d = np.repeat(cell_mask[:, :, np.newaxis], img.shape[2], axis=2).astype(img.dtype) # Create 3D mask
@@ -1646,7 +2448,17 @@ def _measure_crop_core(index, time_ls, file, settings):
         return img
 
     def ___plot_cropped_arrays(stack, figuresize=20,cmap='inferno'):
-        """Plot arrays"""
+        """
+        Plot cropped arrays.
+
+        Args:
+            stack (ndarray): The array to be plotted.
+            figuresize (int, optional): The size of the figure. Defaults to 20.
+            cmap (str, optional): The colormap to be used. Defaults to 'inferno'.
+
+        Returns:
+            None
+        """
         start = time.time()
         dim = stack.shape 
         channel=min(dim)
@@ -1672,6 +2484,15 @@ def _measure_crop_core(index, time_ls, file, settings):
         return
 
     def ___check_integrity(df):
+        """
+        Check the integrity of the DataFrame and perform necessary modifications.
+
+        Args:
+            df (pandas.DataFrame): The input DataFrame.
+
+        Returns:
+            pandas.DataFrame: The modified DataFrame with integrity checks and modifications applied.
+        """
         df.columns = [col + f'_{i}' if df.columns.tolist().count(col) > 1 and i != 0 else col for i, col in enumerate(df.columns)]
         label_cols = [col for col in df.columns if 'label' in col]
         df['label_list'] = df[label_cols].values.tolist()
@@ -1681,12 +2502,32 @@ def _measure_crop_core(index, time_ls, file, settings):
         return df
 
     def ___filter_object(mask, min_value):
+        """
+        Filter objects in a mask based on their frequency.
+
+        Args:
+            mask (ndarray): The input mask.
+            min_value (int): The minimum frequency threshold.
+
+        Returns:
+            ndarray: The filtered mask.
+        """
         count = np.bincount(mask.ravel())
         to_remove = np.where(count < min_value)
         mask[np.isin(mask, to_remove)] = 0
         return mask
 
     def ___safe_int_convert(value, default=0):
+        """
+        Safely converts a value to an integer.
+
+        Args:
+            value (Any): The value to be converted.
+            default (int, optional): The default value to be returned if the conversion fails. Defaults to 0.
+
+        Returns:
+            int: The converted integer value or the default value if the conversion fails.
+        """
         try:
             return int(value)
         except ValueError:
@@ -1694,6 +2535,16 @@ def _measure_crop_core(index, time_ls, file, settings):
             return default
 
     def __map_wells(file_name, timelapse=False):
+        """
+        Maps the components of a file name to plate, row, column, field, and timeid (if timelapse is True).
+
+        Args:
+            file_name (str): The name of the file.
+            timelapse (bool, optional): Indicates whether the file is part of a timelapse sequence. Defaults to False.
+
+        Returns:
+            tuple: A tuple containing the mapped values for plate, row, column, field, and timeid (if timelapse is True).
+        """
         try:
             parts = file_name.split('_')
             plate = 'p' + parts[0]
@@ -1720,6 +2571,20 @@ def _measure_crop_core(index, time_ls, file, settings):
             return plate, row, column, field, prcf
 
     def __map_wells_png(file_name, timelapse=False):
+        """
+        Maps the components of a file name to their corresponding values.
+
+        Args:
+            file_name (str): The name of the file.
+            timelapse (bool, optional): Indicates whether the file is part of a timelapse sequence. Defaults to False.
+
+        Returns:
+            tuple: A tuple containing the mapped components of the file name.
+
+        Raises:
+            None
+
+        """
         try:
             root, ext = os.path.splitext(file_name)
             parts = root.split('_')
@@ -1748,42 +2613,72 @@ def _measure_crop_core(index, time_ls, file, settings):
             return plate, row, column, field, prcfo, object_id
 
     def __merge_and_save_to_database(morph_df, intensity_df, table_type, source_folder, file_name, experiment, timelapse=False):
-        morph_df = ___check_integrity(morph_df)
-        intensity_df = ___check_integrity(intensity_df)
-        if len(morph_df) > 0 and len(intensity_df) > 0:
-            merged_df = pd.merge(morph_df, intensity_df, on='object_label', how='outer')
-            merged_df = merged_df.rename(columns={"label_list_x": "label_list_morphology", "label_list_y": "label_list_intensity"})
-            merged_df['file_name'] = file_name
-            merged_df['path_name'] = os.path.join(source_folder, file_name + '.npy')
-            if timelapse:
-                merged_df[['plate', 'row', 'col', 'field', 'timeid', 'prcf']] = merged_df['file_name'].apply(lambda x: pd.Series(__map_wells(x, timelapse)))
-            else:
-                merged_df[['plate', 'row', 'col', 'field', 'prcf']] = merged_df['file_name'].apply(lambda x: pd.Series(__map_wells(x, timelapse)))
-            cols = merged_df.columns.tolist()  # get the list of all columns
-            if table_type == 'cell' or table_type == 'cytoplasm':
-                column_list = ['object_label', 'plate', 'row', 'col', 'field', 'prcf', 'file_name', 'path_name']
-            elif table_type == 'nucleus' or table_type == 'pathogen':
-                column_list = ['object_label', 'cell_id', 'plate', 'row', 'col', 'field', 'prcf', 'file_name', 'path_name']
-            else:
-                raise ValueError(f"Invalid table_type: {table_type}")
-            # Check if all columns in column_list are in cols
-            missing_columns = [col for col in column_list if col not in cols]
-            if len(missing_columns) == 1 and missing_columns[0] == 'cell_id':
-                missing_columns = False
-                column_list = ['object_label', 'plate', 'row', 'col', 'field', 'prcf', 'file_name', 'path_name']
-            if missing_columns:
-                raise ValueError(f"Columns missing in DataFrame: {missing_columns}")
-            for i, col in enumerate(column_list):
-                cols.insert(i, cols.pop(cols.index(col)))
-            merged_df = merged_df[cols]  # rearrange the columns
-            if len(merged_df) > 0:
-                try:
-                    conn = sqlite3.connect(f'{source_folder}/measurements/measurements.db', timeout=5)
-                    merged_df.to_sql(table_type, conn, if_exists='append', index=False)
-                except sqlite3.OperationalError as e:
-                    print("SQLite error:", e)
+            """
+            Merges morphology and intensity dataframes, renames columns, adds additional columns, rearranges columns,
+            and saves the merged dataframe to a SQLite database.
+
+            Args:
+                morph_df (pd.DataFrame): Dataframe containing morphology data.
+                intensity_df (pd.DataFrame): Dataframe containing intensity data.
+                table_type (str): Type of table to save the merged dataframe to.
+                source_folder (str): Path to the source folder.
+                file_name (str): Name of the file.
+                experiment (str): Name of the experiment.
+                timelapse (bool, optional): Indicates if the data is from a timelapse experiment. Defaults to False.
+
+            Raises:
+                ValueError: If an invalid table_type is provided or if columns are missing in the dataframe.
+
+            """
+            morph_df = ___check_integrity(morph_df)
+            intensity_df = ___check_integrity(intensity_df)
+            if len(morph_df) > 0 and len(intensity_df) > 0:
+                merged_df = pd.merge(morph_df, intensity_df, on='object_label', how='outer')
+                merged_df = merged_df.rename(columns={"label_list_x": "label_list_morphology", "label_list_y": "label_list_intensity"})
+                merged_df['file_name'] = file_name
+                merged_df['path_name'] = os.path.join(source_folder, file_name + '.npy')
+                if timelapse:
+                    merged_df[['plate', 'row', 'col', 'field', 'timeid', 'prcf']] = merged_df['file_name'].apply(lambda x: pd.Series(__map_wells(x, timelapse)))
+                else:
+                    merged_df[['plate', 'row', 'col', 'field', 'prcf']] = merged_df['file_name'].apply(lambda x: pd.Series(__map_wells(x, timelapse)))
+                cols = merged_df.columns.tolist()  # get the list of all columns
+                if table_type == 'cell' or table_type == 'cytoplasm':
+                    column_list = ['object_label', 'plate', 'row', 'col', 'field', 'prcf', 'file_name', 'path_name']
+                elif table_type == 'nucleus' or table_type == 'pathogen':
+                    column_list = ['object_label', 'cell_id', 'plate', 'row', 'col', 'field', 'prcf', 'file_name', 'path_name']
+                else:
+                    raise ValueError(f"Invalid table_type: {table_type}")
+                # Check if all columns in column_list are in cols
+                missing_columns = [col for col in column_list if col not in cols]
+                if len(missing_columns) == 1 and missing_columns[0] == 'cell_id':
+                    missing_columns = False
+                    column_list = ['object_label', 'plate', 'row', 'col', 'field', 'prcf', 'file_name', 'path_name']
+                if missing_columns:
+                    raise ValueError(f"Columns missing in DataFrame: {missing_columns}")
+                for i, col in enumerate(column_list):
+                    cols.insert(i, cols.pop(cols.index(col)))
+                merged_df = merged_df[cols]  # rearrange the columns
+                if len(merged_df) > 0:
+                    try:
+                        conn = sqlite3.connect(f'{source_folder}/measurements/measurements.db', timeout=5)
+                        merged_df.to_sql(table_type, conn, if_exists='append', index=False)
+                    except sqlite3.OperationalError as e:
+                        print("SQLite error:", e)
 
     def __exclude_objects(cell_mask, nuclei_mask, pathogen_mask, cytoplasm_mask, include_uninfected=True):
+        """
+        Exclude objects from the masks based on certain criteria.
+
+        Args:
+            cell_mask (ndarray): Mask representing cells.
+            nuclei_mask (ndarray): Mask representing nuclei.
+            pathogen_mask (ndarray): Mask representing pathogens.
+            cytoplasm_mask (ndarray): Mask representing cytoplasm.
+            include_uninfected (bool, optional): Whether to include uninfected cells. Defaults to True.
+
+        Returns:
+            tuple: A tuple containing the filtered cell mask, nuclei mask, pathogen mask, and cytoplasm mask.
+        """
         # Remove cells with no nucleus or cytoplasm (or pathogen)
         filtered_cells = np.zeros_like(cell_mask) # Initialize a new mask to store the filtered cells.
         for cell_label in np.unique(cell_mask): # Iterate over all cell labels in the cell mask.
@@ -1807,6 +2702,16 @@ def _measure_crop_core(index, time_ls, file, settings):
         return filtered_cells, nuclei_mask, pathogen_mask, cytoplasm_mask
 
     def __merge_overlapping_objects(mask1, mask2):
+        """
+        Merge overlapping objects in two masks.
+
+        Args:
+            mask1 (ndarray): First mask.
+            mask2 (ndarray): Second mask.
+
+        Returns:
+            tuple: A tuple containing the merged masks (mask1, mask2).
+        """
         labeled_1 = label(mask1)
         num_1 = np.max(labeled_1)
         for m1_id in range(1, num_1 + 1):
@@ -1827,6 +2732,20 @@ def _measure_crop_core(index, time_ls, file, settings):
         return mask1, mask2
 
     def __generate_names(file_name, cell_id, cell_nuclei_ids, cell_pathogen_ids, source_folder, crop_mode='cell'):
+        """
+        Generate names for the image, folder, and table based on the given parameters.
+
+        Args:
+            file_name (str): The name of the file.
+            cell_id (numpy.ndarray): An array of cell IDs.
+            cell_nuclei_ids (numpy.ndarray): An array of cell nuclei IDs.
+            cell_pathogen_ids (numpy.ndarray): An array of cell pathogen IDs.
+            source_folder (str): The source folder path.
+            crop_mode (str, optional): The crop mode. Defaults to 'cell'.
+
+        Returns:
+            tuple: A tuple containing the image name, folder path, and table name.
+        """
         non_zero_cell_ids = cell_id[cell_id != 0]
         cell_id_str = "multi" if non_zero_cell_ids.size > 1 else str(non_zero_cell_ids[0]) if non_zero_cell_ids.size == 1 else "none"
         cell_nuclei_ids = cell_nuclei_ids[cell_nuclei_ids != 0]
@@ -1856,6 +2775,17 @@ def _measure_crop_core(index, time_ls, file, settings):
         return img_name, fldr, table_name
 
     def __find_bounding_box(crop_mask, _id, buffer=10):
+        """
+        Find the bounding box coordinates for a given object ID in a crop mask.
+
+        Parameters:
+        crop_mask (ndarray): The crop mask containing object IDs.
+        _id (int): The object ID to find the bounding box for.
+        buffer (int, optional): The buffer size to add to the bounding box coordinates. Defaults to 10.
+
+        Returns:
+        ndarray: A new mask with the same dimensions as crop_mask, where the bounding box area is filled with the object ID.
+        """
         object_indices = np.where(crop_mask == _id)
 
         # Determine the bounding box coordinates
@@ -1877,6 +2807,17 @@ def _measure_crop_core(index, time_ls, file, settings):
         return new_mask
 
     def _relabel_parent_with_child_labels(parent_mask, child_mask):
+        """
+        Relabels the parent mask based on overlapping child labels.
+
+        Args:
+            parent_mask (ndarray): Binary mask representing the parent objects.
+            child_mask (ndarray): Binary mask representing the child objects.
+
+        Returns:
+            tuple: A tuple containing the relabeled parent mask and the original child mask.
+
+        """
         # Label parent mask to identify unique objects
         parent_labels = label(parent_mask, background=0)
         # Use the original child mask labels directly, without relabeling
@@ -1924,7 +2865,7 @@ def _measure_crop_core(index, time_ls, file, settings):
             create_database(source_folder+'/measurements/measurements.db')    
 
         if settings['plot_filtration']:
-            plot_cropped_arrays(data)
+           ___plot_cropped_arrays(data)
         
         channel_arrays = data[:, :, settings['channels']].astype(data_type)        
         if settings['cell_mask_dim'] is not None:
@@ -2002,7 +2943,7 @@ def _measure_crop_core(index, time_ls, file, settings):
             data = np.concatenate((data, cytoplasm_mask[:, :, np.newaxis]), axis=2)
 
         if settings['plot_filtration']:
-            plot_cropped_arrays(data)
+            ___plot_cropped_arrays(data)
 
         if settings['save_measurements']:
 
@@ -2094,7 +3035,7 @@ def _measure_crop_core(index, time_ls, file, settings):
                             png_channels = data[:, :, settings['png_dims']].astype(data_type)
 
                             if settings['normalize_by'] == 'fov':
-                                percentiles_list = get_percentiles(png_channels, settings['normalize_percentiles'][0],q2=settings['normalize_percentiles'][1])
+                                percentiles_list = ___get_percentiles(png_channels, settings['normalize_percentiles'][0],q2=settings['normalize_percentiles'][1])
 
                             png_channels = ___crop_center(png_channels, region, new_width=width, new_height=height)
 
@@ -2153,7 +3094,7 @@ def _measure_crop_core(index, time_ls, file, settings):
                                     print(f"SQLite error: {e}", flush=True)
 
                             if settings['plot']:
-                                plot_cropped_arrays(png_channels)
+                                ___plot_cropped_arrays(png_channels)
 
                         if settings['save_arrays']:
                             row_idx, col_idx = np.where(region)
@@ -2161,13 +3102,13 @@ def _measure_crop_core(index, time_ls, file, settings):
                             array_folder = f"{fldr}/region_array/"            
                             os.makedirs(array_folder, exist_ok=True)
                             np.save(os.path.join(array_folder, img_name), region_array)
-                            if plot:
-                                plot_cropped_arrays(region_array)
+                            if settings['plot']:
+                                ___plot_cropped_arrays(region_array)
 
                         if not settings['save_arrays'] and not settings['save_png'] and settings['plot']:
                             row_idx, col_idx = np.where(region)
                             region_array = data[row_idx.min():row_idx.max()+1, col_idx.min():col_idx.max()+1, :]
-                            plot_cropped_arrays(region_array)
+                            ___plot_cropped_arrays(region_array)
 
         cells = np.unique(cell_mask)
     except Exception as e:
@@ -2180,10 +3121,288 @@ def _measure_crop_core(index, time_ls, file, settings):
     time_ls.append(duration)
     average_time = np.mean(time_ls) if len(time_ls) > 0 else 0
     return average_time, cells
-    
-    def generate_representative_images(db_path, keywords=['uninfected', 'single_infected', 'multi_infected'], nr_imgs=20, column_name='cell_area', agg_type='median', new_column=None, channel_indices=[0,1,2], um_per_pixel=0.1, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, dpi=300, plot=True, measure_pathogen_recruitment=False, channel_of_interest=1):
+          
+def measure_crop(settings, annotation_settings, advanced_settings):
+    """
+    Measure the crop of an image based on the provided settings.
 
-        def _read_and_join_tables(db_path, table_names = ['cell', 'cytoplasm', 'nucleus', 'pathogen', 'parasite', 'png_list']):
+    Args:
+        settings (dict): The settings for measuring the crop.
+        annotation_settings (dict): The annotation settings.
+        advanced_settings (dict): The advanced settings.
+
+    Returns:
+        None
+    """
+
+    def __save_figure(fig, src, text, dpi=300):
+        """
+        Save a figure to a specified location.
+
+        Parameters:
+        fig (matplotlib.figure.Figure): The figure to be saved.
+        src (str): The source file path.
+        text (str): The text to be included in the figure name.
+        dpi (int, optional): The resolution of the saved figure. Defaults to 300.
+        """
+        save_folder = os.path.dirname(src)
+        obj_type = os.path.basename(src)
+        name = os.path.basename(save_folder)
+        save_folder = os.path.join(save_folder, 'figure')
+        os.makedirs(save_folder, exist_ok=True)
+        fig_name = f'{obj_type}_{name}_{text}.pdf'        
+        save_location = os.path.join(save_folder, fig_name)
+        fig.savefig(save_location, bbox_inches='tight', dpi=dpi)
+        print(f'Saved single cell figure: {save_location}')
+        plt.close()
+
+    def _plot_images_on_grid(image_files, channel_indices, um_per_pixel, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, plot=False):
+        """
+        Plots a grid of images with optional scale bar and channel names.
+
+        Args:
+            image_files (list): List of image file paths.
+            channel_indices (list): List of channel indices to select from the images.
+            um_per_pixel (float): Micrometers per pixel.
+            scale_bar_length_um (float, optional): Length of the scale bar in micrometers. Defaults to 5.
+            fontsize (int, optional): Font size for the image titles. Defaults to 8.
+            show_filename (bool, optional): Whether to show the image file names as titles. Defaults to True.
+            channel_names (list, optional): List of channel names. Defaults to None.
+            plot (bool, optional): Whether to display the plot. Defaults to False.
+
+        Returns:
+            matplotlib.figure.Figure: The generated figure object.
+        """
+        print(f'scale bar represents {scale_bar_length_um} um')
+        nr_of_images = len(image_files)
+        cols = int(np.ceil(np.sqrt(nr_of_images)))
+        rows = np.ceil(nr_of_images / cols)
+        fig, axes = plt.subplots(int(rows), int(cols), figsize=(20, 20), facecolor='black')
+        fig.patch.set_facecolor('black')
+        axes = axes.flatten()
+        # Calculate the scale bar length in pixels
+        scale_bar_length_px = int(scale_bar_length_um / um_per_pixel)  # Convert to pixels
+
+        channel_colors = ['red','green','blue']
+        for i, image_file in enumerate(image_files):
+            img_array = cv2.imread(image_file, cv2.IMREAD_UNCHANGED)
+
+            if img_array.ndim == 3 and img_array.shape[2] >= 3:
+                img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB)
+            # Handle different channel selections
+            if channel_indices is not None:
+                if len(channel_indices) == 1:  # Single channel (grayscale)
+                    img_array = img_array[:, :, channel_indices[0]]
+                    cmap = 'gray'
+                elif len(channel_indices) == 2:  # Dual channels
+                    img_array = np.mean(img_array[:, :, channel_indices], axis=2)
+                    cmap = 'gray'
+                else:  # RGB or more channels
+                    img_array = img_array[:, :, channel_indices]
+                    cmap = None
+            else:
+                cmap = None if img_array.ndim == 3 else 'gray'
+            # Normalize based on dtype
+            if img_array.dtype == np.uint16:
+                img_array = img_array.astype(np.float32) / 65535.0
+            elif img_array.dtype == np.uint8:
+                img_array = img_array.astype(np.float32) / 255.0
+            ax = axes[i]
+            ax.imshow(img_array, cmap=cmap)
+            ax.axis('off')
+            if show_filename:
+                ax.set_title(os.path.basename(image_file), color='white', fontsize=fontsize, pad=20)
+            # Add scale bar
+            ax.plot([10, 10 + scale_bar_length_px], [img_array.shape[0] - 10] * 2, lw=2, color='white')
+        # Add channel names at the top if specified
+        initial_offset = 0.02  # Starting offset from the left side of the figure
+        increment = 0.05  # Fixed increment for each subsequent channel name, adjust based on figure width
+        if channel_names:
+            current_offset = initial_offset
+            for i, channel_name in enumerate(channel_names):
+                color = channel_colors[i] if i < len(channel_colors) else 'white'
+                fig.text(current_offset, 0.99, channel_name, color=color, fontsize=fontsize,
+                            verticalalignment='top', horizontalalignment='left',
+                            bbox=dict(facecolor='black', edgecolor='none', pad=3))
+                current_offset += increment
+
+        for j in range(i + 1, len(axes)):
+            axes[j].axis('off')
+
+        plt.tight_layout(pad=3)
+        if plot:
+            plt.show()
+        return fig
+
+    def _save_scimg_plot(src, nr_imgs=16, channel_indices=[0,1,2], um_per_pixel=0.1, scale_bar_length_um=10, standardize=True, fontsize=8, show_filename=True, channel_names=None, dpi=300, plot=False):
+        """
+        Save and visualize single-cell images.
+
+        Args:
+            src (str): The source directory path.
+            nr_imgs (int, optional): The number of images to visualize. Defaults to 16.
+            channel_indices (list, optional): List of channel indices to visualize. Defaults to [0,1,2].
+            um_per_pixel (float, optional): Micrometers per pixel. Defaults to 0.1.
+            scale_bar_length_um (float, optional): Length of the scale bar in micrometers. Defaults to 10.
+            standardize (bool, optional): Whether to standardize the image sizes. Defaults to True.
+            fontsize (int, optional): Font size for the filename. Defaults to 8.
+            show_filename (bool, optional): Whether to show the filename on the image. Defaults to True.
+            channel_names (list, optional): List of channel names. Defaults to None.
+            dpi (int, optional): Dots per inch for the saved image. Defaults to 300.
+            plot (bool, optional): Whether to plot the images. Defaults to False.
+
+        Returns:
+            None
+        """
+        def __visualize_scimgs(src, channel_indices=None, um_per_pixel=0.1, scale_bar_length_um=10, show_filename=True, standardize=True, nr_imgs=None, fontsize=8, channel_names=None, plot=False):
+            """
+            Visualize single-cell images.
+
+            Args:
+                src (str): The source directory path.
+                channel_indices (list, optional): List of channel indices to visualize. Defaults to None.
+                um_per_pixel (float, optional): Micrometers per pixel. Defaults to 0.1.
+                scale_bar_length_um (float, optional): Length of the scale bar in micrometers. Defaults to 10.
+                show_filename (bool, optional): Whether to show the filename on the image. Defaults to True.
+                standardize (bool, optional): Whether to standardize the image sizes. Defaults to True.
+                nr_imgs (int, optional): The number of images to visualize. Defaults to None.
+                fontsize (int, optional): Font size for the filename. Defaults to 8.
+                channel_names (list, optional): List of channel names. Defaults to None.
+                plot (bool, optional): Whether to plot the images. Defaults to False.
+
+            Returns:
+                matplotlib.figure.Figure: The figure object containing the plotted images.
+            """
+
+            def ___generate_filelist(src):
+                """
+                Generate a list of image files in the specified directory.
+
+                Args:
+                    src (str): The source directory path.
+
+                Returns:
+                    list: A list of image file paths.
+
+                """
+                files = glob.glob(os.path.join(src, '*'))
+                image_files = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff', '.gif'))]
+                return image_files
+
+            def ___find_similar_sized_images(file_list):
+                """
+                Find the largest group of images with the most similar size and shape.
+
+                Args:
+                    file_list (list): List of file paths to the images.
+
+                Returns:
+                    list: List of file paths belonging to the largest group of images with the most similar size and shape.
+                """
+                # Dictionary to hold image sizes and their paths
+                size_to_paths = defaultdict(list)
+                # Iterate over image paths to get their dimensions
+                for path in file_list:
+                    img = cv2.imread(path, cv2.IMREAD_UNCHANGED)  # Read with unchanged color space to support different image types
+                    if img is not None:
+                        # Find indices where the image is not padded (non-zero)
+                        if img.ndim == 3:  # Color image
+                            mask = np.any(img != 0, axis=2)
+                        else:  # Grayscale image
+                            mask = img != 0
+                        # Find the bounding box of non-zero regions
+                        coords = np.argwhere(mask)
+                        if coords.size == 0:  # Skip images that are completely padded
+                            continue
+                        y0, x0 = coords.min(axis=0)
+                        y1, x1 = coords.max(axis=0) + 1  # Add 1 because slice end index is exclusive
+                        # Crop the image to remove padding
+                        cropped_img = img[y0:y1, x0:x1]
+                        # Get dimensions of the cropped image
+                        height, width = cropped_img.shape[:2]
+                        aspect_ratio = width / height
+                        size_key = (width, height, round(aspect_ratio, 2))  # Group by width, height, and aspect ratio
+                        size_to_paths[size_key].append(path)
+                # Find the largest group of images with the most similar size and shape
+                largest_group = max(size_to_paths.values(), key=len)
+                return largest_group
+
+            def ___random_sample(file_list, nr_imgs=None):
+                """
+                Randomly selects a subset of files from the given file list.
+
+                Args:
+                    file_list (list): A list of file names.
+                    nr_imgs (int, optional): The number of files to select. If None, all files are selected. Defaults to None.
+
+                Returns:
+                    list: A list of randomly selected file names.
+                """
+                if nr_imgs is not None and nr_imgs < len(file_list):
+                    random.seed(42)
+                    file_list = random.sample(file_list, nr_imgs)
+                return file_list
+
+            image_files = ___generate_filelist(src)
+            
+            if standardize:
+                image_files = ___find_similar_sized_images(image_files)
+            
+            if nr_imgs is not None:
+                image_files = ___random_sample(image_files, nr_imgs)
+                
+            fig = _plot_images_on_grid(image_files, channel_indices, um_per_pixel, scale_bar_length_um, fontsize, show_filename, channel_names, plot)
+            
+            return fig
+
+        fig = __visualize_scimgs(src, channel_indices, um_per_pixel, scale_bar_length_um, show_filename, standardize, nr_imgs, fontsize, channel_names, plot)
+        __save_figure(fig, src, text='all_channels')
+
+        for channel in channel_indices:
+            channel_indices=[channel]
+            fig = __visualize_scimgs(src, channel_indices, um_per_pixel, scale_bar_length_um, show_filename, standardize, nr_imgs, fontsize, channel_names=None, plot=plot)
+            __save_figure(fig, src, text=f'channel_{channel}')
+
+        return
+
+    def _generate_representative_images(db_path, cells=['HeLa'], cell_loc=None, pathogens=['rh'], pathogen_loc=None, treatments=['cm'], treatment_loc=None, channel_of_interest=1, compartments = ['pathogen','cytoplasm'], measurement = 'mean_intensity', nr_imgs=16, channel_indices=[0,1,2], um_per_pixel=0.1, scale_bar_length_um=10, plot=False, fontsize=12, show_filename=True, channel_names=None):
+        """
+        Generates representative images based on the provided parameters.
+
+        Args:
+            db_path (str): The path to the SQLite database file.
+            cells (list, optional): The list of host cell types. Defaults to ['HeLa'].
+            cell_loc (list, optional): The list of location identifiers for host cells. Defaults to None.
+            pathogens (list, optional): The list of pathogens. Defaults to ['rh'].
+            pathogen_loc (list, optional): The list of location identifiers for pathogens. Defaults to None.
+            treatments (list, optional): The list of treatments. Defaults to ['cm'].
+            treatment_loc (list, optional): The list of location identifiers for treatments. Defaults to None.
+            channel_of_interest (int, optional): The index of the channel of interest. Defaults to 1.
+            compartments (list or str, optional): The compartments to compare. Defaults to ['pathogen', 'cytoplasm'].
+            measurement (str, optional): The measurement to compare. Defaults to 'mean_intensity'.
+            nr_imgs (int, optional): The number of representative images to generate. Defaults to 16.
+            channel_indices (list, optional): The indices of the channels to include in the representative images. Defaults to [0, 1, 2].
+            um_per_pixel (float, optional): The scale factor for converting pixels to micrometers. Defaults to 0.1.
+            scale_bar_length_um (float, optional): The length of the scale bar in micrometers. Defaults to 10.
+            plot (bool, optional): Whether to plot the representative images. Defaults to False.
+            fontsize (int, optional): The font size for the plot. Defaults to 12.
+            show_filename (bool, optional): Whether to show the filename on the plot. Defaults to True.
+            channel_names (list, optional): The names of the channels. Defaults to None.
+
+        Returns:
+            None
+        """
+        def _read_and_join_tables(db_path, table_names=['cell', 'cytoplasm', 'nucleus', 'pathogen', 'parasite', 'png_list']):
+            """
+            Reads and joins tables from a SQLite database.
+
+            Args:
+                db_path (str): The path to the SQLite database file.
+                table_names (list, optional): The names of the tables to read and join. Defaults to ['cell', 'cytoplasm', 'nucleus', 'pathogen', 'parasite', 'png_list'].
+
+            Returns:
+                pandas.DataFrame: The joined DataFrame containing the data from the specified tables, or None if an error occurs.
+            """
             conn = sqlite3.connect(db_path)
             dataframes = {}
             for table_name in table_names:
@@ -2193,7 +3412,6 @@ def _measure_crop_core(index, time_ls, file, settings):
                     print(f"Table {table_name} not found in the database.")
                     print(e)
             conn.close()
-
             if 'png_list' in dataframes:
                 png_list_df = dataframes['png_list'][['cell_id', 'png_path', 'plate', 'row', 'col']].copy()
                 png_list_df['cell_id'] = png_list_df['cell_id'].str[1:].astype(int)
@@ -2204,7 +3422,6 @@ def _measure_crop_core(index, time_ls, file, settings):
                 else:
                     print("Cell table not found. Cannot join with png_list.")
                     return None
-
             for entity in ['nucleus', 'pathogen', 'parasite']:
                 if entity in dataframes:
                     numeric_cols = dataframes[entity].select_dtypes(include=[np.number]).columns.tolist()
@@ -2215,7 +3432,6 @@ def _measure_crop_core(index, time_ls, file, settings):
                     agg_df = dataframes[entity].groupby(grouping_cols).agg(agg_dict)
                     agg_df['count_' + entity] = dataframes[entity].groupby(grouping_cols).size()
                     dataframes[entity] = agg_df
-
             joined_df = None
             if 'cell' in dataframes:
                 joined_df = dataframes['cell']
@@ -2228,359 +3444,124 @@ def _measure_crop_core(index, time_ls, file, settings):
                 print("Cell table not found. Cannot proceed with joining.")
                 return None
             return joined_df
+        
+        def _annotate_conditions(df, cells=['HeLa'], cell_loc=None, pathogens=['rh'], pathogen_loc=None, treatments=['cm'], treatment_loc=None):
+            """
+            Annotates conditions in the given DataFrame based on the provided parameters.
 
-        def _generate_filelist_dict(df, keywords=['uninfected', 'single_infected', 'multi_infected'], nr_imgs=20, column_name='cell_area', agg_type='median', annotate_condition=False):
+            Args:
+                df (pandas.DataFrame): The DataFrame to annotate.
+                cells (list, optional): The list of host cell types. Defaults to ['HeLa'].
+                cell_loc (list, optional): The list of location identifiers for host cells. Defaults to None.
+                pathogens (list, optional): The list of pathogens. Defaults to ['rh'].
+                pathogen_loc (list, optional): The list of location identifiers for pathogens. Defaults to None.
+                treatments (list, optional): The list of treatments. Defaults to ['cm'].
+                treatment_loc (list, optional): The list of location identifiers for treatments. Defaults to None.
 
-            def __split_dataframe(df, keywords, column):
-                split_dfs = {}
-                for keyword in keywords:
-                    filtered_df = df[df[column].str.contains(keyword)]
-                    split_dfs[keyword] = filtered_df
-                return split_dfs
+            Returns:
+                pandas.DataFrame: The annotated DataFrame with the 'host_cells', 'pathogen', 'treatment', and 'condition' columns.
+            """
+            # Adjusted mapping function to infer type from location identifiers
+            def _map_values(row, values, locs):
+                """
+                Maps values to a specific location in the row or column based on the given locs.
 
-            def __select_closest_to_median_or_mean(df, nr_imgs, column_name, agg_type='median'):
-                if agg_type == 'median':
-                    _value = df[column_name].median()
-                if agg_type == 'median':
-                    _value = df[column_name].mean()
-                df['distance_from'] = (df[column_name] - _value).abs()
-                selected_df = df.nsmallest(nr_imgs, 'distance_from').drop(columns=['distance_from'])
-                return selected_df
+                Args:
+                    row (dict): The row dictionary containing the location identifier.
+                    values (list): The list of values to be mapped.
+                    locs (list): The list of location identifiers.
 
-            if not annotate_conditions:
-                dfs = __split_dataframe(df, keywords, column='png_path')
-            else:
-                dfs = __split_dataframe(df, keywords=, column='condition')
+                Returns:
+                    The mapped value corresponding to the given row or column location, or None if not found.
+                """
+                if locs:
+                    value_dict = {loc: value for value, loc_list in zip(values, locs) for loc in loc_list}
+                    # Determine if we're dealing with row or column based on first location identifier
+                    type_ = 'row' if locs[0][0][0] == 'r' else 'col'
+                    return value_dict.get(row[type_], None)
+                return values[0] if values else None
 
-            list_dict = {}
-            for keyword in keywords:
-                if keyword in dfs:
-                    key_df = __select_closest_to_median_or_mean(dfs[keyword], nr_imgs, column_name, agg_type)
-                    list_dict[keyword] = key_df['png_path'].tolist()
-                else:
-                    list_dict[keyword] = []
-            return list_dict
+            # Apply mappings or defaults
+            df['host_cells'] = [cells[0]] * len(df) if cell_loc is None else df.apply(_map_values, args=(cells, cell_loc), axis=1)
+            df['pathogen'] = [pathogens[0]] * len(df) if pathogen_loc is None else df.apply(_map_values, args=(pathogens, pathogen_loc), axis=1)
+            df['treatment'] = [treatments[0]] * len(df) if treatment_loc is None else df.apply(_map_values, args=(treatments, treatment_loc), axis=1)
 
-        def _plot_images_on_grid(image_files, channel_indices, um_per_pixel, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, plot=False):
-
-            #print(f'scale bar represents {scale_bar_length_um} um')
-            nr_of_images = len(image_files)
-            cols = int(np.ceil(np.sqrt(nr_of_images)))
-            rows = np.ceil(nr_of_images / cols)
-
-            fig, axes = plt.subplots(int(rows), int(cols), figsize=(20, 20), facecolor='black')
-            fig.patch.set_facecolor('black')
-            axes = axes.flatten()
-
-            # Calculate the scale bar length in pixels
-            scale_bar_length_px = int(scale_bar_length_um / um_per_pixel)  # Convert to pixels
-
-            channel_colors = ['red','green','blue']
-            for i, image_file in enumerate(image_files):
-                img_array = cv2.imread(image_file, cv2.IMREAD_UNCHANGED)
-
-                if img_array.ndim == 3 and img_array.shape[2] >= 3:
-                    img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB)
-
-                # Handle different channel selections
-                if channel_indices is not None:
-                    if len(channel_indices) == 1:  # Single channel (grayscale)
-                        img_array = img_array[:, :, channel_indices[0]]
-                        cmap = 'gray'
-                    elif len(channel_indices) == 2:  # Dual channels
-                        img_array = np.mean(img_array[:, :, channel_indices], axis=2)
-                        cmap = 'gray'
-                    else:  # RGB or more channels
-                        img_array = img_array[:, :, channel_indices]
-                        cmap = None
-                else:
-                    cmap = None if img_array.ndim == 3 else 'gray'
-
-                # Normalize based on dtype
-                if img_array.dtype == np.uint16:
-                    img_array = img_array.astype(np.float32) / 65535.0
-                elif img_array.dtype == np.uint8:
-                    img_array = img_array.astype(np.float32) / 255.0
-
-                ax = axes[i]
-                ax.imshow(img_array, cmap=cmap)
-                ax.axis('off')
-                if show_filename:
-                    ax.set_title(os.path.basename(image_file), color='white', fontsize=fontsize, pad=20)
-
-                # Add scale bar
-                ax.plot([10, 10 + scale_bar_length_px], [img_array.shape[0] - 10] * 2, lw=2, color='white')
-
-            # Add channel names at the top if specified
-            initial_offset = 0.02  
-            increment = 0.05  
-            if channel_names:
-                current_offset = initial_offset
-                for i, channel_name in enumerate(channel_names):
-                    color = channel_colors[i] if i < len(channel_colors) else 'white'
-                    fig.text(current_offset, 0.99, channel_name, color=color, fontsize=fontsize,
-                             verticalalignment='top', horizontalalignment='left',
-                             bbox=dict(facecolor='black', edgecolor='none', pad=3))
-                    current_offset += increment
-
-            for j in range(i + 1, len(axes)):
-                axes[j].axis('off')
-
-            plt.tight_layout(pad=3)
-            if plot:
-                plt.show()
-            return fig
-
-        def _save_figure(fig, src, text):
-            save_folder = os.path.dirname(src)
-            obj_type = os.path.basename(src)
-            name = os.path.basename(save_folder)
-            save_folder = os.path.join(save_folder, 'figure')
-            os.makedirs(save_folder, exist_ok=True)
-            fig_name = f'{obj_type}_{name}_{text}.pdf'        
-            save_location = os.path.join(save_folder, fig_name)
-            fig.savefig(save_location, bbox_inches='tight', dpi=dpi)
-            print(f'Saved single cell figure: {save_location}')
-            plt.close()
-
-        def _annotate_conditions(df, cells=['HeLa'], cell_loc=None, pathogens=['rh'], pathogen_loc=None, treatments=['cm'], treatment_loc=None, types = ['col','col','col']):
-
-            def _map_values(row, dict_, type_='col'):
-                for values, cols in dict_.items():
-                    if row[type_] in cols:
-                        return values
-                return None
-
-            if cell_loc is None:
-                df['host_cells'] = cells[0]
-            else:
-                cells_dict = dict(zip(cells, cell_loc))
-                df['host_cells'] = df.apply(lambda row: _map_values(row, cells_dict, type_=types[0]), axis=1)
-            if pathogen_loc is None:
-                if pathogens != None:
-                    df['pathogen'] = 'none'
-            else:
-                pathogens_dict = dict(zip(pathogens, pathogen_loc))
-                df['pathogen'] = df.apply(lambda row: _map_values(row, pathogens_dict, type_=types[1]), axis=1)
-            if treatment_loc is None:
-                df['treatment'] = 'cm'
-            else:
-                treatments_dict = dict(zip(treatments, treatment_loc))
-                df['treatment'] = df.apply(lambda row: _map_values(row, treatments_dict, type_=types[2]), axis=1)
-            if pathogens != None:
-                df['condition'] = df['pathogen']+'_'+df['treatment']
-            else:
-                df['condition'] = df['treatment']
+            # Construct condition column
+            df['condition'] = df.apply(lambda row: '_'.join(filter(None, [row.get('pathogen'), row.get('treatment')])), axis=1)
+            df['condition'] = df['condition'].apply(lambda x: x if x else 'none')
             return df
 
-        joined_df = _read_and_join_tables(db_path)
-        print(f'Generated DataFrame with {len(joined_df)} rows')
+        def _filter_closest_to_stat(df, column, n_rows, use_median=False):
+            """
+            Filter the DataFrame to include the closest rows to a statistical measure.
 
-        if annotate_condition:
-            _annotate_conditions(joined_df, 
-                                 cells=['HeLa'],
-                                 cell_loc=None,
-                                 pathogens=['rh'],
-                                 pathogen_loc=None,
-                                 treatments=['cm'],
-                                 treatment_loc=None,
-                                 types = ['col','col','col'])
+            Args:
+                df (pandas.DataFrame): The input DataFrame.
+                column (str): The column name to calculate the statistical measure.
+                n_rows (int): The number of closest rows to include in the result.
+                use_median (bool, optional): Whether to use the median or mean as the statistical measure. 
+                    Defaults to False (mean).
 
-        if measure_pathogen_recruitment:
-            joined_df[f'pathogen_channel_{channel_of_interest}_mean_intensity']/joined_df[f'cytoplasm_channel_{channel_of_interest}_mean_intensity']
-
-        if not new_column is None:
-            if isinstance(new_column,list):
-                joined_df[column_name] = joined_df[0]/joined_df[1]
-
-        if isinstance(column_name, str):
-            if annotate_condition:
-                keywords = list(set(joined_df['conditions'].tolist()))
-
-            list_dict = _generate_filelist_dict(joined_df, keywords, nr_imgs, column_name, agg_type, annotate_condition)
-
-            for key, path_list in list_dict.items():
-                if len(path_list) > 1:
-                    print(f'Generating figure with representative images of {key} from {len(path_list)} objects')
-                    fig = _plot_images_on_grid(path_list, channel_indices, um_per_pixel, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, plot=False)
-                    src_fldr = os.path.dirname(os.path.dirname(os.path.dirname(path_list[0])))
-                    _save_figure(fig, src_fldr, text=column_name)
-                else:
-                    print(f'{key} has {len(path_list)} rows. Consider modifying keywords {keywords}')
-
-        if isinstance(column_name, list):
-            for column_nm in column_name:
-                list_dict = _generate_filelist_dict(joined_df, keywords, nr_imgs, column_nm)
-
-                for key, path_list in list_dict.items():
-                    if len(path_list) > 1:
-                        print(f'Generating figure with representative images of {key} from {len(path_list)} objects')
-                        fig = _plot_images_on_grid(path_list, channel_indices, um_per_pixel, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, plot=False)
-                        src_fldr = os.path.dirname(os.path.dirname(os.path.dirname(path_list[0])))
-                        _save_figure(fig, src_fldr, text=column_name)
-                    else:
-                        print(f'{key} has {len(path_list)} rows. Consider modifying keywords {keywords}')
-        return
-            
-def measure_crop(settings):
-
-    def _save_scimg_plot(src, nr_imgs=16, channel_indices=[0,1,2], um_per_pixel=0.1, scale_bar_length_um=10, standardize=True, fontsize=8, show_filename=True, channel_names=None, dpi=300, plot=False):
-
-        def __visualize_scimgs(src, channel_indices=None, um_per_pixel=0.1, scale_bar_length_um=10, show_filename=True, standardize=True, nr_imgs=None, fontsize=8, channel_names=None, plot=False):
-
-            def ___generate_filelist(src):
-                files = glob.glob(os.path.join(src, '*'))
-                image_files = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff', '.gif'))]
-                return image_files
-
-            def ___find_similar_sized_images(file_list):
-                # Dictionary to hold image sizes and their paths
-                size_to_paths = defaultdict(list)
-
-                # Iterate over image paths to get their dimensions
-                for path in file_list:
-                    img = cv2.imread(path, cv2.IMREAD_UNCHANGED)  # Read with unchanged color space to support different image types
-                    if img is not None:
-                        # Find indices where the image is not padded (non-zero)
-                        if img.ndim == 3:  # Color image
-                            mask = np.any(img != 0, axis=2)
-                        else:  # Grayscale image
-                            mask = img != 0
-
-                        # Find the bounding box of non-zero regions
-                        coords = np.argwhere(mask)
-                        if coords.size == 0:  # Skip images that are completely padded
-                            continue
-                        y0, x0 = coords.min(axis=0)
-                        y1, x1 = coords.max(axis=0) + 1  # Add 1 because slice end index is exclusive
-
-                        # Crop the image to remove padding
-                        cropped_img = img[y0:y1, x0:x1]
-
-                        # Get dimensions of the cropped image
-                        height, width = cropped_img.shape[:2]
-                        aspect_ratio = width / height
-                        size_key = (width, height, round(aspect_ratio, 2))  # Group by width, height, and aspect ratio
-                        size_to_paths[size_key].append(path)
-
-                # Find the largest group of images with the most similar size and shape
-                largest_group = max(size_to_paths.values(), key=len)
-
-                return largest_group
-
-            def ___random_sample(file_list, nr_imgs=None):
-                if nr_imgs is not None and nr_imgs < len(file_list):
-                    random.seed(42)
-                    file_list = random.sample(file_list, nr_imgs)
-                return file_list
-
-            def ___plot_images_on_grid(image_files, channel_indices, um_per_pixel, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, plot=False):
-                print(f'scale bar represents {scale_bar_length_um} um')
-                nr_of_images = len(image_files)
-                cols = int(np.ceil(np.sqrt(nr_of_images)))
-                rows = np.ceil(nr_of_images / cols)
-
-                fig, axes = plt.subplots(int(rows), int(cols), figsize=(20, 20), facecolor='black')
-                fig.patch.set_facecolor('black')
-                axes = axes.flatten()
-
-                # Calculate the scale bar length in pixels
-                scale_bar_length_px = int(scale_bar_length_um / um_per_pixel)  # Convert to pixels
-
-                channel_colors = ['red','green','blue']
-                for i, image_file in enumerate(image_files):
-                    img_array = cv2.imread(image_file, cv2.IMREAD_UNCHANGED)
-
-                    if img_array.ndim == 3 and img_array.shape[2] >= 3:
-                        img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB)
-
-                    # Handle different channel selections
-                    if channel_indices is not None:
-                        if len(channel_indices) == 1:  # Single channel (grayscale)
-                            img_array = img_array[:, :, channel_indices[0]]
-                            cmap = 'gray'
-                        elif len(channel_indices) == 2:  # Dual channels
-                            img_array = np.mean(img_array[:, :, channel_indices], axis=2)
-                            cmap = 'gray'
-                        else:  # RGB or more channels
-                            img_array = img_array[:, :, channel_indices]
-                            cmap = None
-                    else:
-                        cmap = None if img_array.ndim == 3 else 'gray'
-
-                    # Normalize based on dtype
-                    if img_array.dtype == np.uint16:
-                        img_array = img_array.astype(np.float32) / 65535.0
-                    elif img_array.dtype == np.uint8:
-                        img_array = img_array.astype(np.float32) / 255.0
-
-                    ax = axes[i]
-                    ax.imshow(img_array, cmap=cmap)
-                    ax.axis('off')
-                    if show_filename:
-                        ax.set_title(os.path.basename(image_file), color='white', fontsize=fontsize, pad=20)
-
-                    # Add scale bar
-                    ax.plot([10, 10 + scale_bar_length_px], [img_array.shape[0] - 10] * 2, lw=2, color='white')
-
-                # Add channel names at the top if specified
-                initial_offset = 0.02  # Starting offset from the left side of the figure
-                increment = 0.05  # Fixed increment for each subsequent channel name, adjust based on figure width
-                if channel_names:
-                    current_offset = initial_offset
-                    for i, channel_name in enumerate(channel_names):
-                        color = channel_colors[i] if i < len(channel_colors) else 'white'
-                        fig.text(current_offset, 0.99, channel_name, color=color, fontsize=fontsize,
-                                 verticalalignment='top', horizontalalignment='left',
-                                 bbox=dict(facecolor='black', edgecolor='none', pad=3))
-                        current_offset += increment
-
-                for j in range(i + 1, len(axes)):
-                    axes[j].axis('off')
-
-                plt.tight_layout(pad=3)
-                if plot:
-                    plt.show()
-                return fig
-
-
-            image_files = ___generate_filelist(src)
-
-            if standardize:
-                image_files = ___find_similar_sized_images(image_files)
-
-            if nr_imgs is not None:
-                image_files = ___random_sample(image_files, nr_imgs)
-
-            fig = ___plot_images_on_grid(image_files, channel_indices, um_per_pixel, scale_bar_length_um, fontsize, show_filename, channel_names, plot)
-
-            return fig
-
-        def __save_figure(fig, src, text):
-            save_folder = os.path.dirname(src)
-            obj_type = os.path.basename(src)
-            name = os.path.basename(save_folder)
-            save_folder = os.path.join(save_folder, 'figure')
-            os.makedirs(save_folder, exist_ok=True)
-            fig_name = f'{obj_type}_{name}_{text}.pdf'        
-            save_location = os.path.join(save_folder, fig_name)
-            fig.savefig(save_location, bbox_inches='tight', dpi=dpi)
-            print(f'Saved single cell figure: {save_location}')
-            plt.close()
-
-        fig = __visualize_scimgs(src, channel_indices, um_per_pixel, scale_bar_length_um, show_filename, standardize, nr_imgs, fontsize, channel_names, plot)
-        __save_figure(fig, src, text='all_channels')
-
-        for channel in channel_indices:
-            channel_indices=[channel]
-            fig = __visualize_scimgs(src, channel_indices, um_per_pixel, scale_bar_length_um, show_filename, standardize, nr_imgs, fontsize, channel_names=None, plot=plot)
-            __save_figure(fig, src, text=f'channel_{channel}')
-
-        return
+            Returns:
+                pandas.DataFrame: The filtered DataFrame with the closest rows to the statistical measure.
+            """
+            if use_median:
+                target_value = df[column].median()
+            else:
+                target_value = df[column].mean()
+            df['diff'] = (df[column] - target_value).abs()
+            result_df = df.sort_values(by='diff').head(n_rows)
+            result_df = result_df.drop(columns=['diff'])
+            return result_df
+        
+        df = _read_and_join_tables(db_path)
+        df = _annotate_conditions(df, cells, cell_loc, pathogens, pathogen_loc, treatments,treatment_loc)
+        if isinstance(compartments, list):
+            if len(compartments) > 1:
+                df['new_measurement'] = df[f'{compartments[0]}_channel_{channel_of_interest}_{measurement}']/df[f'{compartments[1]}_channel_{channel_of_interest}_{measurement}']
+        else:
+            df['new_measurement'] = df['cell_area']
+        dfs = {condition: df_group for condition, df_group in df.groupby('condition')}
+        conditions = df['condition'].dropna().unique().tolist()
+        for condition in conditions:
+            df = dfs[condition]
+            df = _filter_closest_to_stat(df, column='new_measurement', n_rows=nr_imgs, use_median=False)
+            png_paths_by_condition = df['png_path'].tolist()
+            fig = _plot_images_on_grid(png_paths_by_condition, channel_indices, um_per_pixel, scale_bar_length_um, fontsize, show_filename, channel_names, plot)
+            src = os.path.dirname(db_path)
+            os.makedirs(src, exist_ok=True)
+            __save_figure(fig=fig, src=src, text=condition)
+            for channel in channel_indices:
+                channel_indices=[channel]
+                fig = _plot_images_on_grid(png_paths_by_condition, channel_indices, um_per_pixel, scale_bar_length_um, fontsize, show_filename, channel_names, plot)
+                __save_figure(fig, src, text=f'channel_{channel}_{condition}')
+                plt.close()
 
     def _timelapse_masks_to_gif(folder_path, mask_channels, object_types):
+        """
+        Converts a sequence of masks into a timelapse GIF file.
+
+        Args:
+            folder_path (str): The path to the folder containing the mask files.
+            mask_channels (list): List of channel indices to extract masks from.
+            object_types (list): List of object types corresponding to each mask channel.
+
+        Returns:
+            None
+        """
 
         def __sort_key(file_path):
+            """
+            Returns a sort key for the given file path based on the pattern '(\d+)_([A-Z]\d+)_(\d+)_(\d+).npy'.
+            The sort key is a tuple containing the plate, well, field, and time values extracted from the file path.
+            If the file path does not match the pattern, a default sort key is returned to sort the file as "earliest" or "lowest".
+
+            Args:
+                file_path (str): The file path to extract the sort key from.
+
+            Returns:
+                tuple: The sort key tuple containing the plate, well, field, and time values.
+            """
             match = re.search(r'(\d+)_([A-Z]\d+)_(\d+)_(\d+).npy', os.path.basename(file_path))
             if match:
                 plate, well, field, time = match.groups()
@@ -2591,8 +3572,29 @@ def measure_crop(settings):
                 return ('', '', '', 0)
 
         def __save_mask_timelapse_as_gif(masks, path, cmap, norm, filenames):
+            """
+            Save a timelapse of masks as a GIF.
 
+            Parameters:
+            masks (list): List of mask frames.
+            path (str): Path to save the GIF.
+            cmap: Colormap for displaying the masks.
+            norm: Normalization for the masks.
+            filenames (list): List of filenames corresponding to each mask frame.
+
+            Returns:
+            None
+            """
             def ___update(frame):
+                """
+                Update the plot with the given frame.
+
+                Parameters:
+                frame (int): The frame number to update the plot with.
+
+                Returns:
+                None
+                """
                 nonlocal filename_text_obj
                 if filename_text_obj is not None:
                     filename_text_obj.remove()
@@ -2620,7 +3622,19 @@ def measure_crop(settings):
             print(f'Saved timelapse to {path}')
 
         def __masks_to_gif(masks, gif_folder, name, filenames, object_type):
+            """
+            Converts a sequence of masks into a GIF file.
 
+            Args:
+                masks (list): List of masks representing the sequence.
+                gif_folder (str): Path to the folder where the GIF file will be saved.
+                name (str): Name of the GIF file.
+                filenames (list): List of filenames corresponding to each mask in the sequence.
+                object_type (str): Type of object represented by the masks.
+
+            Returns:
+                None
+            """
             def __display_gif(path):
                 with open(path, 'rb') as file:
                     display(ipyimage(file.read()))
@@ -2677,6 +3691,15 @@ def measure_crop(settings):
                 __masks_to_gif(mask_arrays_np, gif_folder, name, filenames, object_type)
 
     def _list_endpoint_subdirectories(base_dir):
+        """
+        Returns a list of subdirectories within the given base directory.
+
+        Args:
+            base_dir (str): The base directory to search for subdirectories.
+
+        Returns:
+            list: A list of subdirectories within the base directory.
+        """
         endpoint_subdirectories = []
         for root, dirs, _ in os.walk(base_dir):
             if not dirs:
@@ -2684,48 +3707,66 @@ def measure_crop(settings):
         return endpoint_subdirectories
 
     def _scmovie(folder_paths):
-        folder_paths = list(set(folder_paths))
-        for folder_path in folder_paths:
-            movie_path = os.path.join(folder_path, 'movies')
-            os.makedirs(movie_path, exist_ok=True)
-            # Regular expression to parse the filename
-            filename_regex = re.compile(r'(\w+)_(\w+)_(\w+)_(\d+)_(\d+).png')
-            # Dictionary to hold lists of images by plate, well, field, and object number
-            grouped_images = defaultdict(list)
-            # Iterate over all PNG files in the folder
-            for filename in os.listdir(folder_path):
-                if filename.endswith('.png'):
-                    match = filename_regex.match(filename)
-                    if match:
-                        plate, well, field, time, object_number = match.groups()
-                        key = (plate, well, field, object_number)
-                        grouped_images[key].append((int(time), os.path.join(folder_path, filename)))
-            for key, images in grouped_images.items():
-                # Sort images by time using sorted and lambda function for custom sort key
-                images = sorted(images, key=lambda x: x[0])
-                _, image_paths = zip(*images)
-                # Determine the size to which all images should be padded
-                max_height = max_width = 0
-                for image_path in image_paths:
-                    image = cv2.imread(image_path)
-                    h, w, _ = image.shape
-                    max_height, max_width = max(max_height, h), max(max_width, w)
-                # Initialize VideoWriter
-                plate, well, field, object_number = key
-                output_filename = f"{plate}_{well}_{field}_{object_number}.mp4"
-                output_path = os.path.join(movie_path, output_filename)
-                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-                video = cv2.VideoWriter(output_path, fourcc, 10, (max_width, max_height))
-                # Process each image
-                for image_path in image_paths:
-                    image = cv2.imread(image_path)
-                    h, w, _ = image.shape
-                    padded_image = np.zeros((max_height, max_width, 3), dtype=np.uint8)
-                    padded_image[:h, :w, :] = image
-                    video.write(padded_image)
-                video.release()
+            """
+            Generate movies from a collection of PNG images in the given folder paths.
+
+            Args:
+                folder_paths (list): List of folder paths containing PNG images.
+
+            Returns:
+                None
+            """
+            folder_paths = list(set(folder_paths))
+            for folder_path in folder_paths:
+                movie_path = os.path.join(folder_path, 'movies')
+                os.makedirs(movie_path, exist_ok=True)
+                # Regular expression to parse the filename
+                filename_regex = re.compile(r'(\w+)_(\w+)_(\w+)_(\d+)_(\d+).png')
+                # Dictionary to hold lists of images by plate, well, field, and object number
+                grouped_images = defaultdict(list)
+                # Iterate over all PNG files in the folder
+                for filename in os.listdir(folder_path):
+                    if filename.endswith('.png'):
+                        match = filename_regex.match(filename)
+                        if match:
+                            plate, well, field, time, object_number = match.groups()
+                            key = (plate, well, field, object_number)
+                            grouped_images[key].append((int(time), os.path.join(folder_path, filename)))
+                for key, images in grouped_images.items():
+                    # Sort images by time using sorted and lambda function for custom sort key
+                    images = sorted(images, key=lambda x: x[0])
+                    _, image_paths = zip(*images)
+                    # Determine the size to which all images should be padded
+                    max_height = max_width = 0
+                    for image_path in image_paths:
+                        image = cv2.imread(image_path)
+                        h, w, _ = image.shape
+                        max_height, max_width = max(max_height, h), max(max_width, w)
+                    # Initialize VideoWriter
+                    plate, well, field, object_number = key
+                    output_filename = f"{plate}_{well}_{field}_{object_number}.mp4"
+                    output_path = os.path.join(movie_path, output_filename)
+                    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                    video = cv2.VideoWriter(output_path, fourcc, 10, (max_width, max_height))
+                    # Process each image
+                    for image_path in image_paths:
+                        image = cv2.imread(image_path)
+                        h, w, _ = image.shape
+                        padded_image = np.zeros((max_height, max_width, 3), dtype=np.uint8)
+                        padded_image[:h, :w, :] = image
+                        video.write(padded_image)
+                    video.release()
 
     def _save_settings_to_db(settings):
+        """
+        Save the settings dictionary to a SQLite database.
+
+        Args:
+            settings (dict): A dictionary containing the settings.
+
+        Returns:
+            None
+        """
         # Convert the settings dictionary into a DataFrame
         settings_df = pd.DataFrame(list(settings.items()), columns=['setting_key', 'setting_value'])
         # Convert all values in the 'setting_value' column to strings
@@ -2740,6 +3781,9 @@ def measure_crop(settings):
         conn = sqlite3.connect(f'{directory}/measurements.db', timeout=5)
         settings_df.to_sql('settings', conn, if_exists='replace', index=False)  # Replace the table if it already exists
         conn.close()
+
+
+    settings = {**settings, **annotation_settings, **advanced_settings}
 
     if settings['timelapse_objects'] == 'nuclei':
         if not settings['cell_mask_dim'] is None:
@@ -2756,18 +3800,16 @@ def measure_crop(settings):
     settings['save_arrays'] = False
     
     if settings['cell_mask_dim'] is None:
-    	settings['include_uninfected'] = True
-    
+        settings['include_uninfected'] = True
     if settings['pathogen_mask_dim'] is None:
         settings['include_uninfected'] = True
-    
     if settings['cell_mask_dim'] is not None and settings['pathogen_min_size'] is not None:
-    	settings['cytoplasm'] = True
+        settings['cytoplasm'] = True
     elif settings['cell_mask_dim'] is not None and settings['nucleus_min_size'] is not None:
-    	settings['cytoplasm'] = True
+        settings['cytoplasm'] = True
     else:
-    	settings['cytoplasm'] = False
-    
+        settings['cytoplasm'] = False
+
     settings['center_crop'] = True
 
     int_setting_keys = ['cell_mask_dim', 'nuclei_mask_dim', 'pathogen_mask_dim', 'cell_min_size', 'nucleus_min_size', 'pathogen_min_size', 'cytoplasm_min_size']
@@ -2824,9 +3866,33 @@ def measure_crop(settings):
                 nr_imgs = 16
                 standardize = True
             try:
-            	_save_scimg_plot(src=well_src, nr_imgs=nr_imgs, channel_indices=settings['png_dims'], um_per_pixel=0.1, scale_bar_length_um=10, standardize=standardize, fontsize=12, show_filename=True, channel_names=['red','green','blue'], dpi=300, plot=False)    
+                _save_scimg_plot(src=well_src, nr_imgs=nr_imgs, channel_indices=settings['png_dims'], um_per_pixel=0.1, scale_bar_length_um=10, standardize=standardize, fontsize=12, show_filename=True, channel_names=['red','green','blue'], dpi=300, plot=False)    
             except Exception as e:  # Consider catching a more specific exception if possible
                 print(f"Unable to generate figure for folder {well_src}: {e}", flush=True)
+                
+        if settings['save_measurements']:
+            db_path = os.path.join(os.path.dirname(settings['input_folder']), 'measurements', 'measurements.db')
+            channel_indices = settings['png_dims'],
+            channel_indices = [min(value, 2) for value in channel_indices]
+            
+            _generate_representative_images(db_path,
+                                        cells=settings['cells'],
+                                        cell_loc=settings['cell_loc'],
+                                        pathogens=settings['pathogens'],
+                                        pathogen_loc=settings['pathogen_loc'],
+                                        treatments=settings['treatments'],
+                                        treatment_loc=settings['treatment_loc'],
+                                        channel_of_interest=settings['channel_of_interest'],
+                                        compartments = settings['compartments'],
+                                        measurement = settings['measurement'],
+                                        nr_imgs=settings['nr_imgs'],
+                                        channel_indices=channel_indices,
+                                        um_per_pixel=settings['um_per_pixel'],
+                                        scale_bar_length_um=10,
+                                        plot=False,
+                                        fontsize=12,
+                                        show_filename=True,
+                                        channel_names=None)
 
     if settings['timelapse']:
         if settings['timelapse_objects'] == 'nuclei':
@@ -2836,98 +3902,76 @@ def measure_crop(settings):
             _timelapse_masks_to_gif(folder_path, mask_channels, object_types)
 
         if settings['save_png']:
-            img_fldr = os.path.join(os.path.dirname(settings['input_folder']), 'data')  
+            img_fldr = os.path.join(os.path.dirname(settings['input_folder']), 'data')
             sc_img_fldrs = _list_endpoint_subdirectories(img_fldr)
             _scmovie(sc_img_fldrs)
             
-def _npz_to_movie(arrays, filenames, save_path, fps=10):
-    # Define the codec and create VideoWriter object
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    if save_path.endswith('.mp4'):
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-
-    # Initialize VideoWriter with the size of the first image
-    height, width = arrays[0].shape[:2]
-    out = cv2.VideoWriter(save_path, fourcc, fps, (width, height))
-
-    for i, frame in enumerate(arrays):
-        # Handle float32 images by scaling or normalizing
-        if frame.dtype == np.float32:
-            frame = np.clip(frame, 0, 1)
-            frame = (frame * 255).astype(np.uint8)
-
-        # Convert 16-bit image to 8-bit
-        elif frame.dtype == np.uint16:
-            frame = cv2.convertScaleAbs(frame, alpha=(255.0/65535.0))
-
-        # Handling 1-channel (grayscale) or 2-channel images
-        if frame.ndim == 2 or (frame.ndim == 3 and frame.shape[2] in [1, 2]):
-            if frame.ndim == 2 or frame.shape[2] == 1:
-                # Convert grayscale to RGB
-                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
-            elif frame.shape[2] == 2:
-                # Create an RGB image with the first channel as red, second as green, blue set to zero
-                rgb_frame = np.zeros((height, width, 3), dtype=np.uint8)
-                rgb_frame[..., 0] = frame[..., 0]  # Red channel
-                rgb_frame[..., 1] = frame[..., 1]  # Green channel
-                frame = rgb_frame
-
-        # For 3-channel images, ensure it's in BGR format for OpenCV
-        elif frame.shape[2] == 3:
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-
-        # Add filenames as text on frames
-        cv2.putText(frame, filenames[i], (10, height - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-
-        out.write(frame)
-
-    out.release()
-    print(f"Movie saved to {save_path}")
-    
-def _create_movies_from_npy_per_channel(src, fps=10):
-    master_path = os.path.dirname(src)
-    save_path = os.path.join(master_path,'movies')
-    os.makedirs(save_path, exist_ok=True)
-    # Organize files by plate, well, field
-    files = [f for f in os.listdir(src) if f.endswith('.npy')]
-    organized_files = {}
-    for f in files:
-        match = re.match(r'(\w+)_(\w+)_(\w+)_(\d+)\.npy', f)
-        if match:
-            plate, well, field, time = match.groups()
-            key = (plate, well, field)
-            if key not in organized_files:
-                organized_files[key] = []
-            organized_files[key].append((int(time), os.path.join(src, f)))
-    for key, file_list in organized_files.items():
-        plate, well, field = key
-        file_list.sort(key=lambda x: x[0])
-        arrays = []
-        filenames = []
-        for f in file_list:
-            array = np.load(f[1])
-            #if array.dtype != np.uint8:
-            #    array = ((array - array.min()) / (array.max() - array.min()) * 255).astype(np.uint8)
-            arrays.append(array)
-            filenames.append(os.path.basename(f[1]))
-        arrays = np.stack(arrays, axis=0)
-    for channel in range(arrays.shape[-1]):
-        # Extract the current channel for all time points
-        channel_arrays = arrays[..., channel]
-        # Flatten the channel data to compute global percentiles
-        channel_data_flat = channel_arrays.reshape(-1)
-        p1, p99 = np.percentile(channel_data_flat, [1, 99])
-        # Normalize and rescale each array in the channel
-        normalized_channel_arrays = [(np.clip((arr - p1) / (p99 - p1), 0, 1) * 255).astype(np.uint8) for arr in channel_arrays]
-        # Convert the list of 2D arrays into a list of 3D arrays with a single channel
-        normalized_channel_arrays_3d = [arr[..., np.newaxis] for arr in normalized_channel_arrays]
-        # Save as movie for the current channel
-        channel_save_path = os.path.join(save_path, f'{plate}_{well}_{field}_channel_{channel}.mp4')
-        _npz_to_movie(normalized_channel_arrays_3d, filenames, channel_save_path, fps)
-    
 def identify_masks(src, object_type, model_name, batch_size, channels, diameter, minimum_size, maximum_size, flow_threshold=30, cellprob_threshold=1, figuresize=25, cmap='inferno', refine_masks=True, filter_size=True, filter_dimm=True, remove_border_objects=False, verbose=False, plot=False, merge=False, save=True, start_at=0, file_type='.npz', net_avg=True, resample=True, timelapse=False, timelapse_displacement=None, timelapse_frame_limits=None, timelapse_memory=3, timelapse_remove_transient=False, timelapse_mode='btrack', timelapse_objects='cell'):
+    """
+    Identify masks from the source images.
+
+    Args:
+        src (str): Path to the source images.
+        object_type (str): Type of object to identify.
+        model_name (str): Name of the model to use for identification.
+        batch_size (int): Number of images to process in each batch.
+        channels (list): List of channel names.
+        diameter (float): Diameter of the objects to identify.
+        minimum_size (int): Minimum size of objects to keep.
+        maximum_size (int): Maximum size of objects to keep.
+        flow_threshold (int, optional): Threshold for flow detection. Defaults to 30.
+        cellprob_threshold (int, optional): Threshold for cell probability. Defaults to 1.
+        figuresize (int, optional): Size of the figure. Defaults to 25.
+        cmap (str, optional): Colormap for plotting. Defaults to 'inferno'.
+        refine_masks (bool, optional): Flag indicating whether to refine masks. Defaults to True.
+        filter_size (bool, optional): Flag indicating whether to filter based on size. Defaults to True.
+        filter_dimm (bool, optional): Flag indicating whether to filter based on intensity. Defaults to True.
+        remove_border_objects (bool, optional): Flag indicating whether to remove border objects. Defaults to False.
+        verbose (bool, optional): Flag indicating whether to display verbose output. Defaults to False.
+        plot (bool, optional): Flag indicating whether to plot the masks. Defaults to False.
+        merge (bool, optional): Flag indicating whether to merge adjacent objects. Defaults to False.
+        save (bool, optional): Flag indicating whether to save the masks. Defaults to True.
+        start_at (int, optional): Index to start processing from. Defaults to 0.
+        file_type (str, optional): File type for saving the masks. Defaults to '.npz'.
+        net_avg (bool, optional): Flag indicating whether to use network averaging. Defaults to True.
+        resample (bool, optional): Flag indicating whether to resample the images. Defaults to True.
+        timelapse (bool, optional): Flag indicating whether to generate a timelapse. Defaults to False.
+        timelapse_displacement (float, optional): Displacement threshold for timelapse. Defaults to None.
+        timelapse_frame_limits (tuple, optional): Frame limits for timelapse. Defaults to None.
+        timelapse_memory (int, optional): Memory for timelapse. Defaults to 3.
+        timelapse_remove_transient (bool, optional): Flag indicating whether to remove transient objects in timelapse. Defaults to False.
+        timelapse_mode (str, optional): Mode for timelapse. Defaults to 'btrack'.
+        timelapse_objects (str, optional): Objects to track in timelapse. Defaults to 'cell'.
+
+    Returns:
+        None
+    """
 
     def __filter_cp_masks(masks, flows, refine_masks, filter_size, minimum_size, maximum_size, remove_border_objects, merge, filter_dimm, batch, moving_avg_q1, moving_avg_q3, moving_count, plot, figuresize, split_objects=False):
+        """
+        Filter the masks based on various criteria such as size, border objects, merging, and intensity.
+
+        Args:
+            masks (list): List of masks.
+            flows (list): List of flows.
+            refine_masks (bool): Flag indicating whether to refine masks.
+            filter_size (bool): Flag indicating whether to filter based on size.
+            minimum_size (int): Minimum size of objects to keep.
+            maximum_size (int): Maximum size of objects to keep.
+            remove_border_objects (bool): Flag indicating whether to remove border objects.
+            merge (bool): Flag indicating whether to merge adjacent objects.
+            filter_dimm (bool): Flag indicating whether to filter based on intensity.
+            batch (ndarray): Batch of images.
+            moving_avg_q1 (float): Moving average of the first quartile of object intensities.
+            moving_avg_q3 (float): Moving average of the third quartile of object intensities.
+            moving_count (int): Count of moving averages.
+            plot (bool): Flag indicating whether to plot the masks.
+            figuresize (tuple): Size of the figure.
+            split_objects (bool, optional): Flag indicating whether to split objects. Defaults to False.
+
+        Returns:
+            list: List of filtered masks.
+        """
         mask_stack = []
         for idx, (mask, flow, image) in enumerate(zip(masks, flows[0], batch)):
             if plot:
@@ -2978,14 +4022,26 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
         return mask_stack
 
     def __save_object_counts_to_database(arrays, object_type, file_names, db_path, added_string):
+        """
+        Save the counts of unique objects in masks to a SQLite database.
 
+        Args:
+            arrays (List[np.ndarray]): List of masks.
+            object_type (str): Type of object.
+            file_names (List[str]): List of file names corresponding to the masks.
+            db_path (str): Path to the SQLite database.
+            added_string (str): Additional string to append to the count type.
+
+        Returns:
+            None
+        """
         def ___count_objects(mask):
-                """Count unique objects in a mask, assuming 0 is the background."""
-                unique, counts = np.unique(mask, return_counts=True)
-                # Assuming 0 is the background label, remove it from the count
-                if unique[0] == 0:
-                    return len(unique) - 1
-                return len(unique)
+            """Count unique objects in a mask, assuming 0 is the background."""
+            unique, counts = np.unique(mask, return_counts=True)
+            # Assuming 0 is the background label, remove it from the count
+            if unique[0] == 0:
+                return len(unique) - 1
+            return len(unique)
 
         records = []
         for mask, file_name in zip(arrays, file_names):
@@ -3022,17 +4078,48 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
         conn.close()
 
     def __masks_to_masks_stack(masks):
+        """
+        Convert a list of masks into a stack of masks.
+
+        Args:
+            masks (list): A list of masks.
+
+        Returns:
+            list: A stack of masks.
+        """
         mask_stack = []
         for idx, mask in enumerate(masks):
             mask_stack.append(mask)
         return mask_stack
 
     def __display_gif(path):
+        """
+        Display a GIF image from the given path.
+
+        Parameters:
+        path (str): The path to the GIF image file.
+
+        Returns:
+        None
+        """
         with open(path, 'rb') as file:
             display(ipyimage(file.read()))
 
     def __save_mask_timelapse_as_gif(masks, tracks_df, path, cmap, norm, filenames):
+        """
+        Save a timelapse animation of masks as a GIF.
 
+        Parameters:
+        - masks (list): List of mask frames.
+        - tracks_df (pandas.DataFrame): DataFrame containing track information.
+        - path (str): Path to save the GIF file.
+        - cmap (str or matplotlib.colors.Colormap): Colormap for displaying the masks.
+        - norm (matplotlib.colors.Normalize): Normalization for the colormap.
+        - filenames (list): List of filenames corresponding to each mask frame.
+
+        Returns:
+        None
+        """
         # Set the face color for the figure to black
         fig, ax = plt.subplots(figsize=(50, 50), facecolor='black')
         ax.set_facecolor('black')  # Set the axes background color to black
@@ -3042,6 +4129,15 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
         filename_text_obj = None  # Initialize a variable to keep track of the text object
 
         def ___update(frame):
+            """
+            Update the frame of the animation.
+
+            Parameters:
+            - frame (int): The frame number to update.
+
+            Returns:
+            None
+            """
             nonlocal filename_text_obj  # Reference the nonlocal variable to update it
             if filename_text_obj is not None:
                 filename_text_obj.remove()  # Remove the previous text object if it exists
@@ -3072,7 +4168,22 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
         plt.close(fig)
         print(f'Saved timelapse to {path}')
 
-    def __visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df, save, src, name, plot, filenames, object_type, mode='btrack',interactive=False):
+    def __visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df, save, src, name, plot, filenames, object_type, mode='btrack', interactive=False):
+        """
+        Visualizes and saves a timelapse stack with tracks.
+
+        Args:
+            masks (list): List of binary masks representing each frame of the timelapse stack.
+            tracks_df (pandas.DataFrame): DataFrame containing track information.
+            save (bool): Flag indicating whether to save the timelapse stack.
+            src (str): Source file path.
+            name (str): Name of the timelapse stack.
+            plot (bool): Flag indicating whether to plot the timelapse stack.
+            filenames (list): List of filenames corresponding to each frame of the timelapse stack.
+            object_type (str): Type of object being tracked.
+            mode (str, optional): Tracking mode. Defaults to 'btrack'.
+            interactive (bool, optional): Flag indicating whether to display the timelapse stack interactively. Defaults to False.
+        """
         highest_label = max(np.max(mask) for mask in masks)
         # Generate random colors for each label, including the background
         random_colors = np.random.rand(highest_label + 1, 4)
@@ -3081,8 +4192,18 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
         cmap = plt.cm.colors.ListedColormap(random_colors)
         # Ensure the normalization range covers all labels
         norm = plt.cm.colors.Normalize(vmin=0, vmax=highest_label)
+        
         # Function to plot a frame and overlay tracks
         def ___view_frame_with_tracks(frame=0):
+            """
+            Display the frame with tracks overlaid.
+
+            Parameters:
+            frame (int): The frame number to display.
+
+            Returns:
+            None
+            """
             fig, ax = plt.subplots(figsize=(50, 50))
             current_mask = masks[frame]
             ax.imshow(current_mask, cmap=cmap, norm=norm)  # Apply both colormap and normalization
@@ -3107,7 +4228,7 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                 interact(___view_frame_with_tracks, frame=IntSlider(min=0, max=len(masks)-1, step=1, value=0))
 
         if save:
-            #save as gif
+            # Save as gif
             gif_path = os.path.join(os.path.dirname(src), 'movies', 'gif')
             os.makedirs(gif_path, exist_ok=True)
             save_path_gif = os.path.join(gif_path, f'timelapse_masks_{object_type}_{name}.gif')
@@ -3117,6 +4238,17 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                     __display_gif(save_path_gif)
 
     def __relabel_masks_based_on_tracks(masks, tracks, mode='btrack'):
+        """
+        Relabels the masks based on the tracks DataFrame.
+
+        Args:
+            masks (ndarray): Input masks array with shape (num_frames, height, width).
+            tracks (DataFrame): DataFrame containing track information.
+            mode (str, optional): Mode for relabeling. Defaults to 'btrack'.
+
+        Returns:
+            ndarray: Relabeled masks array with the same shape and dtype as the input masks.
+        """
         # Initialize an array to hold the relabeled masks with the same shape and dtype as the input masks
         relabeled_masks = np.zeros(masks.shape, dtype=masks.dtype)
 
@@ -3135,6 +4267,22 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
         return relabeled_masks
 
     def __prepare_for_tracking(mask_array):
+        """
+        Prepare the mask array for object tracking.
+
+        Args:
+            mask_array (ndarray): Array of binary masks representing objects.
+
+        Returns:
+            DataFrame: DataFrame containing information about each object in the mask array.
+                The DataFrame has the following columns:
+                - frame: The frame number.
+                - y: The y-coordinate of the object's centroid.
+                - x: The x-coordinate of the object's centroid.
+                - mass: The area of the object.
+                - original_label: The original label of the object.
+
+        """
         frames = []
         for t, frame in enumerate(mask_array):
             props = regionprops(frame)
@@ -3149,19 +4297,20 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                 })
         return pd.DataFrame(frames)
 
-    #def __remove_even_labels_first_frame(array, by=2):
-    #    # Check if the input array has the correct shape (3 dimensions)
-    #    if array.ndim != 3:
-    #        raise ValueError("Input array must be 3D.")
-    #    # Select the first frame
-    #    first_frame = array[0]
-    #    # Find even labels in the first frame
-    #    even_labels_mask = first_frame % by == 0
-    #    # Set those labels to 0
-    #    array[0][even_labels_mask] = 0
-    #    return array
-
     def __find_optimal_search_range(features, initial_search_range=500, increment=10, max_attempts=49, memory=3):
+        """
+        Find the optimal search range for linking features.
+
+        Args:
+            features (list): List of features to be linked.
+            initial_search_range (int, optional): Initial search range. Defaults to 500.
+            increment (int, optional): Increment value for reducing the search range. Defaults to 10.
+            max_attempts (int, optional): Maximum number of attempts to find the optimal search range. Defaults to 49.
+            memory (int, optional): Memory parameter for linking features. Defaults to 3.
+
+        Returns:
+            int: The optimal search range for linking features.
+        """
         optimal_search_range = initial_search_range
         for attempt in range(max_attempts):
             try:
@@ -3175,20 +4324,49 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                 print(f'Retrying with displacement value: {optimal_search_range}', end='\r', flush=True)
         min_range = initial_search_range-(max_attempts*increment)
         if optimal_search_range <= min_range:
-            print(f'timelapse_displacement={optimal_search_range} is to high. Lower timelapse_displacement or set to None for automatic thresholding.')
+            print(f'timelapse_displacement={optimal_search_range} is too high. Lower timelapse_displacement or set to None for automatic thresholding.')
         return optimal_search_range
         
     def __remove_objects_from_first_frame(masks, percentage=10):
-        first_frame = masks[0]
-        unique_labels = np.unique(first_frame[first_frame != 0])
-        num_labels_to_remove = max(1, int(len(unique_labels) * (percentage / 100)))
-        labels_to_remove = random.sample(list(unique_labels), num_labels_to_remove)
+            """
+            Removes a specified percentage of objects from the first frame of a sequence of masks.
 
-        for label in labels_to_remove:
-            masks[0][first_frame == label] = 0
-        return masks
+            Parameters:
+            masks (ndarray): Sequence of masks representing the frames.
+            percentage (int): Percentage of objects to remove from the first frame.
+
+            Returns:
+            ndarray: Sequence of masks with objects removed from the first frame.
+            """
+            first_frame = masks[0]
+            unique_labels = np.unique(first_frame[first_frame != 0])
+            num_labels_to_remove = max(1, int(len(unique_labels) * (percentage / 100)))
+            labels_to_remove = random.sample(list(unique_labels), num_labels_to_remove)
+
+            for label in labels_to_remove:
+                masks[0][first_frame == label] = 0
+            return masks
 
     def __facilitate_trackin_with_adaptive_removal(masks, search_range=500, max_attempts=100, memory=3):
+        """
+        Facilitates object tracking with adaptive removal.
+
+        Args:
+            masks (numpy.ndarray): Array of binary masks representing objects in each frame.
+            search_range (int, optional): Maximum distance objects can move between frames. Defaults to 500.
+            max_attempts (int, optional): Maximum number of attempts to track objects. Defaults to 100.
+            memory (int, optional): Number of frames to remember when linking tracks. Defaults to 3.
+
+        Returns:
+            tuple: A tuple containing the updated masks, features, and tracks_df.
+                masks (numpy.ndarray): Updated array of binary masks.
+                features (pandas.DataFrame): DataFrame containing features for object tracking.
+                tracks_df (pandas.DataFrame): DataFrame containing the tracked object trajectories.
+
+        Raises:
+            Exception: If tracking fails after the maximum number of attempts.
+
+        """
         attempts = 0
         first_frame = masks[0]
         starting_objects = np.unique(first_frame[first_frame != 0])
@@ -3210,42 +4388,88 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
         return None, None, None
 
     def __trackpy_track_cells(src, name, batch_filenames, object_type, masks, timelapse_displacement, timelapse_memory, timelapse_remove_transient, plot, save, mode):
+            """
+            Track cells using the Trackpy library.
 
-        if timelapse_displacement is None:
-            features = __prepare_for_tracking(masks)
-            timelapse_displacement = __find_optimal_search_range(features, initial_search_range=500, increment=10, max_attempts=49, memory=3)
+            Args:
+                src (str): The source file path.
+                name (str): The name of the track.
+                batch_filenames (list): List of batch filenames.
+                object_type (str): The type of object to track.
+                masks (list): List of masks.
+                timelapse_displacement (int): The displacement for timelapse tracking.
+                timelapse_memory (int): The memory for timelapse tracking.
+                timelapse_remove_transient (bool): Whether to remove transient objects in timelapse tracking.
+                plot (bool): Whether to plot the tracks.
+                save (bool): Whether to save the tracks.
+                mode (str): The mode of tracking.
+
+            Returns:
+                list: The mask stack.
+
+            """
             if timelapse_displacement is None:
-                timelapse_displacement = 50
+                features = __prepare_for_tracking(masks)
+                timelapse_displacement = __find_optimal_search_range(features, initial_search_range=500, increment=10, max_attempts=49, memory=3)
+                if timelapse_displacement is None:
+                    timelapse_displacement = 50
 
-        masks, features, tracks_df = __facilitate_trackin_with_adaptive_removal(masks, search_range=timelapse_displacement, max_attempts=100, memory=timelapse_memory)
-            
-        tracks_df['particle'] += 1
+            masks, features, tracks_df = __facilitate_trackin_with_adaptive_removal(masks, search_range=timelapse_displacement, max_attempts=100, memory=timelapse_memory)
+                
+            tracks_df['particle'] += 1
 
-        if timelapse_remove_transient:
-            tracks_df_filter = tp.filter_stubs(tracks_df, len(masks))
-        else:
-            tracks_df_filter = tracks_df.copy()
+            if timelapse_remove_transient:
+                tracks_df_filter = tp.filter_stubs(tracks_df, len(masks))
+            else:
+                tracks_df_filter = tracks_df.copy()
 
-        tracks_df_filter = tracks_df_filter.rename(columns={'particle': 'track_id'})
-        print(f'Removed {len(tracks_df)-len(tracks_df_filter)} objects that were not present in all frames')
-        masks = __relabel_masks_based_on_tracks(masks, tracks_df_filter)
-        tracks_path = os.path.join(os.path.dirname(src), 'tracks')
-        os.makedirs(tracks_path, exist_ok=True)
-        tracks_df_filter.to_csv(os.path.join(tracks_path, f'trackpy_tracks_{object_type}_{name}.csv'), index=False)
-        if plot or save:
-            __visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df_filter, save, src, name, plot, batch_filenames, object_type, mode)
+            tracks_df_filter = tracks_df_filter.rename(columns={'particle': 'track_id'})
+            print(f'Removed {len(tracks_df)-len(tracks_df_filter)} objects that were not present in all frames')
+            masks = __relabel_masks_based_on_tracks(masks, tracks_df_filter)
+            tracks_path = os.path.join(os.path.dirname(src), 'tracks')
+            os.makedirs(tracks_path, exist_ok=True)
+            tracks_df_filter.to_csv(os.path.join(tracks_path, f'trackpy_tracks_{object_type}_{name}.csv'), index=False)
+            if plot or save:
+                __visualize_and_save_timelapse_stack_with_tracks(masks, tracks_df_filter, save, src, name, plot, batch_filenames, object_type, mode)
 
-        mask_stack = __masks_to_masks_stack(masks)
-        return mask_stack
+            mask_stack = __masks_to_masks_stack(masks)
+            return mask_stack
 
     def __filter_short_tracks(df, min_length=5):
-        """Filter out tracks that are shorter than min_length."""
+        """Filter out tracks that are shorter than min_length.
+
+        Args:
+            df (pandas.DataFrame): The input DataFrame containing track information.
+            min_length (int, optional): The minimum length of tracks to keep. Defaults to 5.
+
+        Returns:
+            pandas.DataFrame: The filtered DataFrame with only tracks longer than min_length.
+        """
         track_lengths = df.groupby('track_id').size()
         long_tracks = track_lengths[track_lengths >= min_length].index
         return df[df['track_id'].isin(long_tracks)]
 
     def __btrack_track_cells(src, name, batch_filenames, object_type, plot, save, masks_3D, mode, timelapse_remove_transient, radius=100, workers=10):
+        """
+        Track cells using the btrack library.
 
+        Args:
+            src (str): The source file path.
+            name (str): The name of the track.
+            batch_filenames (list): List of batch filenames.
+            object_type (str): The type of object to track.
+            plot (bool): Whether to plot the tracks.
+            save (bool): Whether to save the tracks.
+            masks_3D (ndarray): 3D array of masks.
+            mode (str): The tracking mode.
+            timelapse_remove_transient (bool): Whether to remove transient tracks.
+            radius (int, optional): The maximum search radius. Defaults to 100.
+            workers (int, optional): The number of workers. Defaults to 10.
+
+        Returns:
+            ndarray: The mask stack.
+
+        """
         CONFIG_FILE = btrack_datasets.cell_config()
         frame, width, height = masks_3D.shape
 
@@ -3452,10 +4676,6 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
                 for mask_index, mask in enumerate(mask_stack):
                     output_filename = os.path.join(output_folder, batch_filenames[mask_index])
                     np.save(output_filename, mask)
-
-            else:
-                output_filename = os.path.join(output_folder, filename)
-                np.save(output_filename, mask)
             mask_stack = []
             batch_filenames = []
         gc.collect()
@@ -3463,6 +4683,34 @@ def identify_masks(src, object_type, model_name, batch_size, channels, diameter,
 
 def _generate_masks(src, object_type, mag, batch_size, channels, cellprob_threshold, plot, save, verbose, nr=1, start_at=0, merge=False, file_type='.npz', timelapse=False, timelapse_displacement=None, timelapse_memory=3, timelapse_frame_limits=None, timelapse_remove_transient=False, timelapse_mode='btrack', timelapse_objects = ['cell'], settings={}):
 
+    """Generates masks for the specified object type.
+
+    Args:
+        src (str): The source directory of the images.
+        object_type (str): The type of object to generate masks for (e.g., 'cell', 'nuclei', 'pathogen').
+        mag (int): The magnification level.
+        batch_size (int): The batch size for mask generation.
+        channels (int): The number of channels in the images.
+        cellprob_threshold (float): The threshold for cell probability.
+        plot (bool): Whether to plot the generated masks.
+        save (bool): Whether to save the generated masks.
+        verbose (bool): Whether to print verbose information.
+        nr (int, optional): The number of masks to generate. Defaults to 1.
+        start_at (int, optional): The index to start generating masks from. Defaults to 0.
+        merge (bool, optional): Whether to merge the generated masks. Defaults to False.
+        file_type (str, optional): The file type of the images. Defaults to '.npz'.
+        timelapse (bool, optional): Whether to generate masks for timelapse images. Defaults to False.
+        timelapse_displacement (float, optional): The displacement for timelapse images. Defaults to None.
+        timelapse_memory (int, optional): The memory for timelapse images. Defaults to 3.
+        timelapse_frame_limits (list, optional): The frame limits for timelapse images. Defaults to None.
+        timelapse_remove_transient (bool, optional): Whether to remove transient objects in timelapse images. Defaults to False.
+        timelapse_mode (str, optional): The mode for timelapse images. Defaults to 'btrack'.
+        timelapse_objects (list, optional): The objects to generate masks for in timelapse images. Defaults to ['cell'].
+        settings (dict, optional): Additional settings for mask generation. Defaults to {}.
+
+    Returns:
+        None
+    """
     def _get_diam(mag, obj):
         if obj == 'cell':
             if mag == 20:
@@ -3597,6 +4845,16 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
     def _pivot_counts_table(db_path):
 
         def __read_table_to_dataframe(db_path, table_name='object_counts'):
+            """
+            Read a table from an SQLite database into a pandas DataFrame.
+
+            Parameters:
+            - db_path (str): The path to the SQLite database file.
+            - table_name (str): The name of the table to read. Default is 'object_counts'.
+
+            Returns:
+            - df (pandas.DataFrame): The table data as a pandas DataFrame.
+            """
             # Connect to the SQLite database
             conn = sqlite3.connect(db_path)
             # Read the entire table into a pandas DataFrame
@@ -3607,6 +4865,15 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
             return df
 
         def __pivot_dataframe(df):
+            """
+            Pivot the DataFrame.
+
+            Args:
+                df (pandas.DataFrame): The input DataFrame.
+
+            Returns:
+                pandas.DataFrame: The pivoted DataFrame with filled NaN values.
+            """
             # Pivot the DataFrame
             pivoted_df = df.pivot(index='file_name', columns='count_type', values='object_count').reset_index()
             # Because the pivot operation can introduce NaN values for missing data,
@@ -3621,11 +4888,25 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
         # Reconnect to the SQLite database to overwrite the 'object_counts' table with the pivoted DataFrame
         conn = sqlite3.connect(db_path)
         # When overwriting, ensure that you drop the existing table or use if_exists='replace' to overwrite it
-        pivoted_df.to_sql('object_counts', conn, if_exists='replace', index=False)
+        pivoted_df.to_sql('pivoted_counts', conn, if_exists='replace', index=False)
         conn.close()
 
     def _load_and_concatenate_arrays(src, channels, cell_chann_dim, nucleus_chann_dim, pathogen_chann_dim):
+        """
+        Load and concatenate arrays from multiple folders.
+
+        Args:
+            src (str): The source directory containing the arrays.
+            channels (list): List of channel indices to select from the arrays.
+            cell_chann_dim (int): Dimension of the cell channel.
+            nucleus_chann_dim (int): Dimension of the nucleus channel.
+            pathogen_chann_dim (int): Dimension of the pathogen channel.
+
+        Returns:
+            None
+        """
         folder_paths = [os.path.join(src+'/stack')]
+
         if cell_chann_dim is not None or os.path.exists(os.path.join(src, 'norm_channel_stack', 'cell_mask_stack')):
             folder_paths = folder_paths + [os.path.join(src, 'norm_channel_stack','cell_mask_stack')]
         if nucleus_chann_dim is not None or os.path.exists(os.path.join(src, 'norm_channel_stack', 'nuclei_mask_stack')):
@@ -3868,9 +5149,36 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
     return
 
 def annotate_conditions(df, cells=['HeLa'], cell_loc=None, pathogens=['rh'], pathogen_loc=None, treatments=['cm'], treatment_loc=None, types = ['col','col','col']):
+    """
+    Annotates conditions in a DataFrame based on specified criteria.
+
+    Args:
+        df (pandas.DataFrame): The DataFrame to annotate.
+        cells (list, optional): List of host cell types. Defaults to ['HeLa'].
+        cell_loc (list, optional): List of corresponding values for each host cell type. Defaults to None.
+        pathogens (list, optional): List of pathogens. Defaults to ['rh'].
+        pathogen_loc (list, optional): List of corresponding values for each pathogen. Defaults to None.
+        treatments (list, optional): List of treatments. Defaults to ['cm'].
+        treatment_loc (list, optional): List of corresponding values for each treatment. Defaults to None.
+        types (list, optional): List of column types for host cells, pathogens, and treatments. Defaults to ['col','col','col'].
+
+    Returns:
+        pandas.DataFrame: The annotated DataFrame.
+    """
 
     # Function to apply to each row
     def _map_values(row, dict_, type_='col'):
+        """
+        Maps the values in a row to corresponding keys in a dictionary.
+
+        Args:
+            row (dict): The row containing the values to be mapped.
+            dict_ (dict): The dictionary containing the mapping values.
+            type_ (str, optional): The type of mapping to perform. Defaults to 'col'.
+
+        Returns:
+            str: The mapped value if found, otherwise None.
+        """
         for values, cols in dict_.items():
             if row[type_] in cols:
                 return values
@@ -3899,8 +5207,33 @@ def annotate_conditions(df, cells=['HeLa'], cell_loc=None, pathogens=['rh'], pat
     return df
     
 def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=False, include_multiinfected=False, include_noninfected=False):
+    """
+    Read and merge data from SQLite databases and perform data preprocessing.
+
+    Parameters:
+    - locs (list): A list of file paths to the SQLite database files.
+    - tables (list): A list of table names to read from the databases.
+    - verbose (bool): Whether to print verbose output. Default is False.
+    - include_multinucleated (bool): Whether to include multinucleated cells. Default is False.
+    - include_multiinfected (bool): Whether to include cells with multiple infections. Default is False.
+    - include_noninfected (bool): Whether to include non-infected cells. Default is False.
+
+    Returns:
+    - merged_df (pandas.DataFrame): The merged and preprocessed dataframe.
+    - obj_df_ls (list): A list of pandas DataFrames, each containing the data for a specific object type.
+    """
 
     def read_db(db_loc, tables):
+        """
+        Read data from a SQLite database.
+
+        Parameters:
+        - db_loc (str): The location of the SQLite database file.
+        - tables (list): A list of table names to read from.
+
+        Returns:
+        - dfs (list): A list of pandas DataFrames, each containing the data from a table.
+        """
         conn = sqlite3.connect(db_loc)
         dfs = []
         for table in tables:
@@ -3911,19 +5244,28 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
         return dfs
 
     def _split_data(df, group_by, object_type):
+        """
+        Splits the input dataframe into numeric and non-numeric parts, groups them by the specified column,
+        and returns the grouped dataframes.
 
+        Parameters:
+        df (pandas.DataFrame): The input dataframe.
+        group_by (str): The column name to group the dataframes by.
+        object_type (str): The column name to concatenate with 'prcf' to create a new column 'prcfo'.
+
+        Returns:
+        grouped_numeric (pandas.DataFrame): The grouped dataframe containing numeric columns.
+        grouped_non_numeric (pandas.DataFrame): The grouped dataframe containing non-numeric columns.
+        """
         df['prcfo'] = df['prcf'] + '_' + df[object_type]
-        #df = df.drop([object_type], axis=1)
-        # Set 'prcfo' as the index for both dataframes
         df = df.set_index(group_by, inplace=False)
 
-        # Split the dataframe into numeric and non-numeric parts
         df_numeric = df.select_dtypes(include=np.number)
         df_non_numeric = df.select_dtypes(exclude=np.number)
 
-        # Group by index (note that the result will be a GroupBy object)
         grouped_numeric = df_numeric.groupby(df_numeric.index).mean()
         grouped_non_numeric = df_non_numeric.groupby(df_non_numeric.index).first()
+
         return pd.DataFrame(grouped_numeric), pd.DataFrame(grouped_non_numeric)
 
     #Extract plate DataFrames
@@ -4052,8 +5394,29 @@ def read_and_merge_data(locs, tables, verbose=False, include_multinucleated=Fals
     return merged_df, obj_df_ls  
 
 def analyze_recruitment(src, metadata_settings, advanced_settings):
+    """
+    Analyze recruitment data by grouping the DataFrame by well coordinates and plotting controls and recruitment data.
 
+    Parameters:
+    src (str): The source of the recruitment data.
+    metadata_settings (dict): The settings for metadata.
+    advanced_settings (dict): The advanced settings for recruitment analysis.
+
+    Returns:
+    None
+    """
+    
     def _group_by_well(df):
+        """
+        Group the DataFrame by well coordinates (plate, row, col) and apply mean function to numeric columns
+        and select the first value for non-numeric columns.
+
+        Parameters:
+        df (DataFrame): The input DataFrame to be grouped.
+
+        Returns:
+        DataFrame: The grouped DataFrame.
+        """
         numeric_cols = df._get_numeric_data().columns
         non_numeric_cols = df.select_dtypes(include=['object']).columns
 
@@ -4062,6 +5425,18 @@ def analyze_recruitment(src, metadata_settings, advanced_settings):
         return df_grouped
 
     def _plot_controls(df, mask_chans, channel_of_interest, figuresize=5):
+        """
+        Plot controls for different channels and conditions.
+
+        Args:
+            df (pandas.DataFrame): The DataFrame containing the data.
+            mask_chans (list): The list of channels to include in the plot.
+            channel_of_interest (int): The channel of interest.
+            figuresize (int, optional): The size of the figure. Defaults to 5.
+
+        Returns:
+            None
+        """
         mask_chans.append(channel_of_interest)
         if len(mask_chans) == 4:
             mask_chans = [0,1,2,3]
@@ -4116,6 +5491,20 @@ def analyze_recruitment(src, metadata_settings, advanced_settings):
         plt.show()
 
     def _plot_recruitment(df, df_type, channel_of_interest, target, columns=[], figuresize=50):
+        """
+        Plot recruitment data for different conditions and pathogens.
+
+        Args:
+            df (DataFrame): The input DataFrame containing the recruitment data.
+            df_type (str): The type of DataFrame (e.g., 'train', 'test').
+            channel_of_interest (str): The channel of interest for plotting.
+            target (str): The target variable for plotting.
+            columns (list, optional): Additional columns to plot. Defaults to an empty list.
+            figuresize (int, optional): The size of the figure. Defaults to 50.
+
+        Returns:
+            None
+        """
 
         color_list = [(55/255, 155/255, 155/255), 
                       (155/255, 55/255, 155/255), 
@@ -4189,7 +5578,17 @@ def analyze_recruitment(src, metadata_settings, advanced_settings):
         plt.show()
 
     def _calculate_recruitment(df, channel):
+        """
+        Calculate recruitment metrics based on intensity values in different channels.
 
+        Args:
+            df (pandas.DataFrame): The input DataFrame containing intensity values in different channels.
+            channel (int): The channel number.
+
+        Returns:
+            pandas.DataFrame: The DataFrame with calculated recruitment metrics.
+
+        """
         df['pathogen_cell_mean_mean'] = df[f'pathogen_channel_{channel}_mean_intensity']/df[f'cell_channel_{channel}_mean_intensity']
         df['pathogen_cytoplasm_mean_mean'] = df[f'pathogen_channel_{channel}_mean_intensity']/df[f'cytoplasm_channel_{channel}_mean_intensity']
         df['pathogen_nucleus_mean_mean'] = df[f'pathogen_channel_{channel}_mean_intensity']/df[f'nucleus_channel_{channel}_mean_intensity']
@@ -4232,6 +5631,20 @@ def analyze_recruitment(src, metadata_settings, advanced_settings):
         return df
     
     def _object_filter(df, object_type, size_range, intensity_range, mask_chans, mask_chan):
+        """
+        Filter the DataFrame based on object type, size range, and intensity range.
+
+        Args:
+            df (pandas.DataFrame): The DataFrame to filter.
+            object_type (str): The type of object to filter.
+            size_range (list or None): The range of object sizes to filter.
+            intensity_range (list or None): The range of object intensities to filter.
+            mask_chans (list): The list of mask channels.
+            mask_chan (int): The index of the mask channel to use.
+
+        Returns:
+            pandas.DataFrame: The filtered DataFrame.
+        """
         if not size_range is None:
             if isinstance(size_range, list):
                 if isinstance(size_range[0], int): 
@@ -4251,6 +5664,17 @@ def analyze_recruitment(src, metadata_settings, advanced_settings):
         return df
     
     def _results_to_csv(src, df, df_well):
+        """
+        Save the given dataframes as CSV files in the specified directory.
+
+        Args:
+            src (str): The directory path where the CSV files will be saved.
+            df (pandas.DataFrame): The dataframe containing cell data.
+            df_well (pandas.DataFrame): The dataframe containing well data.
+
+        Returns:
+            tuple: A tuple containing the cell dataframe and well dataframe.
+        """
         cells = df
         wells = df_well
         results_loc = src+'/results'
@@ -4359,7 +5783,7 @@ def analyze_recruitment(src, metadata_settings, advanced_settings):
                          'include_multiinfected':include_multiinfected,
                          'include_multinucleated':include_multinucleated,
                          'remove_background':remove_background,
-                         'filter_min_max':[[cell_size_min,max_],[nucleus_size_min,max_],[pathogen_size_min,max_],[0,max_]],
+                         'filter_min_max':[[cell_size_range[0],cell_size_range[1]],[nucleus_size_range[0],nucleus_size_range[1]],[pathogen_size_range[0],pathogen_size_range[1]]],
                          'channel_dims':channel_dims,
                          'backgrounds':backgrounds,
                          'cell_mask_dim':mask_dims[0],
@@ -4414,7 +5838,43 @@ def analyze_recruitment(src, metadata_settings, advanced_settings):
     return [cells,wells]
 
 class ImageApp:
+    """
+    A class representing an image application.
+
+    Attributes:
+    - root (tkinter.Tk): The root window of the application.
+    - db_path (str): The path to the SQLite database.
+    - index (int): The index of the current page of images.
+    - grid_rows (int): The number of rows in the image grid.
+    - grid_cols (int): The number of columns in the image grid.
+    - image_size (tuple): The size of the displayed images.
+    - annotation_column (str): The column name for image annotations in the database.
+    - image_type (str): The type of images to display.
+    - channels (list): The channels to filter in the images.
+    - images (dict): A dictionary mapping labels to loaded images.
+    - pending_updates (dict): A dictionary of pending image annotation updates.
+    - labels (list): A list of label widgets for displaying images.
+    - terminate (bool): A flag indicating whether the application should terminate.
+    - update_queue (Queue): A queue for storing image annotation updates.
+    - status_label (tkinter.Label): A label widget for displaying status messages.
+    - db_update_thread (threading.Thread): A thread for updating the database.
+    """
+
     def __init__(self, root, db_path, image_type=None, channels=None, grid_rows=None, grid_cols=None, image_size=(200, 200), annotation_column='annotate'):
+        """
+        Initializes an instance of the ImageApp class.
+
+        Parameters:
+        - root (tkinter.Tk): The root window of the application.
+        - db_path (str): The path to the SQLite database.
+        - image_type (str): The type of images to display.
+        - channels (list): The channels to filter in the images.
+        - grid_rows (int): The number of rows in the image grid.
+        - grid_cols (int): The number of columns in the image grid.
+        - image_size (tuple): The size of the displayed images.
+        - annotation_column (str): The column name for image annotations in the database.
+        """
+
         self.root = root
         self.db_path = db_path
         self.index = 0
@@ -4443,26 +5903,58 @@ class ImageApp:
         
     @staticmethod
     def normalize_image(img):
+        """
+        Normalize the pixel values of an image to the range [0, 255].
+
+        Parameters:
+        - img: PIL.Image.Image
+            The input image to be normalized.
+
+        Returns:
+        - PIL.Image.Image
+            The normalized image.
+        """
         img_array = np.array(img)
         img_array = ((img_array - img_array.min()) * (1/(img_array.max() - img_array.min()) * 255)).astype('uint8')
         return Image.fromarray(img_array)
 
     def add_colored_border(self, img, border_width, border_color):
-        top_border = Image.new('RGB', (img.width, border_width), color=border_color)
-        bottom_border = Image.new('RGB', (img.width, border_width), color=border_color)
-        left_border = Image.new('RGB', (border_width, img.height), color=border_color)
-        right_border = Image.new('RGB', (border_width, img.height), color=border_color)
+            """
+            Adds a colored border to an image.
 
-        bordered_img = Image.new('RGB', (img.width + 2 * border_width, img.height + 2 * border_width), color='white')
-        bordered_img.paste(top_border, (border_width, 0))
-        bordered_img.paste(bottom_border, (border_width, img.height + border_width))
-        bordered_img.paste(left_border, (0, border_width))
-        bordered_img.paste(right_border, (img.width + border_width, border_width))
-        bordered_img.paste(img, (border_width, border_width))
+            Args:
+                img (PIL.Image.Image): The input image.
+                border_width (int): The width of the border in pixels.
+                border_color (str): The color of the border in RGB format.
 
-        return bordered_img
+            Returns:
+                PIL.Image.Image: The image with the colored border.
+            """
+            top_border = Image.new('RGB', (img.width, border_width), color=border_color)
+            bottom_border = Image.new('RGB', (img.width, border_width), color=border_color)
+            left_border = Image.new('RGB', (border_width, img.height), color=border_color)
+            right_border = Image.new('RGB', (border_width, img.height), color=border_color)
+
+            bordered_img = Image.new('RGB', (img.width + 2 * border_width, img.height + 2 * border_width), color='white')
+            bordered_img.paste(top_border, (border_width, 0))
+            bordered_img.paste(bottom_border, (border_width, img.height + border_width))
+            bordered_img.paste(left_border, (0, border_width))
+            bordered_img.paste(right_border, (img.width + border_width, border_width))
+            bordered_img.paste(img, (border_width, border_width))
+
+            return bordered_img
     
     def filter_channels(self, img):
+        """
+        Filters the channels of an image based on the specified channels.
+
+        Args:
+            img (PIL.Image.Image): The input image.
+
+        Returns:
+            PIL.Image.Image: The filtered image.
+
+        """
         r, g, b = img.split()
         if self.channels:
             if 'r' not in self.channels:
@@ -4479,51 +5971,86 @@ class ImageApp:
         return Image.merge("RGB", (r, g, b))
 
     def load_images(self):
-        for label in self.labels:
-            label.config(image='')
+            """
+            Loads and displays images with annotations.
 
-        self.images = {}
+            This method retrieves image paths and annotations from a SQLite database,
+            loads the images using a ThreadPoolExecutor for parallel processing,
+            adds colored borders to images based on their annotations,
+            and displays the images in the corresponding labels.
 
-        conn = sqlite3.connect(self.db_path)
-        c = conn.cursor()
-        if self.image_type:
-            c.execute(f"SELECT png_path, {self.annotation_column} FROM png_list WHERE png_path LIKE ? LIMIT ?, ?", (f"%{self.image_type}%", self.index, self.grid_rows * self.grid_cols))
-        else:
-            c.execute(f"SELECT png_path, {self.annotation_column} FROM png_list LIMIT ?, ?", (self.index, self.grid_rows * self.grid_cols))
-        
-        paths = c.fetchall()
-        conn.close()
+            Args:
+                None
 
-        with ThreadPoolExecutor() as executor:
-            loaded_images = list(executor.map(self.load_single_image, paths))
+            Returns:
+                None
+            """
+            for label in self.labels:
+                label.config(image='')
 
-        for i, (img, annotation) in enumerate(loaded_images):
-            if annotation:
-                border_color = 'teal' if annotation == 1 else 'red'
-                img = self.add_colored_border(img, border_width=5, border_color=border_color)
+            self.images = {}
+
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+            if self.image_type:
+                c.execute(f"SELECT png_path, {self.annotation_column} FROM png_list WHERE png_path LIKE ? LIMIT ?, ?", (f"%{self.image_type}%", self.index, self.grid_rows * self.grid_cols))
+            else:
+                c.execute(f"SELECT png_path, {self.annotation_column} FROM png_list LIMIT ?, ?", (self.index, self.grid_rows * self.grid_cols))
             
-            photo = ImageTk.PhotoImage(img)
-            label = self.labels[i]
-            self.images[label] = photo
-            label.config(image=photo)
-            
-            path = paths[i][0]
-            label.bind('<Button-1>', self.get_on_image_click(path, label, img))
-            label.bind('<Button-3>', self.get_on_image_click(path, label, img))
+            paths = c.fetchall()
+            conn.close()
 
-        self.root.update()
+            with ThreadPoolExecutor() as executor:
+                loaded_images = list(executor.map(self.load_single_image, paths))
+
+            for i, (img, annotation) in enumerate(loaded_images):
+                if annotation:
+                    border_color = 'teal' if annotation == 1 else 'red'
+                    img = self.add_colored_border(img, border_width=5, border_color=border_color)
+                
+                photo = ImageTk.PhotoImage(img)
+                label = self.labels[i]
+                self.images[label] = photo
+                label.config(image=photo)
+                
+                path = paths[i][0]
+                label.bind('<Button-1>', self.get_on_image_click(path, label, img))
+                label.bind('<Button-3>', self.get_on_image_click(path, label, img))
+
+            self.root.update()
 
     def load_single_image(self, path_annotation_tuple):
-        path, annotation = path_annotation_tuple
-        img = Image.open(path)
-        if img.mode == "I":
-            img = self.normalize_image(img)
-        img = img.convert('RGB')
-        img = self.filter_channels(img)
-        img = img.resize(self.image_size)
-        return img, annotation
+            """
+            Loads a single image from the given path and annotation tuple.
+
+            Args:
+                path_annotation_tuple (tuple): A tuple containing the image path and its annotation.
+
+            Returns:
+                img (PIL.Image.Image): The loaded image.
+                annotation: The annotation associated with the image.
+            """
+            path, annotation = path_annotation_tuple
+            img = Image.open(path)
+            if img.mode == "I":
+                img = self.normalize_image(img)
+            img = img.convert('RGB')
+            img = self.filter_channels(img)
+            img = img.resize(self.image_size)
+            return img, annotation
         
     def get_on_image_click(self, path, label, img):
+        """
+        Returns a callback function that handles the click event on an image.
+
+        Parameters:
+        path (str): The path of the image file.
+        label (tkinter.Label): The label widget to update with the annotated image.
+        img (PIL.Image.Image): The image object.
+
+        Returns:
+        function: The callback function for the image click event.
+        """
         def on_image_click(event):
             
             new_annotation = 1 if event.num == 1 else (2 if event.num == 3 else None)
@@ -4556,39 +6083,61 @@ class ImageApp:
         """))
 
     def update_database_worker(self):
-        conn = sqlite3.connect(self.db_path)
-        c = conn.cursor()
+            """
+            Worker function that continuously updates the database with pending updates from the update queue.
+            It retrieves the pending updates from the queue, updates the corresponding records in the database,
+            and resets the text in the HTML and status label.
+            """
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
 
-        display(HTML("<div id='unique_id'>Initial Text</div>"))
+            display(HTML("<div id='unique_id'>Initial Text</div>"))
 
-        while True:
-            if self.terminate:
-                conn.close()
-                break
+            while True:
+                if self.terminate:
+                    conn.close()
+                    break
 
-            if not self.update_queue.empty():
-                ImageApp.update_html("Do not exit, Updating database...")
-                self.status_label.config(text='Do not exit, Updating database...')
+                if not self.update_queue.empty():
+                    ImageApp.update_html("Do not exit, Updating database...")
+                    self.status_label.config(text='Do not exit, Updating database...')
 
-                pending_updates = self.update_queue.get()
-                for path, new_annotation in pending_updates.items():
-                    if new_annotation is None:
-                        c.execute(f'UPDATE png_list SET {self.annotation_column} = NULL WHERE png_path = ?', (path,))
-                    else:
-                        c.execute(f'UPDATE png_list SET {self.annotation_column} = ? WHERE png_path = ?', (new_annotation, path))
-                conn.commit()
+                    pending_updates = self.update_queue.get()
+                    for path, new_annotation in pending_updates.items():
+                        if new_annotation is None:
+                            c.execute(f'UPDATE png_list SET {self.annotation_column} = NULL WHERE png_path = ?', (path,))
+                        else:
+                            c.execute(f'UPDATE png_list SET {self.annotation_column} = ? WHERE png_path = ?', (new_annotation, path))
+                    conn.commit()
 
-                # Reset the text
-                ImageApp.update_html('')
-                self.status_label.config(text='')
-                self.root.update()
-            time.sleep(0.1)
+                    # Reset the text
+                    ImageApp.update_html('')
+                    self.status_label.config(text='')
+                    self.root.update()
+                time.sleep(0.1)
 
     def update_gui_text(self, text):
+        """
+        Update the text of the status label in the GUI.
+
+        Args:
+            text (str): The new text to be displayed in the status label.
+
+        Returns:
+            None
+        """
         self.status_label.config(text=text)
         self.root.update()
 
     def next_page(self):
+        """
+        Moves to the next page of images in the grid.
+
+        If there are pending updates in the dictionary, they are added to the update queue.
+        The pending updates dictionary is then cleared.
+        The index is incremented by the number of rows multiplied by the number of columns in the grid.
+        Finally, the images are loaded for the new page.
+        """
         if self.pending_updates:  # Check if the dictionary is not empty
             self.update_queue.put(self.pending_updates.copy())
         self.pending_updates.clear()
@@ -4596,6 +6145,15 @@ class ImageApp:
         self.load_images()
 
     def previous_page(self):
+        """
+        Move to the previous page in the grid.
+
+        If there are pending updates in the dictionary, they are added to the update queue.
+        The dictionary of pending updates is then cleared.
+        The index is decremented by the number of rows multiplied by the number of columns in the grid.
+        If the index becomes negative, it is set to 0.
+        Finally, the images are loaded for the new page.
+        """
         if self.pending_updates:  # Check if the dictionary is not empty
             self.update_queue.put(self.pending_updates.copy())
         self.pending_updates.clear()
@@ -4605,6 +6163,13 @@ class ImageApp:
         self.load_images()
 
     def shutdown(self):
+        """
+        Shuts down the application.
+
+        This method sets the `terminate` flag to True, clears the pending updates,
+        updates the database, and quits the application.
+
+        """
         self.terminate = True  # Set terminate first
         self.update_queue.put(self.pending_updates.copy())
         self.pending_updates.clear()
@@ -4614,6 +6179,19 @@ class ImageApp:
         print(f'Quit application')
 
 def annotate(db, image_type=None, channels=None, geom="1000x1100", img_size=(200, 200), rows=5, columns=5, annotation_column='annotate'):
+    """
+    Annotates images in a database using a graphical user interface.
+
+    Args:
+        db (str): The path to the SQLite database.
+        image_type (str, optional): The type of images to load from the database. Defaults to None.
+        channels (str, optional): The channels of the images to load from the database. Defaults to None.
+        geom (str, optional): The geometry of the GUI window. Defaults to "1000x1100".
+        img_size (tuple, optional): The size of the images to display in the GUI. Defaults to (200, 200).
+        rows (int, optional): The number of rows in the image grid. Defaults to 5.
+        columns (int, optional): The number of columns in the image grid. Defaults to 5.
+        annotation_column (str, optional): The name of the annotation column in the database table. Defaults to 'annotate'.
+    """
     #display(HTML("<div id='unique_id'>Initial Text</div>"))
     conn = sqlite3.connect(db)
     c = conn.cursor()
@@ -4637,8 +6215,17 @@ def annotate(db, image_type=None, channels=None, geom="1000x1100", img_size=(200
     
     app.load_images()
     root.mainloop()
-    
+
 def check_for_duplicates(db):
+    """
+    Check for duplicates in the given SQLite database.
+
+    Args:
+        db (str): The path to the SQLite database.
+
+    Returns:
+        None
+    """
     db_path = db
     conn = sqlite3.connect(db_path)
     c = conn.cursor()
@@ -4647,7 +6234,6 @@ def check_for_duplicates(db):
     for duplicate in duplicates:
         file_name = duplicate[0]
         count = duplicate[1]
-        #print(f"Found {count} duplicates for file_name {file_name}. Deleting {count-1} of them.")
         c.execute('SELECT rowid FROM png_list WHERE file_name = ?', (file_name,))
         rowids = c.fetchall()
         for rowid in rowids[:-1]:
