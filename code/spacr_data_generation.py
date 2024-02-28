@@ -3177,7 +3177,7 @@ def measure_crop(settings, annotation_settings, advanced_settings):
         Returns:
             matplotlib.figure.Figure: The generated figure object.
         """
-	nr_of_images = len(image_files)
+        nr_of_images = len(image_files)
         if nr_of_images == 0:
             print("No images to plot.")
             return None  
