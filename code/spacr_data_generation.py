@@ -3135,7 +3135,7 @@ def measure_crop(settings, annotation_settings, advanced_settings):
         None
     """
 
-    def __save_figure(fig, src, text, dpi=300):
+    def __save_figure(fig, src, text, dpi=300, i=1, all_folders=1):
         """
         Save a figure to a specified location.
 
@@ -3153,10 +3153,98 @@ def measure_crop(settings, annotation_settings, advanced_settings):
         fig_name = f'{obj_type}_{name}_{text}.pdf'        
         save_location = os.path.join(save_folder, fig_name)
         fig.savefig(save_location, bbox_inches='tight', dpi=dpi)
-        print(f'Saved single cell figure: {save_location}')
-        plt.close()
+        clear_output(wait=True)
+        print(f'\033[KProgress: {i}/{all_folders}, Saved single cell figure: {os.path.basename(save_location)}', end='\r', flush=True)
+        # Close and delete the figure to free up memory
+        plt.close(fig)
+        del fig
+        gc.collect()
 
     def _plot_images_on_grid(image_files, channel_indices, um_per_pixel, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, plot=False):
+        """
+        Plots a grid of images with optional scale bar and channel names.
+
+        Args:
+            image_files (list): List of image file paths.
+            channel_indices (list): List of channel indices to select from the images.
+            um_per_pixel (float): Micrometers per pixel.
+            scale_bar_length_um (float, optional): Length of the scale bar in micrometers. Defaults to 5.
+            fontsize (int, optional): Font size for the image titles. Defaults to 8.
+            show_filename (bool, optional): Whether to show the image file names as titles. Defaults to True.
+            channel_names (list, optional): List of channel names. Defaults to None.
+            plot (bool, optional): Whether to display the plot. Defaults to False.
+
+        Returns:
+            matplotlib.figure.Figure: The generated figure object.
+        """
+	nr_of_images = len(image_files)
+        if nr_of_images == 0:
+            print("No images to plot.")
+            return None  
+        cols = int(np.ceil(np.sqrt(nr_of_images)))
+        rows = int(np.ceil(nr_of_images / cols))
+
+        fig_width = cols*5
+        fig_height = rows*5
+
+        fig, axes = plt.subplots(rows, cols, figsize=(fig_width, fig_height), facecolor='black')
+        fig.patch.set_facecolor('black')
+        if rows * cols > 1:
+            axes = axes.ravel()
+        else:
+            axes = np.array([axes])
+        scale_bar_length_px = int(scale_bar_length_um / um_per_pixel)
+        channel_colors = ['red','green','blue']
+        for i, ax in enumerate(axes):
+            if i < nr_of_images:
+                image_file = image_files[i]
+                img_array = cv2.imread(image_file, cv2.IMREAD_UNCHANGED)
+
+                if img_array.ndim == 3 and img_array.shape[2] >= 3:
+                    img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB)
+
+                if channel_indices is not None:
+                    if len(channel_indices) == 1:
+                        img_array = img_array[:, :, channel_indices[0]]
+                        cmap = 'gray'
+                    elif len(channel_indices) == 2:
+                        img_array = np.mean(img_array[:, :, channel_indices], axis=2)
+                        cmap = 'gray'
+                    else:
+                        img_array = img_array[:, :, channel_indices]
+                        cmap = None
+                else:
+                    cmap = None if img_array.ndim == 3 else 'gray'
+
+                if img_array.dtype == np.uint16:
+                    img_array = img_array.astype(np.float32) / 65535.0
+                elif img_array.dtype == np.uint8:
+                    img_array = img_array.astype(np.float32) / 255.0
+
+                ax.imshow(img_array, cmap=cmap)
+                ax.axis('off')
+                if show_filename:
+                    ax.set_title(os.path.basename(image_file), color='white', fontsize=fontsize, pad=20)
+                ax.plot([10, 10 + scale_bar_length_px], [img_array.shape[0] - 10] * 2, lw=2, color='white')
+                del img_array 
+            else:
+                ax.axis('off')
+        if channel_names:
+            initial_offset = 0.02
+            increment = 0.05
+            current_offset = initial_offset
+            for i, channel_name in enumerate(channel_names):
+                color = 'red' if i < len(channel_colors) else 'white'
+                fig.text(current_offset, 0.99, channel_name, color=color, fontsize=fontsize,
+                         verticalalignment='top', horizontalalignment='left',
+                         bbox=dict(facecolor='black', edgecolor='none', pad=3))
+                current_offset += increment
+        plt.tight_layout(pad=3)
+        if plot:
+            plt.show()
+        return fig
+
+    def _plot_images_on_grid_v1(image_files, channel_indices, um_per_pixel, scale_bar_length_um=5, fontsize=8, show_filename=True, channel_names=None, plot=False):
         """
         Plots a grid of images with optional scale bar and channel names.
 
@@ -3356,12 +3444,12 @@ def measure_crop(settings, annotation_settings, advanced_settings):
             return fig
 
         fig = __visualize_scimgs(src, channel_indices, um_per_pixel, scale_bar_length_um, show_filename, standardize, nr_imgs, fontsize, channel_names, plot)
-        __save_figure(fig, src, text='all_channels')
+        __save_figure(fig, src, text='all_channels', i=i, all_folders=all_folders)
 
         for channel in channel_indices:
             channel_indices=[channel]
             fig = __visualize_scimgs(src, channel_indices, um_per_pixel, scale_bar_length_um, show_filename, standardize, nr_imgs, fontsize, channel_names=None, plot=plot)
-            __save_figure(fig, src, text=f'channel_{channel}')
+            __save_figure(fig, src, text=f'channel_{channel}', dpi=300, i=i, all_folders=all_folders)
 
         return
 
@@ -3704,6 +3792,8 @@ def measure_crop(settings, annotation_settings, advanced_settings):
         for root, dirs, _ in os.walk(base_dir):
             if not dirs:
                 endpoint_subdirectories.append(root)
+
+        endpoint_subdirectories = [path for path in endpoint_subdirectories if os.path.basename(path) != 'figure']
         return endpoint_subdirectories
 
     def _scmovie(folder_paths):
@@ -3858,7 +3948,8 @@ def measure_crop(settings, annotation_settings, advanced_settings):
     if settings['save_png']:
         img_fldr = os.path.join(os.path.dirname(settings['input_folder']), 'data')
         sc_img_fldrs = _list_endpoint_subdirectories(img_fldr)
-        for well_src in sc_img_fldrs:
+
+        for i, well_src in enumerate(sc_img_fldrs):
             if len(os.listdir(well_src)) < 16:
                 nr_imgs = len(os.listdir(well_src))
                 standardize = False
@@ -3866,9 +3957,12 @@ def measure_crop(settings, annotation_settings, advanced_settings):
                 nr_imgs = 16
                 standardize = True
             try:
-                _save_scimg_plot(src=well_src, nr_imgs=nr_imgs, channel_indices=settings['png_dims'], um_per_pixel=0.1, scale_bar_length_um=10, standardize=standardize, fontsize=12, show_filename=True, channel_names=['red','green','blue'], dpi=300, plot=False)    
-            except Exception as e:  # Consider catching a more specific exception if possible
-                print(f"Unable to generate figure for folder {well_src}: {e}", flush=True)
+                all_folders = len(sc_img_fldrs)
+                _save_scimg_plot(src=well_src, nr_imgs=nr_imgs, channel_indices=settings['png_dims'], um_per_pixel=0.1, scale_bar_length_um=10, standardize=standardize, fontsize=12, show_filename=True, channel_names=['red','green','blue'], dpi=300, plot=False, i=i, all_folders=all_folders)
+
+            except Exception as e:
+                print(f"Unable to generate figure for folder {well_src}: {e}", end='\r', flush=True)
+                traceback.print_exc()
                 
         if settings['save_measurements']:
             db_path = os.path.join(os.path.dirname(settings['input_folder']), 'measurements', 'measurements.db')
