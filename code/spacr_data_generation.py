@@ -4024,7 +4024,8 @@ def measure_crop(settings, annotation_settings, advanced_settings):
                                         plot=False,
                                         fontsize=12,
                                         show_filename=True,
-                                        channel_names=None)
+                                        channel_names=None,
+					update_db=True)
 
     if settings['timelapse']:
         if settings['timelapse_objects'] == 'nuclei':
