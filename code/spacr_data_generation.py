@@ -3602,25 +3602,38 @@ def measure_crop(settings, annotation_settings, advanced_settings):
             result_df = result_df.drop(columns=['diff'])
             return result_df
         
-    def _update_database_with_merged_info(db_path, df, table='png_list', columns=['pathogen', 'treatment', 'host_cells', 'condition', 'pcrfo']):
-        """
-        Merges additional info into the png_list table in the SQLite database and updates it.
+        def _update_database_with_merged_info(db_path, df, table='png_list', columns=['pathogen', 'treatment', 'host_cells', 'condition', 'pcrfo']):
+            """
+            Merges additional columns into the png_list table in the SQLite database and updates it.
 
-        Args:
-            db_path (str): The path to the SQLite database file.
-            df (pd.DataFrame): DataFrame containing the additional info to be merged.
-            table (str): Name of the table to update in the database. Defaults to 'png_list'.
-        """
-        # Connect to the SQLite database
-        conn = sqlite3.connect(db_path)
+            Args:
+                db_path (str): The path to the SQLite database file.
+                df (pd.DataFrame): DataFrame containing the additional info to be merged.
+                table (str): Name of the table to update in the database. Defaults to 'png_list'.
+            """
+            # Connect to the SQLite database
+            conn = sqlite3.connect(db_path)
 
-        # Read the existing table into a DataFrame
-        try:
-            existing_df = pd.read_sql(f"SELECT * FROM {table}", conn)
-        except Exception as e:
-            print(f"Failed to read table {table} from database: {e}")
-            conn.close()
-            return
+            # Read the existing table into a DataFrame
+            try:
+                existing_df = pd.read_sql(f"SELECT * FROM {table}", conn)
+            except Exception as e:
+                print(f"Failed to read table {table} from database: {e}")
+                conn.close()
+                return
+
+            # Merge the existing DataFrame with the new info based on the 'pcrfo' column
+            merged_df = pd.merge(existing_df, df[['pathogen', 'treatment', 'host_cells', 'condition', 'pcrfo']], on='pcrfo', how='left')
+
+            # Drop the existing table and replace it with the updated DataFrame
+            try:
+                conn.execute(f"DROP TABLE IF EXISTS {table}")
+                merged_df.to_sql(table, conn, index=False)
+                print(f"Table {table} successfully updated in the database.")
+            except Exception as e:
+                print(f"Failed to update table {table} in the database: {e}")
+            finally:
+                conn.close()
 
         # Merge the existing DataFrame with the new info based on the 'pcrfo' column
         merged_df = pd.merge(existing_df, df[['pathogen', 'treatment', 'host_cells', 'condition', 'pcrfo']], on='pcrfo', how='left')
