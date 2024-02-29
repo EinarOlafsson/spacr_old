@@ -5036,7 +5036,8 @@ def preprocess_generate_masks(src, settings={},advanced_settings={}):
                         if array.ndim == 2:
                             array = np.expand_dims(array, axis=-1)  # add an extra dimension if the array is 2D
                         stack_ls.append(array)
-
+			    
+                stack_ls = [np.expand_dims(arr, axis=-1) if arr.ndim == 2 else arr for arr in stack_ls]
                 unique_shapes = {arr.shape[:-1] for arr in stack_ls}
                 if len(unique_shapes) > 1:
                     #max_dims = np.max(np.array(list(unique_shapes)), axis=0)
