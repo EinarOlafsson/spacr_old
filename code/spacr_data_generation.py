@@ -3453,7 +3453,7 @@ def measure_crop(settings, annotation_settings, advanced_settings):
 
         return
 
-    def _generate_representative_images(db_path, cells=['HeLa'], cell_loc=None, pathogens=['rh'], pathogen_loc=None, treatments=['cm'], treatment_loc=None, channel_of_interest=1, compartments = ['pathogen','cytoplasm'], measurement = 'mean_intensity', nr_imgs=16, channel_indices=[0,1,2], um_per_pixel=0.1, scale_bar_length_um=10, plot=False, fontsize=12, show_filename=True, channel_names=None):
+    def _generate_representative_images(db_path, cells=['HeLa'], cell_loc=None, pathogens=['rh'], pathogen_loc=None, treatments=['cm'], treatment_loc=None, channel_of_interest=1, compartments = ['pathogen','cytoplasm'], measurement = 'mean_intensity', nr_imgs=16, channel_indices=[0,1,2], um_per_pixel=0.1, scale_bar_length_um=10, plot=False, fontsize=12, show_filename=True, channel_names=None, update_db=True):
         """
         Generates representative images based on the provided parameters.
 
@@ -3602,13 +3602,51 @@ def measure_crop(settings, annotation_settings, advanced_settings):
             result_df = result_df.drop(columns=['diff'])
             return result_df
         
+    def _update_database_with_merged_info(db_path, df, table='png_list', columns=['pathogen', 'treatment', 'host_cells', 'condition', 'pcrfo']):
+        """
+        Merges additional info into the png_list table in the SQLite database and updates it.
+
+        Args:
+            db_path (str): The path to the SQLite database file.
+            df (pd.DataFrame): DataFrame containing the additional info to be merged.
+            table (str): Name of the table to update in the database. Defaults to 'png_list'.
+        """
+        # Connect to the SQLite database
+        conn = sqlite3.connect(db_path)
+
+        # Read the existing table into a DataFrame
+        try:
+            existing_df = pd.read_sql(f"SELECT * FROM {table}", conn)
+        except Exception as e:
+            print(f"Failed to read table {table} from database: {e}")
+            conn.close()
+            return
+
+        # Merge the existing DataFrame with the new info based on the 'pcrfo' column
+        merged_df = pd.merge(existing_df, df[['pathogen', 'treatment', 'host_cells', 'condition', 'pcrfo']], on='pcrfo', how='left')
+
+        # Drop the existing table and replace it with the updated DataFrame
+        try:
+            conn.execute(f"DROP TABLE IF EXISTS {table}")
+            merged_df.to_sql(table, conn, index=False)
+            print(f"Table {table} successfully updated in the database.")
+        except Exception as e:
+            print(f"Failed to update table {table} in the database: {e}")
+        finally:
+            conn.close()
+        
         df = _read_and_join_tables(db_path)
         df = _annotate_conditions(df, cells, cell_loc, pathogens, pathogen_loc, treatments,treatment_loc)
+        
+        if update_db:
+            _update_database_with_merged_info(db_path, df, table='png_list', columns=['pathogen', 'treatment', 'host_cells', 'condition', 'pcrfo']
+        
         if isinstance(compartments, list):
             if len(compartments) > 1:
                 df['new_measurement'] = df[f'{compartments[0]}_channel_{channel_of_interest}_{measurement}']/df[f'{compartments[1]}_channel_{channel_of_interest}_{measurement}']
         else:
             df['new_measurement'] = df['cell_area']
+        
         dfs = {condition: df_group for condition, df_group in df.groupby('condition')}
         conditions = df['condition'].dropna().unique().tolist()
         for condition in conditions:
@@ -3624,7 +3662,7 @@ def measure_crop(settings, annotation_settings, advanced_settings):
                 fig = _plot_images_on_grid(png_paths_by_condition, channel_indices, um_per_pixel, scale_bar_length_um, fontsize, show_filename, channel_names, plot)
                 __save_figure(fig, src, text=f'channel_{channel}_{condition}')
                 plt.close()
-
+    
     def _timelapse_masks_to_gif(folder_path, mask_channels, object_types):
         """
         Converts a sequence of masks into a timelapse GIF file.
