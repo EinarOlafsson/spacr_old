@@ -3652,7 +3652,7 @@ def measure_crop(settings, annotation_settings, advanced_settings):
         df = _annotate_conditions(df, cells, cell_loc, pathogens, pathogen_loc, treatments,treatment_loc)
         
         if update_db:
-            _update_database_with_merged_info(db_path, df, table='png_list', columns=['pathogen', 'treatment', 'host_cells', 'condition', 'pcrfo']
+            _update_database_with_merged_info(db_path, df, table='png_list', columns=['pathogen', 'treatment', 'host_cells', 'condition', 'pcrfo'])
         
         if isinstance(compartments, list):
             if len(compartments) > 1:
