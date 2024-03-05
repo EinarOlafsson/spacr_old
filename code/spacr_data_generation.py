@@ -4017,7 +4017,7 @@ def measure_crop(settings, annotation_settings, advanced_settings):
                 
         if settings['save_measurements']:
             db_path = os.path.join(os.path.dirname(settings['input_folder']), 'measurements', 'measurements.db')
-            channel_indices = settings['png_dims'],
+            channel_indices = settings['png_dims']
             channel_indices = [min(value, 2) for value in channel_indices]
             
             _generate_representative_images(db_path,
