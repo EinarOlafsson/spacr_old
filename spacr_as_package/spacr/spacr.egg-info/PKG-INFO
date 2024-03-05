@@ -1,0 +1,37 @@
+Metadata-Version: 2.1
+Name: spacr
+Version: 0.0.1
+Summary: A brief description of your package
+Home-page: https://github.com/EinarOlafsson/spacr
+Author: Einar Birnir Olafsson
+Author-email: olafsson@med.umich.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+License-File: LICENSE
+Requires-Dist: torch
+Requires-Dist: torchvision
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: statsmodels
+Requires-Dist: scikit-image
+Requires-Dist: scikit-learn
+Requires-Dist: seaborn
+Requires-Dist: matplotlib
+Requires-Dist: pillow
+Requires-Dist: imageio
+Requires-Dist: scipy
+Requires-Dist: ipywidgets
+Requires-Dist: mahotas
+Requires-Dist: btrack
+Requires-Dist: trackpy
+Requires-Dist: cellpose
+Requires-Dist: IPython
+Requires-Dist: opencv-python-headless
+Requires-Dist: umap
+Provides-Extra: dev
+Requires-Dist: pytest>=3.9; extra == "dev"
+Provides-Extra: headless
+Requires-Dist: opencv-python-headless; extra == "headless"
+Provides-Extra: full
+Requires-Dist: opencv-python; extra == "full"
