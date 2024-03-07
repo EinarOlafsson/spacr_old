@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: spacr
+Version: 0.0.1
+Summary: A brief description of your package
+Home-page: https://github.com/EinarOlafsson/spacr
+Author: Einar Birnir Olafsson
+Author-email: olafsson@med.umich.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Provides-Extra: dev
+Provides-Extra: headless
+Provides-Extra: full
+License-File: LICENSE

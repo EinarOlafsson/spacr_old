@@ -1,0 +1,597 @@
+2024-03-07 11:44:36,163:INFO:Calling initiate_measure_root(1000, 1500)
+2024-03-07 11:44:36,442:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'input_folder', 0, 'entry', None, '/mnt/data/CellVoyager/40x/einar/mitotrackerHeLaToxoDsRed_20240224_123156/test_gui/merged')
+2024-03-07 11:44:36,460:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87df66a0>
+2024-03-07 11:44:36,460:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'channels', 1, 'combo', ['[0,1,2,3]', '[0,1,2]', '[0,1]', '[0]'], '[0,1,2,3]')
+2024-03-07 11:44:36,460:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87df6760>
+2024-03-07 11:44:36,460:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cell_mask_dim', 2, 'entry', None, 4)
+2024-03-07 11:44:36,460:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87df6820>
+2024-03-07 11:44:36,460:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cell_min_size', 3, 'entry', None, 0)
+2024-03-07 11:44:36,460:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87df68e0>
+2024-03-07 11:44:36,460:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'nucleus_mask_dim', 4, 'entry', None, 5)
+2024-03-07 11:44:36,460:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87df69a0>
+2024-03-07 11:44:36,460:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'nucleus_min_size', 5, 'entry', None, 0)
+2024-03-07 11:44:36,461:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87df6a60>
+2024-03-07 11:44:36,461:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogen_mask_dim', 6, 'entry', None, 6)
+2024-03-07 11:44:36,461:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87df6b20>
+2024-03-07 11:44:36,461:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogen_min_size', 7, 'entry', None, 0)
+2024-03-07 11:44:36,461:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87df6be0>
+2024-03-07 11:44:36,461:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cytoplasm_min_size', 8, 'entry', None, 0)
+2024-03-07 11:44:36,461:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87df6ca0>
+2024-03-07 11:44:36,461:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'save_png', 9, 'check', None, True)
+2024-03-07 11:44:36,461:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7efc87df6d60>
+2024-03-07 11:44:36,461:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'crop_mode', 10, 'entry', None, '["cell"]')
+2024-03-07 11:44:36,461:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87df6e20>
+2024-03-07 11:44:36,461:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'use_bounding_box', 11, 'check', None, True)
+2024-03-07 11:44:36,461:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7efc87df6ee0>
+2024-03-07 11:44:36,461:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'png_size', 12, 'entry', None, '[224,224]')
+2024-03-07 11:44:36,462:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87df6fa0>
+2024-03-07 11:44:36,462:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'normalize', 13, 'entry', None, '[2,98]')
+2024-03-07 11:44:36,462:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87e070a0>
+2024-03-07 11:44:36,462:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'png_dims', 14, 'entry', None, '[1,2,3]')
+2024-03-07 11:44:36,462:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87e07160>
+2024-03-07 11:44:36,462:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'normalize_by', 15, 'combo', ['fov', 'png'], 'png')
+2024-03-07 11:44:36,462:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87e07220>
+2024-03-07 11:44:36,462:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'save_measurements', 16, 'check', None, True)
+2024-03-07 11:44:36,462:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7efc87e072e0>
+2024-03-07 11:44:36,462:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'plot', 17, 'check', None, True)
+2024-03-07 11:44:36,462:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7efc87e073a0>
+2024-03-07 11:44:36,462:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'plot_filtration', 18, 'check', None, True)
+2024-03-07 11:44:36,462:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7efc87e07460>
+2024-03-07 11:44:36,463:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'include_uninfected', 19, 'check', None, True)
+2024-03-07 11:44:36,463:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7efc87e07520>
+2024-03-07 11:44:36,463:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'dialate_pngs', 20, 'check', None, False)
+2024-03-07 11:44:36,463:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7efc87e075e0>
+2024-03-07 11:44:36,463:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'dialate_png_ratios', 21, 'entry', None, '[0.2]')
+2024-03-07 11:44:36,463:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87e076a0>
+2024-03-07 11:44:36,463:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'timelapse', 22, 'check', None, False)
+2024-03-07 11:44:36,463:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7efc87e07760>
+2024-03-07 11:44:36,463:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'timelapse_objects', 23, 'combo', ['["cell"]', '["nucleus"]', '["pathogen"]', '["cytoplasm"]'], '["cell"]')
+2024-03-07 11:44:36,463:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87e07820>
+2024-03-07 11:44:36,463:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'max_workers', 24, 'entry', None, 30)
+2024-03-07 11:44:36,463:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87e078e0>
+2024-03-07 11:44:36,463:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'experiment', 25, 'entry', None, 'experiment name')
+2024-03-07 11:44:36,464:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87e079a0>
+2024-03-07 11:44:36,464:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cells', 26, 'entry', None, ['HeLa'])
+2024-03-07 11:44:36,464:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87e07a60>
+2024-03-07 11:44:36,464:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cell_loc', 27, 'entry', None, '[["c1","c2"], ["c3","c4"]]')
+2024-03-07 11:44:36,464:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87e07b20>
+2024-03-07 11:44:36,464:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogens', 28, 'entry', None, '["wt","mutant"]')
+2024-03-07 11:44:36,464:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87e07be0>
+2024-03-07 11:44:36,464:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogen_loc', 29, 'entry', None, '[["c1","c2"], ["c3","c4"]]')
+2024-03-07 11:44:36,464:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87e07ca0>
+2024-03-07 11:44:36,464:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'treatments', 30, 'entry', None, '["cm","lovastatin_20uM"]')
+2024-03-07 11:44:36,464:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87e07d60>
+2024-03-07 11:44:36,464:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'treatment_loc', 31, 'entry', None, '[["c1","c2"], ["c3","c4"]]')
+2024-03-07 11:44:36,464:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87e07e20>
+2024-03-07 11:44:36,464:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'channel_of_interest', 32, 'entry', None, 3)
+2024-03-07 11:44:36,465:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87e07ee0>
+2024-03-07 11:44:36,465:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'measurement', 33, 'entry', None, 'mean_intensity')
+2024-03-07 11:44:36,465:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87e07fa0>
+2024-03-07 11:44:36,465:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'nr_imgs', 34, 'entry', None, 32)
+2024-03-07 11:44:36,465:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87e0c0a0>
+2024-03-07 11:44:36,465:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'um_per_pixel', 35, 'entry', None, 0.1)
+2024-03-07 11:44:36,465:INFO:create_input_field returned <tkinter.StringVar object at 0x7efc87e0c160>
+2024-03-07 11:44:36,490:INFO:initiate_measure_root returned (<ttkthemes.themed_tk.ThemedTk object .>, {'input_folder': <tkinter.StringVar object at 0x7efc87df66a0>, 'channels': <tkinter.StringVar object at 0x7efc87df6760>, 'cell_mask_dim': <tkinter.StringVar object at 0x7efc87df6820>, 'cell_min_size': <tkinter.StringVar object at 0x7efc87df68e0>, 'nucleus_mask_dim': <tkinter.StringVar object at 0x7efc87df69a0>, 'nucleus_min_size': <tkinter.StringVar object at 0x7efc87df6a60>, 'pathogen_mask_dim': <tkinter.StringVar object at 0x7efc87df6b20>, 'pathogen_min_size': <tkinter.StringVar object at 0x7efc87df6be0>, 'cytoplasm_min_size': <tkinter.StringVar object at 0x7efc87df6ca0>, 'save_png': <tkinter.BooleanVar object at 0x7efc87df6d60>, 'crop_mode': <tkinter.StringVar object at 0x7efc87df6e20>, 'use_bounding_box': <tkinter.BooleanVar object at 0x7efc87df6ee0>, 'png_size': <tkinter.StringVar object at 0x7efc87df6fa0>, 'normalize': <tkinter.StringVar object at 0x7efc87e070a0>, 'png_dims': <tkinter.StringVar object at 0x7efc87e07160>, 'normalize_by': <tkinter.StringVar object at 0x7efc87e07220>, 'save_measurements': <tkinter.BooleanVar object at 0x7efc87e072e0>, 'plot': <tkinter.BooleanVar object at 0x7efc87e073a0>, 'plot_filtration': <tkinter.BooleanVar object at 0x7efc87e07460>, 'include_uninfected': <tkinter.BooleanVar object at 0x7efc87e07520>, 'dialate_pngs': <tkinter.BooleanVar object at 0x7efc87e075e0>, 'dialate_png_ratios': <tkinter.StringVar object at 0x7efc87e076a0>, 'timelapse': <tkinter.BooleanVar object at 0x7efc87e07760>, 'timelapse_objects': <tkinter.StringVar object at 0x7efc87e07820>, 'max_workers': <tkinter.StringVar object at 0x7efc87e078e0>, 'experiment': <tkinter.StringVar object at 0x7efc87e079a0>, 'cells': <tkinter.StringVar object at 0x7efc87e07a60>, 'cell_loc': <tkinter.StringVar object at 0x7efc87e07b20>, 'pathogens': <tkinter.StringVar object at 0x7efc87e07be0>, 'pathogen_loc': <tkinter.StringVar object at 0x7efc87e07ca0>, 'treatments': <tkinter.StringVar object at 0x7efc87e07d60>, 'treatment_loc': <tkinter.StringVar object at 0x7efc87e07e20>, 'channel_of_interest': <tkinter.StringVar object at 0x7efc87e07ee0>, 'measurement': <tkinter.StringVar object at 0x7efc87e07fa0>, 'nr_imgs': <tkinter.StringVar object at 0x7efc87e0c0a0>, 'um_per_pixel': <tkinter.StringVar object at 0x7efc87e0c160>})
+2024-03-07 11:44:38,104:INFO:Calling run_measure_gui(<queue.Queue object at 0x7efc87d7a670>, <queue.Queue object at 0x7efc87df6340>)
+2024-03-07 11:44:38,120:INFO:Calling measure_crop_wrapper(settings={'input_folder': '/mnt/data/CellVoyager/40x/einar/mitotrackerHeLaToxoDsRed_20240224_123156/test_gui/merged', 'channels': [0, 1, 2, 3], 'cell_mask_dim': 4, 'cell_min_size': 0, 'nucleus_mask_dim': 5, 'nucleus_min_size': 0, 'pathogen_mask_dim': 6, 'pathogen_min_size': 0, 'cytoplasm_min_size': 0, 'save_png': True, 'crop_mode': ['cell'], 'use_bounding_box': True, 'png_size': [224, 224], 'normalize': [2, 98], 'png_dims': [1, 2, 3], 'normalize_by': 'png', 'save_measurements': True, 'plot': True, 'plot_filtration': True, 'include_uninfected': True, 'dialate_pngs': False, 'dialate_png_ratios': [0.2], 'timelapse': False, 'timelapse_objects': ['cell'], 'max_workers': 30, 'experiment': 'experiment name', 'cells': ('HeLa',), 'cell_loc': [['c1', 'c2'], ['c3', 'c4']], 'pathogens': ['wt', 'mutant'], 'pathogen_loc': [['c1', 'c2'], ['c3', 'c4']], 'treatments': ['cm', 'lovastatin_20uM'], 'treatment_loc': [['c1', 'c2'], ['c3', 'c4']], 'channel_of_interest': 3, 'measurement': 'mean_intensity', 'nr_imgs': 32, 'um_per_pixel': 0.1, 'compartments': ['pathogen', 'cytoplasm']}, annotation_settings={}, advanced_settings={})
+2024-03-07 11:44:38,436:INFO:Calling _measure_crop_core(0, <ListProxy object, typeid 'list' at 0x7efc971e4af0>, 'plate1_A01_2.npy', {'input_folder': '/mnt/data/CellVoyager/40x/einar/mitotrackerHeLaToxoDsRed_20240224_123156/test_gui/merged', 'channels': [0, 1, 2, 3], 'cell_mask_dim': 4, 'cell_min_size': 0, 'nucleus_mask_dim': 5, 'nucleus_min_size': 0, 'pathogen_mask_dim': 6, 'pathogen_min_size': 0, 'cytoplasm_min_size': 0, 'save_png': True, 'crop_mode': ['cell'], 'use_bounding_box': True, 'png_size': [224, 224], 'normalize': [2, 98], 'png_dims': [1, 2, 3], 'normalize_by': 'png', 'save_measurements': True, 'plot': True, 'plot_filtration': True, 'include_uninfected': True, 'dialate_pngs': False, 'dialate_png_ratios': [0.2], 'timelapse': False, 'timelapse_objects': ['cell'], 'max_workers': 30, 'experiment': 'experiment name', 'cells': ('HeLa',), 'cell_loc': [['c1', 'c2'], ['c3', 'c4']], 'pathogens': ['wt', 'mutant'], 'pathogen_loc': [['c1', 'c2'], ['c3', 'c4']], 'treatments': ['cm', 'lovastatin_20uM'], 'treatment_loc': [['c1', 'c2'], ['c3', 'c4']], 'channel_of_interest': 3, 'measurement': 'mean_intensity', 'nr_imgs': 32, 'um_per_pixel': 0.1, 'compartments': ['pathogen', 'cytoplasm'], 'merge_edge_pathogen_cells': True, 'radial_dist': True, 'calculate_correlation': True, 'manders_thresholds': [15, 85, 95], 'homogeneity': True, 'homogeneity_distances': [8, 16, 32], 'save_arrays': False, 'cytoplasm': True, 'center_crop': True})
+2024-03-07 11:44:38,437:INFO:Calling _measure_crop_core(1, <ListProxy object, typeid 'list' at 0x7efc971e4af0>, 'plate1_A01_1.npy', {'input_folder': '/mnt/data/CellVoyager/40x/einar/mitotrackerHeLaToxoDsRed_20240224_123156/test_gui/merged', 'channels': [0, 1, 2, 3], 'cell_mask_dim': 4, 'cell_min_size': 0, 'nucleus_mask_dim': 5, 'nucleus_min_size': 0, 'pathogen_mask_dim': 6, 'pathogen_min_size': 0, 'cytoplasm_min_size': 0, 'save_png': True, 'crop_mode': ['cell'], 'use_bounding_box': True, 'png_size': [224, 224], 'normalize': [2, 98], 'png_dims': [1, 2, 3], 'normalize_by': 'png', 'save_measurements': True, 'plot': True, 'plot_filtration': True, 'include_uninfected': True, 'dialate_pngs': False, 'dialate_png_ratios': [0.2], 'timelapse': False, 'timelapse_objects': ['cell'], 'max_workers': 30, 'experiment': 'experiment name', 'cells': ('HeLa',), 'cell_loc': [['c1', 'c2'], ['c3', 'c4']], 'pathogens': ['wt', 'mutant'], 'pathogen_loc': [['c1', 'c2'], ['c3', 'c4']], 'treatments': ['cm', 'lovastatin_20uM'], 'treatment_loc': [['c1', 'c2'], ['c3', 'c4']], 'channel_of_interest': 3, 'measurement': 'mean_intensity', 'nr_imgs': 32, 'um_per_pixel': 0.1, 'compartments': ['pathogen', 'cytoplasm'], 'merge_edge_pathogen_cells': True, 'radial_dist': True, 'calculate_correlation': True, 'manders_thresholds': [15, 85, 95], 'homogeneity': True, 'homogeneity_distances': [8, 16, 32], 'save_arrays': False, 'cytoplasm': True, 'center_crop': True})
+2024-03-07 11:47:25,361:ERROR:Exception occurred in measure_crop_wrapper
+Traceback (most recent call last):
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 65, in measure_crop_wrapper
+    spacr.measure.measure_crop(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure.py", line 906, in measure_crop
+    files_to_process = len(files)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/gui_utils.py", line 60, in write
+    self.text_widget.insert(tk.END, string)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/tkinter/__init__.py", line 3743, in insert
+    self.tk.call((self._w, 'insert', index, chars) + args)
+RuntimeError: main thread is not in main loop
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/logger.py", line 14, in wrapper
+    result = func(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 68, in measure_crop_wrapper
+    traceback.print_exc()
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 163, in print_exc
+    print_exception(*sys.exc_info(), limit=limit, file=file, chain=chain)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 105, in print_exception
+    print(line, file=file, end="")
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/gui_utils.py", line 60, in write
+    self.text_widget.insert(tk.END, string)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/tkinter/__init__.py", line 3743, in insert
+    self.tk.call((self._w, 'insert', index, chars) + args)
+RuntimeError: main thread is not in main loop
+2024-03-07 11:47:26,365:ERROR:Exception occurred in run_measure_gui
+Traceback (most recent call last):
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 65, in measure_crop_wrapper
+    spacr.measure.measure_crop(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure.py", line 906, in measure_crop
+    files_to_process = len(files)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/gui_utils.py", line 60, in write
+    self.text_widget.insert(tk.END, string)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/tkinter/__init__.py", line 3743, in insert
+    self.tk.call((self._w, 'insert', index, chars) + args)
+RuntimeError: main thread is not in main loop
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 86, in run_measure_gui
+    measure_crop_wrapper(settings=settings, annotation_settings={}, advanced_settings={})
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/logger.py", line 14, in wrapper
+    result = func(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 68, in measure_crop_wrapper
+    traceback.print_exc()
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 163, in print_exc
+    print_exception(*sys.exc_info(), limit=limit, file=file, chain=chain)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 105, in print_exception
+    print(line, file=file, end="")
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/gui_utils.py", line 60, in write
+    self.text_widget.insert(tk.END, string)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/tkinter/__init__.py", line 3743, in insert
+    self.tk.call((self._w, 'insert', index, chars) + args)
+RuntimeError: main thread is not in main loop
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/logger.py", line 14, in wrapper
+    result = func(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 91, in run_measure_gui
+    traceback.print_exc()
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 163, in print_exc
+    print_exception(*sys.exc_info(), limit=limit, file=file, chain=chain)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 105, in print_exception
+    print(line, file=file, end="")
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/gui_utils.py", line 60, in write
+    self.text_widget.insert(tk.END, string)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/tkinter/__init__.py", line 3743, in insert
+    self.tk.call((self._w, 'insert', index, chars) + args)
+RuntimeError: main thread is not in main loop
+2024-03-07 11:47:35,451:INFO:Calling initiate_measure_root(1000, 1500)
+2024-03-07 11:47:35,728:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'input_folder', 0, 'entry', None, '/mnt/data/CellVoyager/40x/einar/mitotrackerHeLaToxoDsRed_20240224_123156/test_gui/merged')
+2024-03-07 11:47:35,746:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace18a60>
+2024-03-07 11:47:35,746:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'channels', 1, 'combo', ['[0,1,2,3]', '[0,1,2]', '[0,1]', '[0]'], '[0,1,2,3]')
+2024-03-07 11:47:35,746:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace18b20>
+2024-03-07 11:47:35,746:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cell_mask_dim', 2, 'entry', None, 4)
+2024-03-07 11:47:35,746:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace18be0>
+2024-03-07 11:47:35,746:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cell_min_size', 3, 'entry', None, 0)
+2024-03-07 11:47:35,746:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace18ca0>
+2024-03-07 11:47:35,746:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'nucleus_mask_dim', 4, 'entry', None, 5)
+2024-03-07 11:47:35,746:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace18d60>
+2024-03-07 11:47:35,747:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'nucleus_min_size', 5, 'entry', None, 0)
+2024-03-07 11:47:35,747:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace18e20>
+2024-03-07 11:47:35,747:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogen_mask_dim', 6, 'entry', None, 6)
+2024-03-07 11:47:35,747:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace18ee0>
+2024-03-07 11:47:35,747:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogen_min_size', 7, 'entry', None, 0)
+2024-03-07 11:47:35,747:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace18fa0>
+2024-03-07 11:47:35,747:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cytoplasm_min_size', 8, 'entry', None, 0)
+2024-03-07 11:47:35,747:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace280a0>
+2024-03-07 11:47:35,747:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'save_png', 9, 'check', None, True)
+2024-03-07 11:47:35,747:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f7bace28160>
+2024-03-07 11:47:35,747:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'crop_mode', 10, 'entry', None, '["cell"]')
+2024-03-07 11:47:35,747:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace28220>
+2024-03-07 11:47:35,747:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'use_bounding_box', 11, 'check', None, True)
+2024-03-07 11:47:35,747:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f7bace282e0>
+2024-03-07 11:47:35,747:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'png_size', 12, 'entry', None, '[224,224]')
+2024-03-07 11:47:35,747:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace283a0>
+2024-03-07 11:47:35,747:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'normalize', 13, 'entry', None, '[2,98]')
+2024-03-07 11:47:35,747:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace28460>
+2024-03-07 11:47:35,747:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'png_dims', 14, 'entry', None, '[1,2,3]')
+2024-03-07 11:47:35,748:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace28520>
+2024-03-07 11:47:35,748:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'normalize_by', 15, 'combo', ['fov', 'png'], 'png')
+2024-03-07 11:47:35,748:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace285e0>
+2024-03-07 11:47:35,748:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'save_measurements', 16, 'check', None, True)
+2024-03-07 11:47:35,748:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f7bace286a0>
+2024-03-07 11:47:35,748:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'plot', 17, 'check', None, True)
+2024-03-07 11:47:35,748:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f7bace28760>
+2024-03-07 11:47:35,748:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'plot_filtration', 18, 'check', None, True)
+2024-03-07 11:47:35,748:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f7bace28820>
+2024-03-07 11:47:35,748:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'include_uninfected', 19, 'check', None, True)
+2024-03-07 11:47:35,748:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f7bace288e0>
+2024-03-07 11:47:35,748:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'dialate_pngs', 20, 'check', None, False)
+2024-03-07 11:47:35,748:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f7bace289a0>
+2024-03-07 11:47:35,748:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'dialate_png_ratios', 21, 'entry', None, '[0.2]')
+2024-03-07 11:47:35,748:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace28a60>
+2024-03-07 11:47:35,748:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'timelapse', 22, 'check', None, False)
+2024-03-07 11:47:35,748:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f7bace28b20>
+2024-03-07 11:47:35,748:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'timelapse_objects', 23, 'combo', ['["cell"]', '["nucleus"]', '["pathogen"]', '["cytoplasm"]'], '["cell"]')
+2024-03-07 11:47:35,748:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace28be0>
+2024-03-07 11:47:35,748:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'max_workers', 24, 'entry', None, 30)
+2024-03-07 11:47:35,749:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace28ca0>
+2024-03-07 11:47:35,749:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'experiment', 25, 'entry', None, 'experiment name')
+2024-03-07 11:47:35,749:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace28d60>
+2024-03-07 11:47:35,749:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cells', 26, 'entry', None, ['HeLa'])
+2024-03-07 11:47:35,749:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace28e20>
+2024-03-07 11:47:35,749:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cell_loc', 27, 'entry', None, '[["c1","c2"], ["c3","c4"]]')
+2024-03-07 11:47:35,749:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace28ee0>
+2024-03-07 11:47:35,749:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogens', 28, 'entry', None, '["wt","mutant"]')
+2024-03-07 11:47:35,749:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace28fa0>
+2024-03-07 11:47:35,749:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogen_loc', 29, 'entry', None, '[["c1","c2"], ["c3","c4"]]')
+2024-03-07 11:47:35,749:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace300a0>
+2024-03-07 11:47:35,749:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'treatments', 30, 'entry', None, '["cm","lovastatin_20uM"]')
+2024-03-07 11:47:35,749:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace30160>
+2024-03-07 11:47:35,749:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'treatment_loc', 31, 'entry', None, '[["c1","c2"], ["c3","c4"]]')
+2024-03-07 11:47:35,749:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace30220>
+2024-03-07 11:47:35,749:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'channel_of_interest', 32, 'entry', None, 3)
+2024-03-07 11:47:35,749:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace302e0>
+2024-03-07 11:47:35,749:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'measurement', 33, 'entry', None, 'mean_intensity')
+2024-03-07 11:47:35,749:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace303a0>
+2024-03-07 11:47:35,749:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'nr_imgs', 34, 'entry', None, 32)
+2024-03-07 11:47:35,749:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace30460>
+2024-03-07 11:47:35,749:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'um_per_pixel', 35, 'entry', None, 0.1)
+2024-03-07 11:47:35,750:INFO:create_input_field returned <tkinter.StringVar object at 0x7f7bace30520>
+2024-03-07 11:47:35,771:INFO:initiate_measure_root returned (<ttkthemes.themed_tk.ThemedTk object .>, {'input_folder': <tkinter.StringVar object at 0x7f7bace18a60>, 'channels': <tkinter.StringVar object at 0x7f7bace18b20>, 'cell_mask_dim': <tkinter.StringVar object at 0x7f7bace18be0>, 'cell_min_size': <tkinter.StringVar object at 0x7f7bace18ca0>, 'nucleus_mask_dim': <tkinter.StringVar object at 0x7f7bace18d60>, 'nucleus_min_size': <tkinter.StringVar object at 0x7f7bace18e20>, 'pathogen_mask_dim': <tkinter.StringVar object at 0x7f7bace18ee0>, 'pathogen_min_size': <tkinter.StringVar object at 0x7f7bace18fa0>, 'cytoplasm_min_size': <tkinter.StringVar object at 0x7f7bace280a0>, 'save_png': <tkinter.BooleanVar object at 0x7f7bace28160>, 'crop_mode': <tkinter.StringVar object at 0x7f7bace28220>, 'use_bounding_box': <tkinter.BooleanVar object at 0x7f7bace282e0>, 'png_size': <tkinter.StringVar object at 0x7f7bace283a0>, 'normalize': <tkinter.StringVar object at 0x7f7bace28460>, 'png_dims': <tkinter.StringVar object at 0x7f7bace28520>, 'normalize_by': <tkinter.StringVar object at 0x7f7bace285e0>, 'save_measurements': <tkinter.BooleanVar object at 0x7f7bace286a0>, 'plot': <tkinter.BooleanVar object at 0x7f7bace28760>, 'plot_filtration': <tkinter.BooleanVar object at 0x7f7bace28820>, 'include_uninfected': <tkinter.BooleanVar object at 0x7f7bace288e0>, 'dialate_pngs': <tkinter.BooleanVar object at 0x7f7bace289a0>, 'dialate_png_ratios': <tkinter.StringVar object at 0x7f7bace28a60>, 'timelapse': <tkinter.BooleanVar object at 0x7f7bace28b20>, 'timelapse_objects': <tkinter.StringVar object at 0x7f7bace28be0>, 'max_workers': <tkinter.StringVar object at 0x7f7bace28ca0>, 'experiment': <tkinter.StringVar object at 0x7f7bace28d60>, 'cells': <tkinter.StringVar object at 0x7f7bace28e20>, 'cell_loc': <tkinter.StringVar object at 0x7f7bace28ee0>, 'pathogens': <tkinter.StringVar object at 0x7f7bace28fa0>, 'pathogen_loc': <tkinter.StringVar object at 0x7f7bace300a0>, 'treatments': <tkinter.StringVar object at 0x7f7bace30160>, 'treatment_loc': <tkinter.StringVar object at 0x7f7bace30220>, 'channel_of_interest': <tkinter.StringVar object at 0x7f7bace302e0>, 'measurement': <tkinter.StringVar object at 0x7f7bace303a0>, 'nr_imgs': <tkinter.StringVar object at 0x7f7bace30460>, 'um_per_pixel': <tkinter.StringVar object at 0x7f7bace30520>})
+2024-03-07 11:47:45,050:INFO:Calling run_measure_gui(<queue.Queue object at 0x7f7bacd7e910>, <queue.Queue object at 0x7f7bace18700>)
+2024-03-07 11:47:45,075:INFO:Calling measure_crop_wrapper(settings={'input_folder': '/mnt/data/CellVoyager/40x/einar/mitotrackerHeLaToxoDsRed_20240224_123156/test_gui/merged', 'channels': [0, 1, 2, 3], 'cell_mask_dim': 4, 'cell_min_size': 0, 'nucleus_mask_dim': 5, 'nucleus_min_size': 0, 'pathogen_mask_dim': 6, 'pathogen_min_size': 0, 'cytoplasm_min_size': 0, 'save_png': True, 'crop_mode': ['cell'], 'use_bounding_box': True, 'png_size': [224, 224], 'normalize': [2, 98], 'png_dims': [1, 2, 3], 'normalize_by': 'png', 'save_measurements': True, 'plot': True, 'plot_filtration': True, 'include_uninfected': True, 'dialate_pngs': False, 'dialate_png_ratios': [0.2], 'timelapse': False, 'timelapse_objects': ['cell'], 'max_workers': 30, 'experiment': 'experiment name', 'cells': ('HeLa',), 'cell_loc': [['c1', 'c2'], ['c3', 'c4']], 'pathogens': ['wt', 'mutant'], 'pathogen_loc': [['c1', 'c2'], ['c3', 'c4']], 'treatments': ['cm', 'lovastatin_20uM'], 'treatment_loc': [['c1', 'c2'], ['c3', 'c4']], 'channel_of_interest': 3, 'measurement': 'mean_intensity', 'nr_imgs': 32, 'um_per_pixel': 0.1, 'compartments': ['pathogen', 'cytoplasm']}, annotation_settings={}, advanced_settings={})
+2024-03-07 11:47:45,075:INFO:Calling measure_crop(settings={'input_folder': '/mnt/data/CellVoyager/40x/einar/mitotrackerHeLaToxoDsRed_20240224_123156/test_gui/merged', 'channels': [0, 1, 2, 3], 'cell_mask_dim': 4, 'cell_min_size': 0, 'nucleus_mask_dim': 5, 'nucleus_min_size': 0, 'pathogen_mask_dim': 6, 'pathogen_min_size': 0, 'cytoplasm_min_size': 0, 'save_png': True, 'crop_mode': ['cell'], 'use_bounding_box': True, 'png_size': [224, 224], 'normalize': [2, 98], 'png_dims': [1, 2, 3], 'normalize_by': 'png', 'save_measurements': True, 'plot': True, 'plot_filtration': True, 'include_uninfected': True, 'dialate_pngs': False, 'dialate_png_ratios': [0.2], 'timelapse': False, 'timelapse_objects': ['cell'], 'max_workers': 30, 'experiment': 'experiment name', 'cells': ('HeLa',), 'cell_loc': [['c1', 'c2'], ['c3', 'c4']], 'pathogens': ['wt', 'mutant'], 'pathogen_loc': [['c1', 'c2'], ['c3', 'c4']], 'treatments': ['cm', 'lovastatin_20uM'], 'treatment_loc': [['c1', 'c2'], ['c3', 'c4']], 'channel_of_interest': 3, 'measurement': 'mean_intensity', 'nr_imgs': 32, 'um_per_pixel': 0.1, 'compartments': ['pathogen', 'cytoplasm']}, annotation_settings={}, advanced_settings={})
+2024-03-07 11:47:45,362:INFO:Calling _measure_crop_core(1, <ListProxy object, typeid 'list' at 0x7f7bb96e4af0>, 'plate1_A01_1.npy', {'input_folder': '/mnt/data/CellVoyager/40x/einar/mitotrackerHeLaToxoDsRed_20240224_123156/test_gui/merged', 'channels': [0, 1, 2, 3], 'cell_mask_dim': 4, 'cell_min_size': 0, 'nucleus_mask_dim': 5, 'nucleus_min_size': 0, 'pathogen_mask_dim': 6, 'pathogen_min_size': 0, 'cytoplasm_min_size': 0, 'save_png': True, 'crop_mode': ['cell'], 'use_bounding_box': True, 'png_size': [224, 224], 'normalize': [2, 98], 'png_dims': [1, 2, 3], 'normalize_by': 'png', 'save_measurements': True, 'plot': True, 'plot_filtration': True, 'include_uninfected': True, 'dialate_pngs': False, 'dialate_png_ratios': [0.2], 'timelapse': False, 'timelapse_objects': ['cell'], 'max_workers': 30, 'experiment': 'experiment name', 'cells': ('HeLa',), 'cell_loc': [['c1', 'c2'], ['c3', 'c4']], 'pathogens': ['wt', 'mutant'], 'pathogen_loc': [['c1', 'c2'], ['c3', 'c4']], 'treatments': ['cm', 'lovastatin_20uM'], 'treatment_loc': [['c1', 'c2'], ['c3', 'c4']], 'channel_of_interest': 3, 'measurement': 'mean_intensity', 'nr_imgs': 32, 'um_per_pixel': 0.1, 'compartments': ['pathogen', 'cytoplasm'], 'merge_edge_pathogen_cells': True, 'radial_dist': True, 'calculate_correlation': True, 'manders_thresholds': [15, 85, 95], 'homogeneity': True, 'homogeneity_distances': [8, 16, 32], 'save_arrays': False, 'cytoplasm': True, 'center_crop': True})
+2024-03-07 11:47:45,362:INFO:Calling _measure_crop_core(0, <ListProxy object, typeid 'list' at 0x7f7bb96e4af0>, 'plate1_A01_2.npy', {'input_folder': '/mnt/data/CellVoyager/40x/einar/mitotrackerHeLaToxoDsRed_20240224_123156/test_gui/merged', 'channels': [0, 1, 2, 3], 'cell_mask_dim': 4, 'cell_min_size': 0, 'nucleus_mask_dim': 5, 'nucleus_min_size': 0, 'pathogen_mask_dim': 6, 'pathogen_min_size': 0, 'cytoplasm_min_size': 0, 'save_png': True, 'crop_mode': ['cell'], 'use_bounding_box': True, 'png_size': [224, 224], 'normalize': [2, 98], 'png_dims': [1, 2, 3], 'normalize_by': 'png', 'save_measurements': True, 'plot': True, 'plot_filtration': True, 'include_uninfected': True, 'dialate_pngs': False, 'dialate_png_ratios': [0.2], 'timelapse': False, 'timelapse_objects': ['cell'], 'max_workers': 30, 'experiment': 'experiment name', 'cells': ('HeLa',), 'cell_loc': [['c1', 'c2'], ['c3', 'c4']], 'pathogens': ['wt', 'mutant'], 'pathogen_loc': [['c1', 'c2'], ['c3', 'c4']], 'treatments': ['cm', 'lovastatin_20uM'], 'treatment_loc': [['c1', 'c2'], ['c3', 'c4']], 'channel_of_interest': 3, 'measurement': 'mean_intensity', 'nr_imgs': 32, 'um_per_pixel': 0.1, 'compartments': ['pathogen', 'cytoplasm'], 'merge_edge_pathogen_cells': True, 'radial_dist': True, 'calculate_correlation': True, 'manders_thresholds': [15, 85, 95], 'homogeneity': True, 'homogeneity_distances': [8, 16, 32], 'save_arrays': False, 'cytoplasm': True, 'center_crop': True})
+2024-03-07 11:51:15,878:ERROR:Exception occurred in measure_crop
+Traceback (most recent call last):
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/logger.py", line 14, in wrapper
+    result = func(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure.py", line 909, in measure_crop
+    print(f'Progress: {files_processed}/{files_to_process} Time/img {average_time:.3f}sec, Time Remaining {time_left:.3f} min.', end='\r', flush=True)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/gui_utils.py", line 60, in write
+    self.text_widget.insert(tk.END, string)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/tkinter/__init__.py", line 3743, in insert
+    self.tk.call((self._w, 'insert', index, chars) + args)
+RuntimeError: main thread is not in main loop
+2024-03-07 11:51:16,881:ERROR:Exception occurred in measure_crop_wrapper
+Traceback (most recent call last):
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 65, in measure_crop_wrapper
+    spacr.measure.measure_crop(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/logger.py", line 14, in wrapper
+    result = func(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure.py", line 909, in measure_crop
+    print(f'Progress: {files_processed}/{files_to_process} Time/img {average_time:.3f}sec, Time Remaining {time_left:.3f} min.', end='\r', flush=True)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/gui_utils.py", line 60, in write
+    self.text_widget.insert(tk.END, string)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/tkinter/__init__.py", line 3743, in insert
+    self.tk.call((self._w, 'insert', index, chars) + args)
+RuntimeError: main thread is not in main loop
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/logger.py", line 14, in wrapper
+    result = func(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 68, in measure_crop_wrapper
+    traceback.print_exc()
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 163, in print_exc
+    print_exception(*sys.exc_info(), limit=limit, file=file, chain=chain)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 105, in print_exception
+    print(line, file=file, end="")
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/gui_utils.py", line 60, in write
+    self.text_widget.insert(tk.END, string)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/tkinter/__init__.py", line 3743, in insert
+    self.tk.call((self._w, 'insert', index, chars) + args)
+RuntimeError: main thread is not in main loop
+2024-03-07 11:51:17,883:ERROR:Exception occurred in run_measure_gui
+Traceback (most recent call last):
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 65, in measure_crop_wrapper
+    spacr.measure.measure_crop(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/logger.py", line 14, in wrapper
+    result = func(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure.py", line 909, in measure_crop
+    print(f'Progress: {files_processed}/{files_to_process} Time/img {average_time:.3f}sec, Time Remaining {time_left:.3f} min.', end='\r', flush=True)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/gui_utils.py", line 60, in write
+    self.text_widget.insert(tk.END, string)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/tkinter/__init__.py", line 3743, in insert
+    self.tk.call((self._w, 'insert', index, chars) + args)
+RuntimeError: main thread is not in main loop
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 86, in run_measure_gui
+    measure_crop_wrapper(settings=settings, annotation_settings={}, advanced_settings={})
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/logger.py", line 14, in wrapper
+    result = func(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 68, in measure_crop_wrapper
+    traceback.print_exc()
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 163, in print_exc
+    print_exception(*sys.exc_info(), limit=limit, file=file, chain=chain)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 105, in print_exception
+    print(line, file=file, end="")
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/gui_utils.py", line 60, in write
+    self.text_widget.insert(tk.END, string)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/tkinter/__init__.py", line 3743, in insert
+    self.tk.call((self._w, 'insert', index, chars) + args)
+RuntimeError: main thread is not in main loop
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/logger.py", line 14, in wrapper
+    result = func(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 91, in run_measure_gui
+    traceback.print_exc()
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 163, in print_exc
+    print_exception(*sys.exc_info(), limit=limit, file=file, chain=chain)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 105, in print_exception
+    print(line, file=file, end="")
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/gui_utils.py", line 60, in write
+    self.text_widget.insert(tk.END, string)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/tkinter/__init__.py", line 3743, in insert
+    self.tk.call((self._w, 'insert', index, chars) + args)
+RuntimeError: main thread is not in main loop
+2024-03-07 11:58:12,802:INFO:Calling initiate_measure_root(1000, 1500)
+2024-03-07 11:58:13,075:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'input_folder', 0, 'entry', None, '/mnt/data/CellVoyager/40x/einar/mitotrackerHeLaToxoDsRed_20240224_123156/test_gui/merged')
+2024-03-07 11:58:13,092:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e3a7f0>
+2024-03-07 11:58:13,092:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'channels', 1, 'combo', ['[0,1,2,3]', '[0,1,2]', '[0,1]', '[0]'], '[0,1,2,3]')
+2024-03-07 11:58:13,092:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e3a8b0>
+2024-03-07 11:58:13,092:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cell_mask_dim', 2, 'entry', None, 4)
+2024-03-07 11:58:13,093:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e3a970>
+2024-03-07 11:58:13,093:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cell_min_size', 3, 'entry', None, 0)
+2024-03-07 11:58:13,093:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e3aa30>
+2024-03-07 11:58:13,093:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'nucleus_mask_dim', 4, 'entry', None, 5)
+2024-03-07 11:58:13,093:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e3aaf0>
+2024-03-07 11:58:13,093:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'nucleus_min_size', 5, 'entry', None, 0)
+2024-03-07 11:58:13,093:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e3abb0>
+2024-03-07 11:58:13,093:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogen_mask_dim', 6, 'entry', None, 6)
+2024-03-07 11:58:13,093:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e3ac70>
+2024-03-07 11:58:13,093:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogen_min_size', 7, 'entry', None, 0)
+2024-03-07 11:58:13,093:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e3ad30>
+2024-03-07 11:58:13,093:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cytoplasm_min_size', 8, 'entry', None, 0)
+2024-03-07 11:58:13,093:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e3adf0>
+2024-03-07 11:58:13,093:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'save_png', 9, 'check', None, True)
+2024-03-07 11:58:13,094:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7fcbe0e3aeb0>
+2024-03-07 11:58:13,094:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'crop_mode', 10, 'entry', None, '["cell"]')
+2024-03-07 11:58:13,094:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e3af70>
+2024-03-07 11:58:13,094:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'use_bounding_box', 11, 'check', None, True)
+2024-03-07 11:58:13,094:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7fcbe0e2d040>
+2024-03-07 11:58:13,094:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'png_size', 12, 'entry', None, '[224,224]')
+2024-03-07 11:58:13,094:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e2d100>
+2024-03-07 11:58:13,094:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'normalize', 13, 'entry', None, '[2,98]')
+2024-03-07 11:58:13,094:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e2d1c0>
+2024-03-07 11:58:13,094:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'png_dims', 14, 'entry', None, '[1,2,3]')
+2024-03-07 11:58:13,094:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e2d280>
+2024-03-07 11:58:13,094:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'normalize_by', 15, 'combo', ['fov', 'png'], 'png')
+2024-03-07 11:58:13,094:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e2d340>
+2024-03-07 11:58:13,094:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'save_measurements', 16, 'check', None, True)
+2024-03-07 11:58:13,095:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7fcbe0e2d400>
+2024-03-07 11:58:13,095:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'plot', 17, 'check', None, True)
+2024-03-07 11:58:13,095:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7fcbe0e2d4c0>
+2024-03-07 11:58:13,095:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'plot_filtration', 18, 'check', None, True)
+2024-03-07 11:58:13,095:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7fcbe0e2d5e0>
+2024-03-07 11:58:13,095:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'include_uninfected', 19, 'check', None, True)
+2024-03-07 11:58:13,095:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7fcbe0e2d610>
+2024-03-07 11:58:13,095:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'dialate_pngs', 20, 'check', None, False)
+2024-03-07 11:58:13,095:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7fcbe0e2d700>
+2024-03-07 11:58:13,095:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'dialate_png_ratios', 21, 'entry', None, '[0.2]')
+2024-03-07 11:58:13,095:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e2d7c0>
+2024-03-07 11:58:13,095:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'timelapse', 22, 'check', None, False)
+2024-03-07 11:58:13,095:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7fcbe0e2d880>
+2024-03-07 11:58:13,095:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'timelapse_objects', 23, 'combo', ['["cell"]', '["nucleus"]', '["pathogen"]', '["cytoplasm"]'], '["cell"]')
+2024-03-07 11:58:13,095:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e2d940>
+2024-03-07 11:58:13,095:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'max_workers', 24, 'entry', None, 30)
+2024-03-07 11:58:13,096:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e2da00>
+2024-03-07 11:58:13,096:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'experiment', 25, 'entry', None, 'experiment name')
+2024-03-07 11:58:13,096:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e2dac0>
+2024-03-07 11:58:13,096:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cells', 26, 'entry', None, ['HeLa'])
+2024-03-07 11:58:13,096:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e2db80>
+2024-03-07 11:58:13,096:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cell_loc', 27, 'entry', None, '[["c1","c2"], ["c3","c4"]]')
+2024-03-07 11:58:13,096:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e2dc40>
+2024-03-07 11:58:13,096:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogens', 28, 'entry', None, '["wt","mutant"]')
+2024-03-07 11:58:13,096:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e2dd00>
+2024-03-07 11:58:13,096:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogen_loc', 29, 'entry', None, '[["c1","c2"], ["c3","c4"]]')
+2024-03-07 11:58:13,096:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e2df10>
+2024-03-07 11:58:13,096:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'treatments', 30, 'entry', None, '["cm","lovastatin_20uM"]')
+2024-03-07 11:58:13,096:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e2de50>
+2024-03-07 11:58:13,096:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'treatment_loc', 31, 'entry', None, '[["c1","c2"], ["c3","c4"]]')
+2024-03-07 11:58:13,096:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e29df0>
+2024-03-07 11:58:13,096:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'channel_of_interest', 32, 'entry', None, 3)
+2024-03-07 11:58:13,096:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e29eb0>
+2024-03-07 11:58:13,096:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'measurement', 33, 'entry', None, 'mean_intensity')
+2024-03-07 11:58:13,096:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e29ee0>
+2024-03-07 11:58:13,096:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'nr_imgs', 34, 'entry', None, 32)
+2024-03-07 11:58:13,097:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e29310>
+2024-03-07 11:58:13,097:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'um_per_pixel', 35, 'entry', None, 0.1)
+2024-03-07 11:58:13,097:INFO:create_input_field returned <tkinter.StringVar object at 0x7fcbe0e29250>
+2024-03-07 11:58:13,118:INFO:initiate_measure_root returned (<ttkthemes.themed_tk.ThemedTk object .>, {'input_folder': <tkinter.StringVar object at 0x7fcbe0e3a7f0>, 'channels': <tkinter.StringVar object at 0x7fcbe0e3a8b0>, 'cell_mask_dim': <tkinter.StringVar object at 0x7fcbe0e3a970>, 'cell_min_size': <tkinter.StringVar object at 0x7fcbe0e3aa30>, 'nucleus_mask_dim': <tkinter.StringVar object at 0x7fcbe0e3aaf0>, 'nucleus_min_size': <tkinter.StringVar object at 0x7fcbe0e3abb0>, 'pathogen_mask_dim': <tkinter.StringVar object at 0x7fcbe0e3ac70>, 'pathogen_min_size': <tkinter.StringVar object at 0x7fcbe0e3ad30>, 'cytoplasm_min_size': <tkinter.StringVar object at 0x7fcbe0e3adf0>, 'save_png': <tkinter.BooleanVar object at 0x7fcbe0e3aeb0>, 'crop_mode': <tkinter.StringVar object at 0x7fcbe0e3af70>, 'use_bounding_box': <tkinter.BooleanVar object at 0x7fcbe0e2d040>, 'png_size': <tkinter.StringVar object at 0x7fcbe0e2d100>, 'normalize': <tkinter.StringVar object at 0x7fcbe0e2d1c0>, 'png_dims': <tkinter.StringVar object at 0x7fcbe0e2d280>, 'normalize_by': <tkinter.StringVar object at 0x7fcbe0e2d340>, 'save_measurements': <tkinter.BooleanVar object at 0x7fcbe0e2d400>, 'plot': <tkinter.BooleanVar object at 0x7fcbe0e2d4c0>, 'plot_filtration': <tkinter.BooleanVar object at 0x7fcbe0e2d5e0>, 'include_uninfected': <tkinter.BooleanVar object at 0x7fcbe0e2d610>, 'dialate_pngs': <tkinter.BooleanVar object at 0x7fcbe0e2d700>, 'dialate_png_ratios': <tkinter.StringVar object at 0x7fcbe0e2d7c0>, 'timelapse': <tkinter.BooleanVar object at 0x7fcbe0e2d880>, 'timelapse_objects': <tkinter.StringVar object at 0x7fcbe0e2d940>, 'max_workers': <tkinter.StringVar object at 0x7fcbe0e2da00>, 'experiment': <tkinter.StringVar object at 0x7fcbe0e2dac0>, 'cells': <tkinter.StringVar object at 0x7fcbe0e2db80>, 'cell_loc': <tkinter.StringVar object at 0x7fcbe0e2dc40>, 'pathogens': <tkinter.StringVar object at 0x7fcbe0e2dd00>, 'pathogen_loc': <tkinter.StringVar object at 0x7fcbe0e2df10>, 'treatments': <tkinter.StringVar object at 0x7fcbe0e2de50>, 'treatment_loc': <tkinter.StringVar object at 0x7fcbe0e29df0>, 'channel_of_interest': <tkinter.StringVar object at 0x7fcbe0e29eb0>, 'measurement': <tkinter.StringVar object at 0x7fcbe0e29ee0>, 'nr_imgs': <tkinter.StringVar object at 0x7fcbe0e29310>, 'um_per_pixel': <tkinter.StringVar object at 0x7fcbe0e29250>})
+2024-03-07 11:58:14,397:INFO:Calling run_measure_gui(<queue.Queue object at 0x7fcbe0d88370>, <queue.Queue object at 0x7fcbe0e3a430>)
+2024-03-07 11:58:14,402:INFO:Calling measure_crop_wrapper(settings={'input_folder': '/mnt/data/CellVoyager/40x/einar/mitotrackerHeLaToxoDsRed_20240224_123156/test_gui/merged', 'channels': [0, 1, 2, 3], 'cell_mask_dim': 4, 'cell_min_size': 0, 'nucleus_mask_dim': 5, 'nucleus_min_size': 0, 'pathogen_mask_dim': 6, 'pathogen_min_size': 0, 'cytoplasm_min_size': 0, 'save_png': True, 'crop_mode': ['cell'], 'use_bounding_box': True, 'png_size': [224, 224], 'normalize': [2, 98], 'png_dims': [1, 2, 3], 'normalize_by': 'png', 'save_measurements': True, 'plot': True, 'plot_filtration': True, 'include_uninfected': True, 'dialate_pngs': False, 'dialate_png_ratios': [0.2], 'timelapse': False, 'timelapse_objects': ['cell'], 'max_workers': 30, 'experiment': 'experiment name', 'cells': ('HeLa',), 'cell_loc': [['c1', 'c2'], ['c3', 'c4']], 'pathogens': ['wt', 'mutant'], 'pathogen_loc': [['c1', 'c2'], ['c3', 'c4']], 'treatments': ['cm', 'lovastatin_20uM'], 'treatment_loc': [['c1', 'c2'], ['c3', 'c4']], 'channel_of_interest': 3, 'measurement': 'mean_intensity', 'nr_imgs': 32, 'um_per_pixel': 0.1, 'compartments': ['pathogen', 'cytoplasm']}, annotation_settings={}, advanced_settings={})
+2024-03-07 11:58:14,402:INFO:Calling measure_crop(settings={'input_folder': '/mnt/data/CellVoyager/40x/einar/mitotrackerHeLaToxoDsRed_20240224_123156/test_gui/merged', 'channels': [0, 1, 2, 3], 'cell_mask_dim': 4, 'cell_min_size': 0, 'nucleus_mask_dim': 5, 'nucleus_min_size': 0, 'pathogen_mask_dim': 6, 'pathogen_min_size': 0, 'cytoplasm_min_size': 0, 'save_png': True, 'crop_mode': ['cell'], 'use_bounding_box': True, 'png_size': [224, 224], 'normalize': [2, 98], 'png_dims': [1, 2, 3], 'normalize_by': 'png', 'save_measurements': True, 'plot': True, 'plot_filtration': True, 'include_uninfected': True, 'dialate_pngs': False, 'dialate_png_ratios': [0.2], 'timelapse': False, 'timelapse_objects': ['cell'], 'max_workers': 30, 'experiment': 'experiment name', 'cells': ('HeLa',), 'cell_loc': [['c1', 'c2'], ['c3', 'c4']], 'pathogens': ['wt', 'mutant'], 'pathogen_loc': [['c1', 'c2'], ['c3', 'c4']], 'treatments': ['cm', 'lovastatin_20uM'], 'treatment_loc': [['c1', 'c2'], ['c3', 'c4']], 'channel_of_interest': 3, 'measurement': 'mean_intensity', 'nr_imgs': 32, 'um_per_pixel': 0.1, 'compartments': ['pathogen', 'cytoplasm']}, annotation_settings={}, advanced_settings={})
+2024-03-07 11:58:14,848:INFO:Calling _measure_crop_core(0, <ListProxy object, typeid 'list' at 0x7fcbec1a4af0>, 'plate1_A01_2.npy', {'input_folder': '/mnt/data/CellVoyager/40x/einar/mitotrackerHeLaToxoDsRed_20240224_123156/test_gui/merged', 'channels': [0, 1, 2, 3], 'cell_mask_dim': 4, 'cell_min_size': 0, 'nucleus_mask_dim': 5, 'nucleus_min_size': 0, 'pathogen_mask_dim': 6, 'pathogen_min_size': 0, 'cytoplasm_min_size': 0, 'save_png': True, 'crop_mode': ['cell'], 'use_bounding_box': True, 'png_size': [224, 224], 'normalize': [2, 98], 'png_dims': [1, 2, 3], 'normalize_by': 'png', 'save_measurements': True, 'plot': True, 'plot_filtration': True, 'include_uninfected': True, 'dialate_pngs': False, 'dialate_png_ratios': [0.2], 'timelapse': False, 'timelapse_objects': ['cell'], 'max_workers': 30, 'experiment': 'experiment name', 'cells': ('HeLa',), 'cell_loc': [['c1', 'c2'], ['c3', 'c4']], 'pathogens': ['wt', 'mutant'], 'pathogen_loc': [['c1', 'c2'], ['c3', 'c4']], 'treatments': ['cm', 'lovastatin_20uM'], 'treatment_loc': [['c1', 'c2'], ['c3', 'c4']], 'channel_of_interest': 3, 'measurement': 'mean_intensity', 'nr_imgs': 32, 'um_per_pixel': 0.1, 'compartments': ['pathogen', 'cytoplasm'], 'merge_edge_pathogen_cells': True, 'radial_dist': True, 'calculate_correlation': True, 'manders_thresholds': [15, 85, 95], 'homogeneity': True, 'homogeneity_distances': [8, 16, 32], 'save_arrays': False, 'cytoplasm': True, 'center_crop': True})
+2024-03-07 11:58:14,848:INFO:Calling _measure_crop_core(1, <ListProxy object, typeid 'list' at 0x7fcbec1a4af0>, 'plate1_A01_1.npy', {'input_folder': '/mnt/data/CellVoyager/40x/einar/mitotrackerHeLaToxoDsRed_20240224_123156/test_gui/merged', 'channels': [0, 1, 2, 3], 'cell_mask_dim': 4, 'cell_min_size': 0, 'nucleus_mask_dim': 5, 'nucleus_min_size': 0, 'pathogen_mask_dim': 6, 'pathogen_min_size': 0, 'cytoplasm_min_size': 0, 'save_png': True, 'crop_mode': ['cell'], 'use_bounding_box': True, 'png_size': [224, 224], 'normalize': [2, 98], 'png_dims': [1, 2, 3], 'normalize_by': 'png', 'save_measurements': True, 'plot': True, 'plot_filtration': True, 'include_uninfected': True, 'dialate_pngs': False, 'dialate_png_ratios': [0.2], 'timelapse': False, 'timelapse_objects': ['cell'], 'max_workers': 30, 'experiment': 'experiment name', 'cells': ('HeLa',), 'cell_loc': [['c1', 'c2'], ['c3', 'c4']], 'pathogens': ['wt', 'mutant'], 'pathogen_loc': [['c1', 'c2'], ['c3', 'c4']], 'treatments': ['cm', 'lovastatin_20uM'], 'treatment_loc': [['c1', 'c2'], ['c3', 'c4']], 'channel_of_interest': 3, 'measurement': 'mean_intensity', 'nr_imgs': 32, 'um_per_pixel': 0.1, 'compartments': ['pathogen', 'cytoplasm'], 'merge_edge_pathogen_cells': True, 'radial_dist': True, 'calculate_correlation': True, 'manders_thresholds': [15, 85, 95], 'homogeneity': True, 'homogeneity_distances': [8, 16, 32], 'save_arrays': False, 'cytoplasm': True, 'center_crop': True})
+2024-03-07 12:00:38,521:ERROR:Exception occurred in measure_crop
+Traceback (most recent call last):
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/logger.py", line 14, in wrapper
+    result = func(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure.py", line 909, in measure_crop
+    print(f'Progress: {files_processed}/{files_to_process} Time/img {average_time:.3f}sec, Time Remaining {time_left:.3f} min.', end='\r', flush=True)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/gui_utils.py", line 60, in write
+    self.text_widget.insert(tk.END, string)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/tkinter/__init__.py", line 3743, in insert
+    self.tk.call((self._w, 'insert', index, chars) + args)
+RuntimeError: main thread is not in main loop
+2024-03-07 12:00:39,524:ERROR:Exception occurred in measure_crop_wrapper
+Traceback (most recent call last):
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 65, in measure_crop_wrapper
+    spacr.measure.measure_crop(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/logger.py", line 14, in wrapper
+    result = func(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure.py", line 909, in measure_crop
+    print(f'Progress: {files_processed}/{files_to_process} Time/img {average_time:.3f}sec, Time Remaining {time_left:.3f} min.', end='\r', flush=True)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/gui_utils.py", line 60, in write
+    self.text_widget.insert(tk.END, string)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/tkinter/__init__.py", line 3743, in insert
+    self.tk.call((self._w, 'insert', index, chars) + args)
+RuntimeError: main thread is not in main loop
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/logger.py", line 14, in wrapper
+    result = func(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 68, in measure_crop_wrapper
+    traceback.print_exc()
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 163, in print_exc
+    print_exception(*sys.exc_info(), limit=limit, file=file, chain=chain)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 105, in print_exception
+    print(line, file=file, end="")
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/gui_utils.py", line 60, in write
+    self.text_widget.insert(tk.END, string)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/tkinter/__init__.py", line 3743, in insert
+    self.tk.call((self._w, 'insert', index, chars) + args)
+RuntimeError: main thread is not in main loop
+2024-03-07 12:00:40,529:ERROR:Exception occurred in run_measure_gui
+Traceback (most recent call last):
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 65, in measure_crop_wrapper
+    spacr.measure.measure_crop(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/logger.py", line 14, in wrapper
+    result = func(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure.py", line 909, in measure_crop
+    print(f'Progress: {files_processed}/{files_to_process} Time/img {average_time:.3f}sec, Time Remaining {time_left:.3f} min.', end='\r', flush=True)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/gui_utils.py", line 60, in write
+    self.text_widget.insert(tk.END, string)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/tkinter/__init__.py", line 3743, in insert
+    self.tk.call((self._w, 'insert', index, chars) + args)
+RuntimeError: main thread is not in main loop
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 105, in run_measure_gui
+    measure_crop_wrapper(settings=settings, annotation_settings={}, advanced_settings={})
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/logger.py", line 14, in wrapper
+    result = func(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 68, in measure_crop_wrapper
+    traceback.print_exc()
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 163, in print_exc
+    print_exception(*sys.exc_info(), limit=limit, file=file, chain=chain)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 105, in print_exception
+    print(line, file=file, end="")
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/gui_utils.py", line 60, in write
+    self.text_widget.insert(tk.END, string)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/tkinter/__init__.py", line 3743, in insert
+    self.tk.call((self._w, 'insert', index, chars) + args)
+RuntimeError: main thread is not in main loop
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/logger.py", line 14, in wrapper
+    result = func(*args, **kwargs)
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/measure_crop_gui.py", line 109, in run_measure_gui
+    traceback.print_exc()
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 163, in print_exc
+    print_exception(*sys.exc_info(), limit=limit, file=file, chain=chain)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/traceback.py", line 105, in print_exception
+    print(line, file=file, end="")
+  File "/home/olafsson/Documents/repo/spacr_as_package/spacr/spacr/gui_utils.py", line 60, in write
+    self.text_widget.insert(tk.END, string)
+  File "/home/olafsson/anaconda3/envs/spacr_package/lib/python3.9/tkinter/__init__.py", line 3743, in insert
+    self.tk.call((self._w, 'insert', index, chars) + args)
+RuntimeError: main thread is not in main loop
+2024-03-07 12:43:06,129:INFO:Calling initiate_measure_root(1000, 1500)
+2024-03-07 12:43:06,365:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'input_folder', 0, 'entry', None, '/mnt/data/CellVoyager/40x/einar/mitotrackerHeLaToxoDsRed_20240224_123156/test_gui/merged')
+2024-03-07 12:43:06,368:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217abf0>
+2024-03-07 12:43:06,368:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'channels', 1, 'combo', ['[0,1,2,3]', '[0,1,2]', '[0,1]', '[0]'], '[0,1,2,3]')
+2024-03-07 12:43:06,368:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217acb0>
+2024-03-07 12:43:06,368:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cell_mask_dim', 2, 'entry', None, 4)
+2024-03-07 12:43:06,369:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217ad70>
+2024-03-07 12:43:06,369:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cell_min_size', 3, 'entry', None, 0)
+2024-03-07 12:43:06,371:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217ae30>
+2024-03-07 12:43:06,371:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'nucleus_mask_dim', 4, 'entry', None, 5)
+2024-03-07 12:43:06,371:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217aef0>
+2024-03-07 12:43:06,371:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'nucleus_min_size', 5, 'entry', None, 0)
+2024-03-07 12:43:06,371:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217afb0>
+2024-03-07 12:43:06,371:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogen_mask_dim', 6, 'entry', None, 6)
+2024-03-07 12:43:06,371:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217b070>
+2024-03-07 12:43:06,371:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogen_min_size', 7, 'entry', None, 0)
+2024-03-07 12:43:06,372:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217b130>
+2024-03-07 12:43:06,372:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cytoplasm_min_size', 8, 'entry', None, 0)
+2024-03-07 12:43:06,372:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217b1f0>
+2024-03-07 12:43:06,372:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'save_png', 9, 'check', None, True)
+2024-03-07 12:43:06,372:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f10e217b2b0>
+2024-03-07 12:43:06,372:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'crop_mode', 10, 'entry', None, '["cell"]')
+2024-03-07 12:43:06,372:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217b370>
+2024-03-07 12:43:06,372:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'use_bounding_box', 11, 'check', None, True)
+2024-03-07 12:43:06,372:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f10e217b430>
+2024-03-07 12:43:06,372:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'png_size', 12, 'entry', None, '[224,224]')
+2024-03-07 12:43:06,372:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217b4f0>
+2024-03-07 12:43:06,373:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'normalize', 13, 'entry', None, '[2,98]')
+2024-03-07 12:43:06,373:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217b5b0>
+2024-03-07 12:43:06,373:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'png_dims', 14, 'entry', None, '[1,2,3]')
+2024-03-07 12:43:06,373:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217b670>
+2024-03-07 12:43:06,373:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'normalize_by', 15, 'combo', ['fov', 'png'], 'png')
+2024-03-07 12:43:06,373:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217b730>
+2024-03-07 12:43:06,373:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'save_measurements', 16, 'check', None, True)
+2024-03-07 12:43:06,373:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f10e217b7f0>
+2024-03-07 12:43:06,373:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'plot', 17, 'check', None, True)
+2024-03-07 12:43:06,373:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f10e217b8b0>
+2024-03-07 12:43:06,373:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'plot_filtration', 18, 'check', None, True)
+2024-03-07 12:43:06,374:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f10e217b970>
+2024-03-07 12:43:06,374:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'include_uninfected', 19, 'check', None, True)
+2024-03-07 12:43:06,374:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f10e217ba30>
+2024-03-07 12:43:06,374:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'dialate_pngs', 20, 'check', None, False)
+2024-03-07 12:43:06,374:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f10e217baf0>
+2024-03-07 12:43:06,374:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'dialate_png_ratios', 21, 'entry', None, '[0.2]')
+2024-03-07 12:43:06,374:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217bbb0>
+2024-03-07 12:43:06,374:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'timelapse', 22, 'check', None, False)
+2024-03-07 12:43:06,374:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f10e217bc70>
+2024-03-07 12:43:06,374:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'timelapse_objects', 23, 'combo', ['["cell"]', '["nucleus"]', '["pathogen"]', '["cytoplasm"]'], '["cell"]')
+2024-03-07 12:43:06,374:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217bd30>
+2024-03-07 12:43:06,374:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'max_workers', 24, 'entry', None, 30)
+2024-03-07 12:43:06,374:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217bdf0>
+2024-03-07 12:43:06,374:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'experiment', 25, 'entry', None, 'experiment name')
+2024-03-07 12:43:06,375:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217beb0>
+2024-03-07 12:43:06,375:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cells', 26, 'entry', None, ['HeLa'])
+2024-03-07 12:43:06,375:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e217bf70>
+2024-03-07 12:43:06,375:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cell_loc', 27, 'entry', None, '[["c1","c2"], ["c3","c4"]]')
+2024-03-07 12:43:06,375:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e1acc070>
+2024-03-07 12:43:06,375:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogens', 28, 'entry', None, '["wt","mutant"]')
+2024-03-07 12:43:06,375:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e1acc130>
+2024-03-07 12:43:06,375:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogen_loc', 29, 'entry', None, '[["c1","c2"], ["c3","c4"]]')
+2024-03-07 12:43:06,375:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e1acc1f0>
+2024-03-07 12:43:06,375:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'treatments', 30, 'entry', None, '["cm","lovastatin_20uM"]')
+2024-03-07 12:43:06,375:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e1acc2b0>
+2024-03-07 12:43:06,375:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'treatment_loc', 31, 'entry', None, '[["c1","c2"], ["c3","c4"]]')
+2024-03-07 12:43:06,375:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e1acc370>
+2024-03-07 12:43:06,375:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'channel_of_interest', 32, 'entry', None, 3)
+2024-03-07 12:43:06,375:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e1acc430>
+2024-03-07 12:43:06,375:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'measurement', 33, 'entry', None, 'mean_intensity')
+2024-03-07 12:43:06,376:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e1acc4f0>
+2024-03-07 12:43:06,376:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'nr_imgs', 34, 'entry', None, 32)
+2024-03-07 12:43:06,376:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e1acc5b0>
+2024-03-07 12:43:06,376:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'um_per_pixel', 35, 'entry', None, 0.1)
+2024-03-07 12:43:06,376:INFO:create_input_field returned <tkinter.StringVar object at 0x7f10e1acc670>
+2024-03-07 12:43:06,401:INFO:initiate_measure_root returned (<ttkthemes.themed_tk.ThemedTk object .>, {'input_folder': <tkinter.StringVar object at 0x7f10e217abf0>, 'channels': <tkinter.StringVar object at 0x7f10e217acb0>, 'cell_mask_dim': <tkinter.StringVar object at 0x7f10e217ad70>, 'cell_min_size': <tkinter.StringVar object at 0x7f10e217ae30>, 'nucleus_mask_dim': <tkinter.StringVar object at 0x7f10e217aef0>, 'nucleus_min_size': <tkinter.StringVar object at 0x7f10e217afb0>, 'pathogen_mask_dim': <tkinter.StringVar object at 0x7f10e217b070>, 'pathogen_min_size': <tkinter.StringVar object at 0x7f10e217b130>, 'cytoplasm_min_size': <tkinter.StringVar object at 0x7f10e217b1f0>, 'save_png': <tkinter.BooleanVar object at 0x7f10e217b2b0>, 'crop_mode': <tkinter.StringVar object at 0x7f10e217b370>, 'use_bounding_box': <tkinter.BooleanVar object at 0x7f10e217b430>, 'png_size': <tkinter.StringVar object at 0x7f10e217b4f0>, 'normalize': <tkinter.StringVar object at 0x7f10e217b5b0>, 'png_dims': <tkinter.StringVar object at 0x7f10e217b670>, 'normalize_by': <tkinter.StringVar object at 0x7f10e217b730>, 'save_measurements': <tkinter.BooleanVar object at 0x7f10e217b7f0>, 'plot': <tkinter.BooleanVar object at 0x7f10e217b8b0>, 'plot_filtration': <tkinter.BooleanVar object at 0x7f10e217b970>, 'include_uninfected': <tkinter.BooleanVar object at 0x7f10e217ba30>, 'dialate_pngs': <tkinter.BooleanVar object at 0x7f10e217baf0>, 'dialate_png_ratios': <tkinter.StringVar object at 0x7f10e217bbb0>, 'timelapse': <tkinter.BooleanVar object at 0x7f10e217bc70>, 'timelapse_objects': <tkinter.StringVar object at 0x7f10e217bd30>, 'max_workers': <tkinter.StringVar object at 0x7f10e217bdf0>, 'experiment': <tkinter.StringVar object at 0x7f10e217beb0>, 'cells': <tkinter.StringVar object at 0x7f10e217bf70>, 'cell_loc': <tkinter.StringVar object at 0x7f10e1acc070>, 'pathogens': <tkinter.StringVar object at 0x7f10e1acc130>, 'pathogen_loc': <tkinter.StringVar object at 0x7f10e1acc1f0>, 'treatments': <tkinter.StringVar object at 0x7f10e1acc2b0>, 'treatment_loc': <tkinter.StringVar object at 0x7f10e1acc370>, 'channel_of_interest': <tkinter.StringVar object at 0x7f10e1acc430>, 'measurement': <tkinter.StringVar object at 0x7f10e1acc4f0>, 'nr_imgs': <tkinter.StringVar object at 0x7f10e1acc5b0>, 'um_per_pixel': <tkinter.StringVar object at 0x7f10e1acc670>})
+2024-03-07 12:44:27,390:INFO:Calling run_measure_gui(<queue.Queue object at 0x7f10e1b0a7a0>, <queue.Queue object at 0x7f10e217a830>)
+2024-03-07 12:44:27,400:INFO:Calling measure_crop_wrapper(settings={'input_folder': '/media/ben/KINGSTON/test_gui', 'channels': [0, 1, 2, 3], 'cell_mask_dim': 4, 'cell_min_size': 0, 'nucleus_mask_dim': 5, 'nucleus_min_size': 0, 'pathogen_mask_dim': 6, 'pathogen_min_size': 0, 'cytoplasm_min_size': 0, 'save_png': True, 'crop_mode': ['cell'], 'use_bounding_box': True, 'png_size': [224, 224], 'normalize': [2, 98], 'png_dims': [1, 2, 3], 'normalize_by': 'png', 'save_measurements': True, 'plot': True, 'plot_filtration': True, 'include_uninfected': True, 'dialate_pngs': False, 'dialate_png_ratios': [0.2], 'timelapse': False, 'timelapse_objects': ['cell'], 'max_workers': 30, 'experiment': 'experiment name', 'cells': ('HeLa',), 'cell_loc': [['c1', 'c2'], ['c3', 'c4']], 'pathogens': ['wt', 'mutant'], 'pathogen_loc': [['c1', 'c2'], ['c3', 'c4']], 'treatments': ['cm', 'lovastatin_20uM'], 'treatment_loc': [['c1', 'c2'], ['c3', 'c4']], 'channel_of_interest': 3, 'measurement': 'mean_intensity', 'nr_imgs': 32, 'um_per_pixel': 0.1, 'compartments': ['pathogen', 'cytoplasm']}, annotation_settings={}, advanced_settings={})
+2024-03-07 12:44:27,400:INFO:Calling measure_crop(settings={'input_folder': '/media/ben/KINGSTON/test_gui', 'channels': [0, 1, 2, 3], 'cell_mask_dim': 4, 'cell_min_size': 0, 'nucleus_mask_dim': 5, 'nucleus_min_size': 0, 'pathogen_mask_dim': 6, 'pathogen_min_size': 0, 'cytoplasm_min_size': 0, 'save_png': True, 'crop_mode': ['cell'], 'use_bounding_box': True, 'png_size': [224, 224], 'normalize': [2, 98], 'png_dims': [1, 2, 3], 'normalize_by': 'png', 'save_measurements': True, 'plot': True, 'plot_filtration': True, 'include_uninfected': True, 'dialate_pngs': False, 'dialate_png_ratios': [0.2], 'timelapse': False, 'timelapse_objects': ['cell'], 'max_workers': 30, 'experiment': 'experiment name', 'cells': ('HeLa',), 'cell_loc': [['c1', 'c2'], ['c3', 'c4']], 'pathogens': ['wt', 'mutant'], 'pathogen_loc': [['c1', 'c2'], ['c3', 'c4']], 'treatments': ['cm', 'lovastatin_20uM'], 'treatment_loc': [['c1', 'c2'], ['c3', 'c4']], 'channel_of_interest': 3, 'measurement': 'mean_intensity', 'nr_imgs': 32, 'um_per_pixel': 0.1, 'compartments': ['pathogen', 'cytoplasm']}, annotation_settings={}, advanced_settings={})
+2024-03-07 12:44:28,368:ERROR:Exception occurred in measure_crop
+Traceback (most recent call last):
+  File "/media/ben/KINGSTON/spacr_as_package/spacr/spacr/logger.py", line 14, in wrapper
+    result = func(*args, **kwargs)
+  File "/media/ben/KINGSTON/spacr_as_package/spacr/spacr/measure.py", line 950, in measure_crop
+    _generate_representative_images(db_path,
+  File "/media/ben/KINGSTON/spacr_as_package/spacr/spacr/utils.py", line 232, in _generate_representative_images
+    df = _annotate_conditions(df, cells, cell_loc, pathogens, pathogen_loc, treatments,treatment_loc)
+  File "/media/ben/KINGSTON/spacr_as_package/spacr/spacr/utils.py", line 297, in _annotate_conditions
+    df['host_cells'] = [cells[0]] * len(df) if cell_loc is None else df.apply(_map_values, args=(cells, cell_loc), axis=1)
+AttributeError: 'NoneType' object has no attribute 'apply'
+2024-03-07 12:44:28,386:INFO:measure_crop_wrapper returned None
+2024-03-07 12:44:28,387:INFO:run_measure_gui returned None
+2024-03-07 12:46:52,055:INFO:Calling run_measure_gui(<queue.Queue object at 0x7f10e1b0a7a0>, <queue.Queue object at 0x7f10e217a830>)
+2024-03-07 12:46:52,065:INFO:Calling measure_crop_wrapper(settings={'input_folder': '/media/ben/KINGSTON/test_gui/merged', 'channels': [0, 1, 2, 3], 'cell_mask_dim': 4, 'cell_min_size': 0, 'nucleus_mask_dim': 5, 'nucleus_min_size': 0, 'pathogen_mask_dim': 6, 'pathogen_min_size': 0, 'cytoplasm_min_size': 0, 'save_png': True, 'crop_mode': ['cell'], 'use_bounding_box': True, 'png_size': [224, 224], 'normalize': [2, 98], 'png_dims': [1, 2, 3], 'normalize_by': 'png', 'save_measurements': True, 'plot': True, 'plot_filtration': True, 'include_uninfected': True, 'dialate_pngs': False, 'dialate_png_ratios': [0.2], 'timelapse': False, 'timelapse_objects': ['cell'], 'max_workers': 30, 'experiment': 'experiment name', 'cells': ('HeLa',), 'cell_loc': [['c1', 'c2'], ['c3', 'c4']], 'pathogens': ['wt', 'mutant'], 'pathogen_loc': [['c1', 'c2'], ['c3', 'c4']], 'treatments': ['cm', 'lovastatin_20uM'], 'treatment_loc': [['c1', 'c2'], ['c3', 'c4']], 'channel_of_interest': 3, 'measurement': 'mean_intensity', 'nr_imgs': 32, 'um_per_pixel': 0.1, 'compartments': ['pathogen', 'cytoplasm']}, annotation_settings={}, advanced_settings={})
+2024-03-07 12:46:52,065:INFO:Calling measure_crop(settings={'input_folder': '/media/ben/KINGSTON/test_gui/merged', 'channels': [0, 1, 2, 3], 'cell_mask_dim': 4, 'cell_min_size': 0, 'nucleus_mask_dim': 5, 'nucleus_min_size': 0, 'pathogen_mask_dim': 6, 'pathogen_min_size': 0, 'cytoplasm_min_size': 0, 'save_png': True, 'crop_mode': ['cell'], 'use_bounding_box': True, 'png_size': [224, 224], 'normalize': [2, 98], 'png_dims': [1, 2, 3], 'normalize_by': 'png', 'save_measurements': True, 'plot': True, 'plot_filtration': True, 'include_uninfected': True, 'dialate_pngs': False, 'dialate_png_ratios': [0.2], 'timelapse': False, 'timelapse_objects': ['cell'], 'max_workers': 30, 'experiment': 'experiment name', 'cells': ('HeLa',), 'cell_loc': [['c1', 'c2'], ['c3', 'c4']], 'pathogens': ['wt', 'mutant'], 'pathogen_loc': [['c1', 'c2'], ['c3', 'c4']], 'treatments': ['cm', 'lovastatin_20uM'], 'treatment_loc': [['c1', 'c2'], ['c3', 'c4']], 'channel_of_interest': 3, 'measurement': 'mean_intensity', 'nr_imgs': 32, 'um_per_pixel': 0.1, 'compartments': ['pathogen', 'cytoplasm']}, annotation_settings={}, advanced_settings={})
+2024-03-07 12:46:52,872:INFO:Calling _measure_crop_core(1, <ListProxy object, typeid 'list' at 0x7f11b0bdb8b0>, 'plate1_A01_1.npy', {'input_folder': '/media/ben/KINGSTON/test_gui/merged', 'channels': [0, 1, 2, 3], 'cell_mask_dim': 4, 'cell_min_size': 0, 'nucleus_mask_dim': 5, 'nucleus_min_size': 0, 'pathogen_mask_dim': 6, 'pathogen_min_size': 0, 'cytoplasm_min_size': 0, 'save_png': True, 'crop_mode': ['cell'], 'use_bounding_box': True, 'png_size': [224, 224], 'normalize': [2, 98], 'png_dims': [1, 2, 3], 'normalize_by': 'png', 'save_measurements': True, 'plot': True, 'plot_filtration': True, 'include_uninfected': True, 'dialate_pngs': False, 'dialate_png_ratios': [0.2], 'timelapse': False, 'timelapse_objects': ['cell'], 'max_workers': 30, 'experiment': 'experiment name', 'cells': ('HeLa',), 'cell_loc': [['c1', 'c2'], ['c3', 'c4']], 'pathogens': ['wt', 'mutant'], 'pathogen_loc': [['c1', 'c2'], ['c3', 'c4']], 'treatments': ['cm', 'lovastatin_20uM'], 'treatment_loc': [['c1', 'c2'], ['c3', 'c4']], 'channel_of_interest': 3, 'measurement': 'mean_intensity', 'nr_imgs': 32, 'um_per_pixel': 0.1, 'compartments': ['pathogen', 'cytoplasm'], 'merge_edge_pathogen_cells': True, 'radial_dist': True, 'calculate_correlation': True, 'manders_thresholds': [15, 85, 95], 'homogeneity': True, 'homogeneity_distances': [8, 16, 32], 'save_arrays': False, 'cytoplasm': True, 'center_crop': True})
+2024-03-07 12:46:52,872:INFO:Calling _measure_crop_core(0, <ListProxy object, typeid 'list' at 0x7f11b0bdb8b0>, 'plate1_A01_2.npy', {'input_folder': '/media/ben/KINGSTON/test_gui/merged', 'channels': [0, 1, 2, 3], 'cell_mask_dim': 4, 'cell_min_size': 0, 'nucleus_mask_dim': 5, 'nucleus_min_size': 0, 'pathogen_mask_dim': 6, 'pathogen_min_size': 0, 'cytoplasm_min_size': 0, 'save_png': True, 'crop_mode': ['cell'], 'use_bounding_box': True, 'png_size': [224, 224], 'normalize': [2, 98], 'png_dims': [1, 2, 3], 'normalize_by': 'png', 'save_measurements': True, 'plot': True, 'plot_filtration': True, 'include_uninfected': True, 'dialate_pngs': False, 'dialate_png_ratios': [0.2], 'timelapse': False, 'timelapse_objects': ['cell'], 'max_workers': 30, 'experiment': 'experiment name', 'cells': ('HeLa',), 'cell_loc': [['c1', 'c2'], ['c3', 'c4']], 'pathogens': ['wt', 'mutant'], 'pathogen_loc': [['c1', 'c2'], ['c3', 'c4']], 'treatments': ['cm', 'lovastatin_20uM'], 'treatment_loc': [['c1', 'c2'], ['c3', 'c4']], 'channel_of_interest': 3, 'measurement': 'mean_intensity', 'nr_imgs': 32, 'um_per_pixel': 0.1, 'compartments': ['pathogen', 'cytoplasm'], 'merge_edge_pathogen_cells': True, 'radial_dist': True, 'calculate_correlation': True, 'manders_thresholds': [15, 85, 95], 'homogeneity': True, 'homogeneity_distances': [8, 16, 32], 'save_arrays': False, 'cytoplasm': True, 'center_crop': True})
+2024-03-07 12:48:34,489:ERROR:Exception occurred in measure_crop
+Traceback (most recent call last):
+  File "/media/ben/KINGSTON/spacr_as_package/spacr/spacr/logger.py", line 14, in wrapper
+    result = func(*args, **kwargs)
+  File "/media/ben/KINGSTON/spacr_as_package/spacr/spacr/measure.py", line 909, in measure_crop
+    print(f'Progress: {files_processed}/{files_to_process} Time/img {average_time:.3f}sec, Time Remaining {time_left:.3f} min.', end='\r', flush=True)
+  File "/media/ben/KINGSTON/spacr_as_package/spacr/spacr/gui_utils.py", line 61, in write
+    self.text_widget.see(tk.END)
+  File "/usr/lib/python3.10/tkinter/__init__.py", line 3864, in see
+    self.tk.call(self._w, 'see', index)
+RuntimeError: main thread is not in main loop

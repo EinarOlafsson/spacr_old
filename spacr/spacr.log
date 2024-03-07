@@ -1,0 +1,115 @@
+2024-03-07 13:23:42,452:INFO:Calling initiate_mask_root(1000, 1500)
+2024-03-07 13:23:42,667:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'src', 0, 'entry', None, '/mnt/data/CellVoyager/40x/einar/mitotrackerHeLaToxoDsRed_20240224_123156/test_gui')
+2024-03-07 13:23:42,669:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206ec80>
+2024-03-07 13:23:42,670:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'metadata_type', 1, 'combo', ['cellvoyager', 'cq1', 'nikon', 'zeis', 'custom'], 'cellvoyager')
+2024-03-07 13:23:42,670:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206ed40>
+2024-03-07 13:23:42,670:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'custom_regex', 2, 'entry', None, None)
+2024-03-07 13:23:42,670:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206ee00>
+2024-03-07 13:23:42,670:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'experiment', 3, 'entry', None, 'exp')
+2024-03-07 13:23:42,670:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206eec0>
+2024-03-07 13:23:42,670:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'channels', 4, 'combo', ['[0,1,2,3]', '[0,1,2]', '[0,1]', '[0]'], '[0,1,2,3]')
+2024-03-07 13:23:42,671:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206ef80>
+2024-03-07 13:23:42,671:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'magnification', 5, 'combo', [20, 40, 60], 40)
+2024-03-07 13:23:42,671:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206f040>
+2024-03-07 13:23:42,671:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'nucleus_channel', 6, 'combo', [0, 1, 2, 3, None], 0)
+2024-03-07 13:23:42,671:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206f100>
+2024-03-07 13:23:42,671:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'nucleus_background', 7, 'entry', None, 100)
+2024-03-07 13:23:42,671:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206f1c0>
+2024-03-07 13:23:42,671:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'nucleus_Signal_to_noise', 8, 'entry', None, 5)
+2024-03-07 13:23:42,671:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206f280>
+2024-03-07 13:23:42,671:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'nucleus_CP_prob', 9, 'entry', None, 0)
+2024-03-07 13:23:42,671:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206f340>
+2024-03-07 13:23:42,671:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cell_channel', 10, 'combo', [0, 1, 2, 3, None], 3)
+2024-03-07 13:23:42,671:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206f400>
+2024-03-07 13:23:42,672:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cell_background', 11, 'entry', None, 100)
+2024-03-07 13:23:42,672:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206f4c0>
+2024-03-07 13:23:42,672:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cell_Signal_to_noise', 12, 'entry', None, 5)
+2024-03-07 13:23:42,672:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206f580>
+2024-03-07 13:23:42,672:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'cell_CP_prob', 13, 'entry', None, 0)
+2024-03-07 13:23:42,672:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206f640>
+2024-03-07 13:23:42,672:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogen_channel', 14, 'combo', [0, 1, 2, 3, None], 2)
+2024-03-07 13:23:42,672:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206f700>
+2024-03-07 13:23:42,672:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogen_background', 15, 'entry', None, 100)
+2024-03-07 13:23:42,672:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206f7c0>
+2024-03-07 13:23:42,672:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogen_Signal_to_noise', 16, 'entry', None, 3)
+2024-03-07 13:23:42,672:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206f880>
+2024-03-07 13:23:42,672:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'pathogen_CP_prob', 17, 'entry', None, 0)
+2024-03-07 13:23:42,672:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206f940>
+2024-03-07 13:23:42,672:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'batch_size', 18, 'entry', None, 50)
+2024-03-07 13:23:42,673:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206fa00>
+2024-03-07 13:23:42,673:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'timelapse', 19, 'check', None, False)
+2024-03-07 13:23:42,673:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f4dc206fac0>
+2024-03-07 13:23:42,673:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'timelapse_displacement', 20, 'entry', None, None)
+2024-03-07 13:23:42,673:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206fb80>
+2024-03-07 13:23:42,673:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'timelapse_memory', 21, 'entry', None, 0)
+2024-03-07 13:23:42,673:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206fc40>
+2024-03-07 13:23:42,673:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'timelapse_frame_limits', 22, 'entry', None, '[0,1000]')
+2024-03-07 13:23:42,673:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206fd00>
+2024-03-07 13:23:42,673:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'timelapse_remove_transient', 23, 'check', None, True)
+2024-03-07 13:23:42,673:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f4dc206fdc0>
+2024-03-07 13:23:42,673:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'timelapse_mode', 24, 'combo', ['trackpy', 'btrack'], 'trackpy')
+2024-03-07 13:23:42,673:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206fe80>
+2024-03-07 13:23:42,673:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'timelapse_objects', 25, 'combo', ['cell', 'nucleus', 'pathogen', 'cytoplasm', None], None)
+2024-03-07 13:23:42,673:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc206ff40>
+2024-03-07 13:23:42,674:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'lower_quantile', 26, 'entry', None, 0.01)
+2024-03-07 13:23:42,674:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc19c0040>
+2024-03-07 13:23:42,674:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'save', 27, 'check', None, True)
+2024-03-07 13:23:42,674:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f4dc19c0100>
+2024-03-07 13:23:42,674:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'plot', 28, 'check', None, True)
+2024-03-07 13:23:42,674:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f4dc19c01c0>
+2024-03-07 13:23:42,674:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'workers', 29, 'entry', None, 30)
+2024-03-07 13:23:42,674:INFO:create_input_field returned <tkinter.StringVar object at 0x7f4dc19c0280>
+2024-03-07 13:23:42,674:INFO:Calling create_input_field(<tkinter.ttk.Frame object .!panedwindow.!scrollableframe.!canvas.!frame>, 'verbose', 30, 'check', None, True)
+2024-03-07 13:23:42,674:INFO:create_input_field returned <tkinter.BooleanVar object at 0x7f4dc19c0340>
+2024-03-07 13:23:42,699:INFO:initiate_mask_root returned (<ttkthemes.themed_tk.ThemedTk object .>, {'src': <tkinter.StringVar object at 0x7f4dc206ec80>, 'metadata_type': <tkinter.StringVar object at 0x7f4dc206ed40>, 'custom_regex': <tkinter.StringVar object at 0x7f4dc206ee00>, 'experiment': <tkinter.StringVar object at 0x7f4dc206eec0>, 'channels': <tkinter.StringVar object at 0x7f4dc206ef80>, 'magnification': <tkinter.StringVar object at 0x7f4dc206f040>, 'nucleus_channel': <tkinter.StringVar object at 0x7f4dc206f100>, 'nucleus_background': <tkinter.StringVar object at 0x7f4dc206f1c0>, 'nucleus_Signal_to_noise': <tkinter.StringVar object at 0x7f4dc206f280>, 'nucleus_CP_prob': <tkinter.StringVar object at 0x7f4dc206f340>, 'cell_channel': <tkinter.StringVar object at 0x7f4dc206f400>, 'cell_background': <tkinter.StringVar object at 0x7f4dc206f4c0>, 'cell_Signal_to_noise': <tkinter.StringVar object at 0x7f4dc206f580>, 'cell_CP_prob': <tkinter.StringVar object at 0x7f4dc206f640>, 'pathogen_channel': <tkinter.StringVar object at 0x7f4dc206f700>, 'pathogen_background': <tkinter.StringVar object at 0x7f4dc206f7c0>, 'pathogen_Signal_to_noise': <tkinter.StringVar object at 0x7f4dc206f880>, 'pathogen_CP_prob': <tkinter.StringVar object at 0x7f4dc206f940>, 'batch_size': <tkinter.StringVar object at 0x7f4dc206fa00>, 'timelapse': <tkinter.BooleanVar object at 0x7f4dc206fac0>, 'timelapse_displacement': <tkinter.StringVar object at 0x7f4dc206fb80>, 'timelapse_memory': <tkinter.StringVar object at 0x7f4dc206fc40>, 'timelapse_frame_limits': <tkinter.StringVar object at 0x7f4dc206fd00>, 'timelapse_remove_transient': <tkinter.BooleanVar object at 0x7f4dc206fdc0>, 'timelapse_mode': <tkinter.StringVar object at 0x7f4dc206fe80>, 'timelapse_objects': <tkinter.StringVar object at 0x7f4dc206ff40>, 'lower_quantile': <tkinter.StringVar object at 0x7f4dc19c0040>, 'save': <tkinter.BooleanVar object at 0x7f4dc19c0100>, 'plot': <tkinter.BooleanVar object at 0x7f4dc19c01c0>, 'workers': <tkinter.StringVar object at 0x7f4dc19c0280>, 'verbose': <tkinter.BooleanVar object at 0x7f4dc19c0340>})
+2024-03-07 13:24:16,025:INFO:Calling preprocess_generate_masks('/media/ben/KINGSTON/test_gui/orig/', settings={'src': '/media/ben/KINGSTON/test_gui/orig/', 'metadata_type': 'cellvoyager', 'custom_regex': '', 'experiment': 'exp', 'channels': [0, 1, 2, 3], 'magnification': 40, 'nucleus_channel': 0, 'nucleus_background': 100.0, 'nucleus_Signal_to_noise': 5.0, 'nucleus_CP_prob': 0.0, 'cell_channel': 3, 'cell_background': 100.0, 'cell_Signal_to_noise': 5.0, 'cell_CP_prob': 0.0, 'pathogen_channel': 2, 'pathogen_background': 100.0, 'pathogen_Signal_to_noise': 3.0, 'pathogen_CP_prob': 0.0, 'batch_size': 50, 'timelapse': False, 'timelapse_displacement': '', 'timelapse_memory': 0, 'timelapse_frame_limits': [0, 1000], 'timelapse_remove_transient': True, 'timelapse_mode': 'trackpy', 'timelapse_objects': '', 'lower_quantile': 0.01, 'save': True, 'plot': True, 'workers': 30, 'verbose': False, 'remove_background': True, 'fps': 2, 'all_to_mip': False, 'pick_slice': False, 'merge': False, 'skip_mode': '', 'normalize_plots': True, 'randomize': True, 'preprocess': True, 'masks': True, 'examples_to_plot': 1}, advanced_settings={})
+2024-03-07 13:25:32,791:INFO:Calling generate_cellpose_masks(src='/media/ben/KINGSTON/test_gui/orig/norm_channel_stack', settings={'src': '/media/ben/KINGSTON/test_gui/orig/', 'metadata_type': 'cellvoyager', 'custom_regex': '', 'experiment': 'exp', 'channels': [0, 1, 2, 3], 'magnification': 40, 'nucleus_channel': 0, 'nucleus_background': 100.0, 'nucleus_Signal_to_noise': 5.0, 'nucleus_CP_prob': 0.0, 'cell_channel': 3, 'cell_background': 100.0, 'cell_Signal_to_noise': 5.0, 'cell_CP_prob': 0.0, 'pathogen_channel': 2, 'pathogen_background': 100.0, 'pathogen_Signal_to_noise': 3.0, 'pathogen_CP_prob': 0.0, 'batch_size': 50, 'timelapse': False, 'timelapse_displacement': '', 'timelapse_memory': 0, 'timelapse_frame_limits': [0, 1000], 'timelapse_remove_transient': True, 'timelapse_mode': 'trackpy', 'timelapse_objects': '', 'lower_quantile': 0.01, 'save': [True, True, True], 'plot': True, 'workers': 30, 'verbose': False, 'remove_background': True, 'fps': 2, 'all_to_mip': False, 'pick_slice': False, 'merge': [False, False, False], 'skip_mode': '', 'normalize_plots': True, 'randomize': True, 'preprocess': True, 'masks': True, 'examples_to_plot': 1}, object_type='cell')
+2024-03-07 13:25:33,851:INFO:** TORCH CUDA version installed and working. **
+2024-03-07 13:25:33,851:INFO:>>>> using GPU
+2024-03-07 13:25:33,851:INFO:>> cyto2 << model set to be used
+2024-03-07 13:25:33,960:INFO:>>>> model diam_mean =  30.000 (ROIs rescaled to this size during training)
+2024-03-07 13:25:33,960:INFO:Downloading: "https://www.cellpose.org/models/size_cyto2torch_0.npy" to /home/ben/.cellpose/models/size_cyto2torch_0.npy
+
+2024-03-07 13:25:35,562:INFO:~~~ FINDING MASKS ~~~
+2024-03-07 13:25:35,562:INFO:multi-stack tiff read in as having 2 planes 2 channels
+2024-03-07 13:25:35,588:INFO:0%|          | 0/2 [00:00<?, ?it/s]
+2024-03-07 13:25:36,980:INFO:100%|##########| 2/2 [00:01<00:00,  1.44it/s]
+2024-03-07 13:25:36,980:INFO:network run in 1.39s
+2024-03-07 13:25:36,980:INFO:0%|          | 0/2 [00:00<?, ?it/s]
+2024-03-07 13:25:41,830:INFO:100%|##########| 2/2 [00:04<00:00,  2.42s/it]
+2024-03-07 13:25:41,839:INFO:masks created in 4.86s
+2024-03-07 13:25:42,136:INFO:>>>> TOTAL TIME 6.57 sec
+2024-03-07 13:25:56,815:INFO:generate_cellpose_masks returned None
+2024-03-07 13:25:56,815:INFO:Calling generate_cellpose_masks(src='/media/ben/KINGSTON/test_gui/orig/norm_channel_stack', settings={'src': '/media/ben/KINGSTON/test_gui/orig/', 'metadata_type': 'cellvoyager', 'custom_regex': '', 'experiment': 'exp', 'channels': [0, 1, 2, 3], 'magnification': 40, 'nucleus_channel': 0, 'nucleus_background': 100.0, 'nucleus_Signal_to_noise': 5.0, 'nucleus_CP_prob': 0.0, 'cell_channel': 3, 'cell_background': 100.0, 'cell_Signal_to_noise': 5.0, 'cell_CP_prob': 0.0, 'pathogen_channel': 2, 'pathogen_background': 100.0, 'pathogen_Signal_to_noise': 3.0, 'pathogen_CP_prob': 0.0, 'batch_size': 50, 'timelapse': False, 'timelapse_displacement': '', 'timelapse_memory': 0, 'timelapse_frame_limits': [0, 1000], 'timelapse_remove_transient': True, 'timelapse_mode': 'trackpy', 'timelapse_objects': '', 'lower_quantile': 0.01, 'save': [True, True, True], 'plot': True, 'workers': 30, 'verbose': False, 'remove_background': True, 'fps': 2, 'all_to_mip': False, 'pick_slice': False, 'merge': [False, False, False], 'skip_mode': '', 'normalize_plots': True, 'randomize': True, 'preprocess': True, 'masks': True, 'examples_to_plot': 1}, object_type='nucleus')
+2024-03-07 13:25:56,916:INFO:** TORCH CUDA version installed and working. **
+2024-03-07 13:25:56,916:INFO:>>>> using GPU
+2024-03-07 13:25:56,916:INFO:>> nuclei << model set to be used
+2024-03-07 13:25:57,021:INFO:>>>> model diam_mean =  17.000 (ROIs rescaled to this size during training)
+2024-03-07 13:25:57,021:INFO:Downloading: "https://www.cellpose.org/models/size_nucleitorch_0.npy" to /home/ben/.cellpose/models/size_nucleitorch_0.npy
+
+2024-03-07 13:25:57,327:INFO:~~~ FINDING MASKS ~~~
+2024-03-07 13:25:57,327:INFO:multi-stack tiff read in as having 2 planes 2 channels
+2024-03-07 13:25:57,356:INFO:0%|          | 0/2 [00:00<?, ?it/s]
+2024-03-07 13:25:57,540:INFO:100%|##########| 2/2 [00:00<00:00, 10.88it/s]
+2024-03-07 13:25:57,540:INFO:network run in 0.18s
+2024-03-07 13:25:57,540:INFO:0%|          | 0/2 [00:00<?, ?it/s]
+2024-03-07 13:25:59,711:INFO:100%|##########| 2/2 [00:02<00:00,  1.09s/it]
+2024-03-07 13:25:59,722:INFO:masks created in 2.18s
+2024-03-07 13:26:00,019:INFO:>>>> TOTAL TIME 2.69 sec
+2024-03-07 13:26:14,336:INFO:generate_cellpose_masks returned None
+2024-03-07 13:26:14,336:INFO:Calling generate_cellpose_masks(src='/media/ben/KINGSTON/test_gui/orig/norm_channel_stack', settings={'src': '/media/ben/KINGSTON/test_gui/orig/', 'metadata_type': 'cellvoyager', 'custom_regex': '', 'experiment': 'exp', 'channels': [0, 1, 2, 3], 'magnification': 40, 'nucleus_channel': 0, 'nucleus_background': 100.0, 'nucleus_Signal_to_noise': 5.0, 'nucleus_CP_prob': 0.0, 'cell_channel': 3, 'cell_background': 100.0, 'cell_Signal_to_noise': 5.0, 'cell_CP_prob': 0.0, 'pathogen_channel': 2, 'pathogen_background': 100.0, 'pathogen_Signal_to_noise': 3.0, 'pathogen_CP_prob': 0.0, 'batch_size': 50, 'timelapse': False, 'timelapse_displacement': '', 'timelapse_memory': 0, 'timelapse_frame_limits': [0, 1000], 'timelapse_remove_transient': True, 'timelapse_mode': 'trackpy', 'timelapse_objects': '', 'lower_quantile': 0.01, 'save': [True, True, True], 'plot': True, 'workers': 30, 'verbose': False, 'remove_background': True, 'fps': 2, 'all_to_mip': False, 'pick_slice': False, 'merge': [False, False, False], 'skip_mode': '', 'normalize_plots': True, 'randomize': True, 'preprocess': True, 'masks': True, 'examples_to_plot': 1}, object_type='pathogen')
+2024-03-07 13:26:14,440:INFO:** TORCH CUDA version installed and working. **
+2024-03-07 13:26:14,440:INFO:>>>> using GPU
+2024-03-07 13:26:14,440:INFO:>> cyto3 << model set to be used
+2024-03-07 13:26:14,540:INFO:>>>> model diam_mean =  30.000 (ROIs rescaled to this size during training)
+2024-03-07 13:26:14,756:INFO:~~~ FINDING MASKS ~~~
+2024-03-07 13:26:14,756:INFO:multi-stack tiff read in as having 2 planes 2 channels
+2024-03-07 13:26:14,784:INFO:0%|          | 0/2 [00:00<?, ?it/s]
+2024-03-07 13:26:15,462:INFO:100%|##########| 2/2 [00:00<00:00,  2.95it/s]
+2024-03-07 13:26:15,463:INFO:network run in 0.68s
+2024-03-07 13:26:15,463:INFO:0%|          | 0/2 [00:00<?, ?it/s]
+2024-03-07 13:26:16,268:INFO:100%|##########| 2/2 [00:00<00:00,  2.48it/s]
+2024-03-07 13:26:16,278:INFO:masks created in 0.82s
+2024-03-07 13:26:16,603:INFO:>>>> TOTAL TIME 1.85 sec
+2024-03-07 13:26:27,341:INFO:generate_cellpose_masks returned None
+2024-03-07 13:27:29,144:INFO:preprocess_generate_masks returned None
