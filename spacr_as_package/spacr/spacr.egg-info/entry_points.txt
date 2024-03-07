@@ -1,3 +1,0 @@
-[console_scripts]
-mask_gui = spacr.gen_masks_gui:mask_gui
-measure_gui = spacr.measure_crop_gui:measure_gui
